@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add IntelliJ IDEA/PyCharm service launch configurations, local JVM attach debugging, scoped environment generation and bilingual IDE guides.
+
 - Collapse chat source/evidence cards by default, with source counts, concise excerpts and a bounded detail list on Web and iOS.
 
 Initial public repository packaging. The code predates the first Git commit; dates in implementation evidence describe development checks, not tagged releases.

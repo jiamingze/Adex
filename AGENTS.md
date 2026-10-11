@@ -49,3 +49,7 @@ Read `README_CODEX_START_HERE.md`, then `docs/Adex_Product_Technical_Design_v4.1
 ## Repository sync preference
 
 After completing and verifying each user-requested change, commit the relevant code/docs and push to the configured GitHub remote. Never include secrets or private data; report any push failure.
+
+## Local IDE preference
+
+Use IntelliJ IDEA for the Java Maven reactor and PyCharm for the two Python service projects. Generate private JetBrains run configurations with scripts/ide.py; never commit .idea environments.

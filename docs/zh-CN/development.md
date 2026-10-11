@@ -37,3 +37,5 @@ git push -u origin feature/your-change
 ```
 
 PR 说明具体问题、行为变化、验证和限制，使用 `.github/` 模板。不要提交 Key、聊天内容、私有媒体或签名凭证，详见 [贡献指南](../../CONTRIBUTING.md)。
+
+[IntelliJ IDEA / PyCharm 独立调试](jetbrains.md)

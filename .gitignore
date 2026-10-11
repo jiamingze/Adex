@@ -23,3 +23,8 @@ apps/ios/ios/App/App/public/
 *.mobileprovision
 *.xcarchive
 *.ipa
+
+# Machine-specific JetBrains projects and private run environments
+.idea/
+**/.idea/
+*.iml

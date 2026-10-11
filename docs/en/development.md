@@ -43,3 +43,5 @@ git push -u origin feature/your-change
 ```
 
 Create a pull request with what changed, why, verification evidence and limitations. Use the templates in `.github/`. Do not include logs with API keys, personal conversations, generated private media or signing credentials. See [contributing](../../CONTRIBUTING.md).
+
+[IntelliJ IDEA / PyCharm 独立调试](jetbrains.md)
