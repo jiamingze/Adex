@@ -2,7 +2,7 @@
 
 ![Adex](docs/assets/banner.svg)
 
-**Your personal AI workspace — chat, remember, create, and schedule.**
+**A self-hosted, multi-user AI workspace with persistent memory and durable agent execution.**
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [Installation](docs/en/installation.md) · [Architecture](docs/en/architecture.md) · [Contributing](CONTRIBUTING.md)
 
@@ -15,7 +15,22 @@
 
 </div>
 
-Adex is a self-hosted personal AI assistant with a shared Web and iOS interface. It connects conversational AI to persistent memory, scheduled work, web search, attachments, and versioned creative artifacts. The codebase also serves as a practical reference for durable agent execution: checkpoints, leases, fencing, idempotency, and result delivery are part of the architecture.
+Adex is an open-source, self-hosted AI application for multiple users, with Web and iOS clients. It brings streaming chat, short- and long-term memory, autonomous web retrieval, scheduled work, and creative artifacts into one private workspace. Its four-service backend separates user data, agent execution, automation, and tools, so services can be deployed independently and background work can recover after interruption.
+
+## What makes Adex different
+
+| Core capability | What the implementation provides |
+| --- | --- |
+| **Multi-user by design** | Guest access, registration and login; owner-scoped conversations, memories, schedules, files and artifacts. Internal service calls validate scoped credentials and resource ownership. |
+| **Short- and long-term memory** | L1 working context in Redis, L2 persisted conversation history and summaries, and L3 user-managed long-term facts with source provenance. Users can inspect, correct and delete memory; tombstones and revision checks prevent stale extraction from restoring deleted facts. |
+| **Distributed service architecture** | Four independently deployable Java/Python services with service-owned PostgreSQL schemas. Schedulers and workers coordinate through database claims, leases and fencing; concurrent scheduler instances are covered by integration tests. |
+| **Recoverable agent execution** | Immutable checkpoints, attempt IDs and authoritative checkpoint references support task recovery. Memory, checkpoints and run state have separate responsibilities and lifecycles. |
+| **Durable automation** | Chat-created schedules and background tasks persist beyond the client session. Unique occurrences, Outbox delivery and deduplication return results to the original conversation. |
+| **Provider-independent tools** | Qwen / MiniMax chat, Tavily search, server-side browser reads, and configurable image/music/video adapters. Tool-effect ledgers reconcile uncertain provider submissions instead of blindly repeating them. |
+| **Private, versioned workspace** | App-authorized files and immutable artifact versions, private media playback, editable diagram sources and isolated generated-code execution. |
+| **An engineering reference** | Capability modules, application services, persistence/provider ports, architecture checks, formatting gates, and integration/failure tests—not just a chat UI. |
+
+**Deployment scope:** distributed service boundaries and multi-instance coordination are implemented; the included Compose setup is a single-host starting point. Phase 1 stores files on an App-owned persistent local disk. Multi-host App deployment needs explicit file routing or an approved storage design; a collection of separate local disks does not provide shared storage or automatic high availability. See [architecture](docs/en/architecture.md) and the [storage contract](docs/LOCAL_FILE_STORAGE.md).
 
 **Status:** actively developed, early-stage software. This repository contains implemented services and tests, not a claim of production readiness. Real model capabilities require your own provider credentials. See [implementation status](docs/IMPLEMENTATION_STATUS.md) and [acceptance evidence](docs/ACCEPTANCE_EVIDENCE.md) for the limits of verification.
 
@@ -113,12 +128,13 @@ scripts                  Bootstrap, verification, backup and recovery
 docs                     Guides, design decisions and acceptance evidence
 ```
 
-Start with [development](docs/en/development.md), then trace `apps/web/src/api.ts` → `ChatStore` / `ChatWorker` → `adex_agent/main.py`. Explore the scheduler and effect ledger after understanding an interactive turn.
+Start with [development](docs/en/development.md), then trace `apps/web/src/api.ts` → `conversation/ConversationService` / `PostgresConversationStore` / `ChatWorker` → `adex_agent/api/chat.py` → `execution/interactive.py`. Explore the scheduler and effect ledger after understanding an interactive turn.
 
 ## Verification
 
 ```bash
 make test
+make check-style
 make test-contract
 make test-integration
 uv run python scripts/check_secrets.py

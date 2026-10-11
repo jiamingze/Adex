@@ -2,7 +2,7 @@
 
 ![Adex](docs/assets/banner.svg)
 
-**个人 AI 工作空间：聊天、记忆、创作与定时执行。**
+**支持多用户、长短期记忆与可靠 Agent 执行的开源 AI 工作空间。**
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [安装指南](docs/zh-CN/installation.md) · [技术架构](docs/zh-CN/architecture.md) · [参与贡献](CONTRIBUTING.md)
 
@@ -14,7 +14,22 @@
 
 </div>
 
-Adex 是可自行部署的个人 AI 助手，Web 与 iOS 共享一套界面。它把对话、持续记忆、联网搜索、附件问答、定时任务和创作作品连接在同一个工作空间中，也为学习 AI 应用工程提供可阅读的完整项目：数据库权限边界、三层记忆、Checkpoint、任务租约、幂等工具调用和结果回流都有对应实现。
+Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客户端。它将流式聊天、长短期记忆、自主联网检索、定时执行和创作作品连接在一个私有工作空间中。后端由四个职责明确的服务组成，将用户数据、Agent 执行、自动化调度与工具调用分开，支持服务独立部署和后台任务中断恢复。
+
+## 项目核心特色
+
+| 核心能力 | 已实现的工程机制 |
+| --- | --- |
+| **多用户与数据隔离** | 支持访客、注册和登录；会话、记忆、定时任务、文件与作品按用户归属校验。内部服务调用同时验证凭证范围和资源所有权。 |
+| **长短期三层记忆** | L1 为 Redis 工作上下文，L2 为持久会话历史与摘要，L3 为带来源的用户长期事实。支持查看、纠正和删除，通过删除标记与版本校验阻止旧提取任务恢复已删除记忆。 |
+| **分布式服务架构** | Java / Python 四个服务可独立部署，各自拥有 PostgreSQL 数据域。调度器与 Worker 使用数据库抢占、租约和 fencing 协作，已有多调度实例竞争的集成测试。 |
+| **可恢复 Agent 执行** | 使用不可变 Checkpoint、执行 attempt 与权威检查点引用恢复任务；记忆、Checkpoint 和任务运行状态分别管理。 |
+| **持久化自动化** | 从对话创建定时任务和后台任务，关闭客户端后继续执行；唯一调度 occurrence、Outbox 与去重交付将结果送回原会话。 |
+| **模型与工具可扩展** | Qwen / MiniMax 聊天、Tavily 搜索、服务端浏览器读取和可配置的图片／音乐／视频适配器；工具效果账本对不确定的供应商请求进行对账，避免盲目重复提交。 |
+| **私有、可追溯的作品空间** | 文件访问权限、不可变作品版本、私有媒体播放、可编辑图形源文件，以及隔离的生成代码执行。 |
+| **可学习的完整后端工程** | 按能力划分模块，分离应用服务、持久化接口与供应商适配器，并用架构检查、格式门禁和集成／故障测试约束实现。 |
+
+**分布式部署边界：** 已实现服务拆分与多实例协调，仓库附带的 Compose 是单机部署起点。一期文件仍存放在 App 管理的持久本地磁盘；跨主机部署多个 App 实例时，需要明确的文件路由或经架构决策批准的存储方案，多个独立本地磁盘不等于共享存储或自动高可用。详见 [技术架构](docs/zh-CN/architecture.md) 与 [文件存储约定](docs/LOCAL_FILE_STORAGE.md)。
 
 **项目阶段：早期开发，持续迭代。** 已有可运行服务和测试，但不代表全部功能已达到生产验收标准。真实模型能力需要配置自己的供应商凭证；具体证据与限制见 [实现状态](docs/IMPLEMENTATION_STATUS.md) 和 [验收记录](docs/ACCEPTANCE_EVIDENCE.md)。
 
@@ -108,12 +123,13 @@ flowchart LR
 | `runners` / `deploy` | 隔离执行、Compose、镜像和网关 |
 | `scripts` / `docs` | 环境初始化、测试、备份恢复、设计和验收证据 |
 
-推荐先阅读 [开发与学习指南](docs/zh-CN/development.md)，再从 `apps/web/src/api.ts` 追踪 `ChatStore`、`ChatWorker` 到 Agent 入口，最后学习自动化调度和工具幂等。
+推荐先阅读 [开发与学习指南](docs/zh-CN/development.md)，再从 `apps/web/src/api.ts` 追踪 `conversation/ConversationService`、`PostgresConversationStore`、`ChatWorker` 到 `adex_agent/api/chat.py` 和 `execution/interactive.py`，最后学习自动化调度和工具幂等。
 
 ## 测试
 
 ```bash
 make test
+make check-style
 make test-contract
 make test-integration
 uv run python scripts/check_secrets.py
