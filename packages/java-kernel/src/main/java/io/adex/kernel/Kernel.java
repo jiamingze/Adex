@@ -28,13 +28,21 @@ public class Kernel {
     this.db = db;
     this.tx = new TransactionTemplate(tm);
     this.json = json;
-    var module=new com.fasterxml.jackson.databind.module.SimpleModule();
-    module.addSerializer(org.postgresql.util.PGobject.class,new com.fasterxml.jackson.databind.JsonSerializer<org.postgresql.util.PGobject>() {
-      @Override public void serialize(org.postgresql.util.PGobject value,com.fasterxml.jackson.core.JsonGenerator generator,com.fasterxml.jackson.databind.SerializerProvider provider) throws java.io.IOException {
-        if("jsonb".equals(value.getType())||"json".equals(value.getType()))generator.writeTree(json.readTree(value.getValue()));
-        else generator.writeString(value.getValue());
-      }
-    });
+    var module = new com.fasterxml.jackson.databind.module.SimpleModule();
+    module.addSerializer(
+        org.postgresql.util.PGobject.class,
+        new com.fasterxml.jackson.databind.JsonSerializer<org.postgresql.util.PGobject>() {
+          @Override
+          public void serialize(
+              org.postgresql.util.PGobject value,
+              com.fasterxml.jackson.core.JsonGenerator generator,
+              com.fasterxml.jackson.databind.SerializerProvider provider)
+              throws java.io.IOException {
+            if ("jsonb".equals(value.getType()) || "json".equals(value.getType()))
+              generator.writeTree(json.readTree(value.getValue()));
+            else generator.writeString(value.getValue());
+          }
+        });
     json.registerModule(module);
     env("ADEX_" + service.toUpperCase() + "_KEY");
   }

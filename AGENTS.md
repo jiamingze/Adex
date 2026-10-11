@@ -53,3 +53,7 @@ After completing and verifying each user-requested change, commit the relevant c
 ## Local IDE preference
 
 Use IntelliJ IDEA for the Java Maven reactor and PyCharm for the two Python service projects. Generate private JetBrains run configurations with scripts/ide.py; never commit .idea environments.
+
+## Backend engineering boundaries
+
+Follow `docs/architecture/engineering.md` and ADR 002. Organize implementations by capability; root service entry points only compose/bootstrap. Keep controllers thin, resolve HTTP authentication before application use cases, and never inject a controller into another controller or worker. Prefer meaningful storage/provider ports and constructor injection; do not create interfaces that only rename a dependency. Explain lock order, fencing, checkpoint commit and crash windows with focused comments. Java uses Google Java Format through Spotless; Python uses Ruff. Run `make check-style` and architecture checks in addition to behavioral tests; preserve service ownership and HTTP contracts during refactors.

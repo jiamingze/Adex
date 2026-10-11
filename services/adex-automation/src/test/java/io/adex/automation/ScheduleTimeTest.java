@@ -2,6 +2,7 @@ package io.adex.automation;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.adex.automation.schedule.ScheduleTime;
 import java.time.*;
 import org.junit.jupiter.api.Test;
 

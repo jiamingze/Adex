@@ -15,7 +15,7 @@ jobs:
         with: {node-version: "22", cache: pnpm}
       - run: sudo apt-get update && sudo apt-get install -y postgresql-16 redis-server
       - run: make setup
-      - run: make build test
+      - run: make build test check-style
       - run: uv run ruff check services/adex-agent/src services/adex-tools/src packages/python-kernel/src
       - run: python3 scripts/init_env.py && python3 scripts/local_infra.py
       - run: make test-integration

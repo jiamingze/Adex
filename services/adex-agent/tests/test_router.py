@@ -1,4 +1,4 @@
-from adex_agent.router import background_kind
+from adex_agent.routing.intent import background_kind
 
 
 def test_router_keeps_chat_interactive():
@@ -9,7 +9,7 @@ def test_router_keeps_chat_interactive():
 
 
 def test_travel_is_interactive_unless_background_is_explicit():
-    from adex_agent.router import travel_intent
+    from adex_agent.routing.intent import travel_intent
     text = "帮我安排一个上海出发到普吉岛的四天三晚行程"
     assert travel_intent(text)
     assert background_kind(text) is None
@@ -19,7 +19,7 @@ def test_travel_is_interactive_unless_background_is_explicit():
 
 
 def test_original_music_is_not_catalog_lookup():
-    from adex_agent.router import original_music_intent
+    from adex_agent.routing.intent import original_music_intent
     assert original_music_intent('帮我写一首浪漫风格的，3分钟左右，适合放松听')
     assert original_music_intent('我要你直接生成音乐')
     assert not original_music_intent('搜索周杰伦的歌曲')
@@ -28,8 +28,8 @@ def test_original_music_is_not_catalog_lookup():
 
 
 def test_daily_schedule_chat_routes_before_search():
-    from adex_agent.router import schedule_intent
-    from adex_agent.schedule import daily_chat_draft
+    from adex_agent.routing.intent import schedule_intent
+    from adex_agent.routing.schedule import daily_chat_draft
     text='每天八点帮我整理网上最新关于spacx的信息'
     assert schedule_intent(text)
     draft=daily_chat_draft(text)

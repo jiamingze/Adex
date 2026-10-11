@@ -462,3 +462,14 @@ def test_diagram_exports_persist_and_reject_active_svg(client):
         ).status_code
         == 400
     )
+
+
+def test_task_cancellation_preserves_scoped_gateway_contract(client):
+    conv = client.post('/api/v1/conversations', json={'title': 'task cancel authorization fixture'}).json()['id']
+    task = client.post('/api/v1/tasks', json={'kind': 'RESEARCH', 'instruction': 'fixture:slow-stream', 'origin_conversation_id': conv}, headers={'Idempotency-Key': str(uuid4())})
+    task.raise_for_status()
+    run = task.json()
+    cancelled = client.post(f"/api/v1/tasks/{run['id']}/cancel")
+    cancelled.raise_for_status()
+    assert cancelled.json()['status'] == 'CANCELLED'
+    assert cancelled.json()['epoch'] > run['epoch']

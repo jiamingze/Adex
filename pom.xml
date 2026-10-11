@@ -1,6 +1,39 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
- <modelVersion>4.0.0</modelVersion><groupId>io.adex</groupId><artifactId>adex</artifactId><version>0.1.0</version><packaging>pom</packaging>
- <parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>3.5.7</version><relativePath/></parent>
- <properties><java.version>21</java.version><maven.compiler.parameters>true</maven.compiler.parameters></properties>
- <modules><module>packages/java-kernel</module><module>services/adex-app</module><module>services/adex-automation</module></modules>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.adex</groupId>
+  <artifactId>adex</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.7</version>
+    <relativePath />
+  </parent>
+  <properties>
+    <java.version>21</java.version>
+    <maven.compiler.parameters>true</maven.compiler.parameters>
+  </properties>
+  <modules>
+    <module>packages/java-kernel</module>
+    <module>services/adex-app</module>
+    <module>services/adex-automation</module>
+  </modules>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>2.44.3</version>
+        <configuration>
+          <java>
+            <googleJavaFormat>
+              <version>1.28.0</version>
+            </googleJavaFormat>
+            <removeUnusedImports />
+          </java>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

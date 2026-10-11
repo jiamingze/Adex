@@ -4,7 +4,7 @@ import asyncio
 import json
 import sys
 from adex_kernel.core import Core
-from adex_agent.runtime import Runtime
+from adex_agent.execution.runtime import Runtime
 
 
 async def main():

@@ -1,4 +1,4 @@
-from adex_agent.router import image_intent, search_intent
+from adex_agent.routing.intent import image_intent, search_intent
 
 
 def test_image_and_browser_intents():

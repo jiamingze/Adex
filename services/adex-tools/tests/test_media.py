@@ -1,8 +1,8 @@
 import io
 import wave
-from adex_tools.media import image_fixture, audio_fixture
-from adex_tools.research import public_url
-from adex_tools.calendar import calendar_object
+from adex_tools.creation.contracts import image_fixture, audio_fixture
+from adex_tools.retrieval.research import public_url
+from adex_tools.approvals.calendar import calendar_object
 import pytest
 from fastapi import HTTPException
 
@@ -47,7 +47,7 @@ def test_calendar_text_cannot_inject_components():
 
 def test_webhook_signature_and_expiration():
     import hashlib, hmac, time
-    from adex_tools.webhooks import verify_signature
+    from adex_tools.creation.webhooks import verify_signature
 
     key = "test-webhook-secret"
     timestamp = str(int(time.time()))
@@ -62,7 +62,7 @@ def test_webhook_signature_and_expiration():
 
 async def test_music_adapter_payload_real_audio_and_no_replay(monkeypatch):
     import httpx
-    from adex_tools.minimax_music import MiniMaxMusicProvider
+    from adex_tools.creation.providers.minimax import MiniMaxMusicProvider
     monkeypatch.setenv('ADEX_MUSIC_API_KEY','fixture-key')
     requests=[]
     def handle(request):
@@ -82,7 +82,7 @@ async def test_music_adapter_payload_real_audio_and_no_replay(monkeypatch):
 
 async def test_music_adapter_rejects_denied_provider(monkeypatch):
     import httpx
-    from adex_tools.minimax_music import MiniMaxMusicProvider
+    from adex_tools.creation.providers.minimax import MiniMaxMusicProvider
     monkeypatch.setenv('ADEX_MUSIC_API_KEY','fixture-key')
     original=httpx.AsyncClient
     monkeypatch.setattr(httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(lambda r:httpx.Response(200,json={'base_resp':{'status_code':1004,'status_msg':'secret account'}}))))
@@ -93,7 +93,7 @@ async def test_music_adapter_rejects_denied_provider(monkeypatch):
 async def test_acestep_music_job_recovery_and_private_audio(monkeypatch):
     import httpx
     import json
-    from adex_tools.acestep_music import AceStepMusicProvider
+    from adex_tools.creation.providers.acestep import AceStepMusicProvider
     requests=[]
     def handle(request):
         requests.append(request)
@@ -119,7 +119,7 @@ async def test_acestep_music_job_recovery_and_private_audio(monkeypatch):
 
 
 def test_acestep_runner_rejects_remote_url(monkeypatch):
-    from adex_tools.acestep_music import AceStepMusicProvider
+    from adex_tools.creation.providers.acestep import AceStepMusicProvider
     monkeypatch.setenv('ADEX_ACESTEP_URL','http://untrusted.example')
     with pytest.raises(HTTPException,match='MUSIC_RUNNER_CONFIGURATION_INVALID'):
         AceStepMusicProvider()
@@ -127,7 +127,7 @@ def test_acestep_runner_rejects_remote_url(monkeypatch):
 
 async def test_dashscope_video_recovers_job_without_resubmit(monkeypatch):
     import httpx,json
-    from adex_tools.dashscope_media import DashScopeMediaProvider
+    from adex_tools.creation.providers.dashscope import DashScopeMediaProvider
     monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-key')
     calls=[]
     def handle(request):
@@ -153,7 +153,7 @@ async def test_dashscope_video_recovers_job_without_resubmit(monkeypatch):
 
 async def test_dashscope_music_permission_denied_is_not_success(monkeypatch):
     import httpx
-    from adex_tools.dashscope_media import DashScopeMediaProvider
+    from adex_tools.creation.providers.dashscope import DashScopeMediaProvider
     monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-key')
     original=httpx.AsyncClient
     monkeypatch.setattr(httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(lambda r:httpx.Response(403,json={'code':'AccessDenied'}))))
@@ -163,7 +163,7 @@ async def test_dashscope_music_permission_denied_is_not_success(monkeypatch):
 
 async def test_qwen_music_duration_and_private_download(monkeypatch):
     import httpx,json
-    from adex_tools.dashscope_media import DashScopeMediaProvider
+    from adex_tools.creation.providers.dashscope import DashScopeMediaProvider
     monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-key')
     monkeypatch.setenv('DASHSCOPE_MUSIC_MODEL','qwen-audio-3.1-tts-next')
     calls=[]
@@ -190,7 +190,7 @@ async def test_qwen_music_duration_and_private_download(monkeypatch):
 
 @pytest.mark.parametrize('duration',[121,180,240,600])
 def test_composition_sections_fit_provider_limit(duration):
-    from adex_tools.music_composition import section_durations
+    from adex_tools.creation.composition import section_durations
     sections=section_durations(duration)
     assert all(2 < part <= 120 for part in sections)
     assert sum(sections)-2*(len(sections)-1)==pytest.approx(duration)
@@ -199,7 +199,7 @@ def test_composition_sections_fit_provider_limit(duration):
 async def test_original_music_crossfade_has_expected_duration():
     import asyncio,tempfile
     from pathlib import Path
-    from adex_tools.music_composition import join_sections
+    from adex_tools.creation.composition import join_sections
     sections=[]
     with tempfile.TemporaryDirectory() as directory:
         for index,frequency in enumerate([440,660]):
@@ -213,8 +213,8 @@ async def test_original_music_crossfade_has_expected_duration():
 
 async def test_music_composition_resume_reuses_stable_child_keys(monkeypatch):
     import os,httpx
-    from adex_tools import creative
-    from adex_tools.music_composition import MusicCompositionProvider
+    from adex_tools.creation import service as creative
+    from adex_tools.creation.composition import MusicCompositionProvider
     calls=[]
     async def generate(core,owner,body,**kw):
         assert kw=={'composition_part':True}
@@ -223,7 +223,7 @@ async def test_music_composition_resume_reuses_stable_child_keys(monkeypatch):
         return {'artifact':{'file_id':'part-file'}}
     monkeypatch.setattr(creative,'generate',generate)
     async def join(parts):return b'ID3full',180000
-    monkeypatch.setattr('adex_tools.music_composition.join_sections',join)
+    monkeypatch.setattr('adex_tools.creation.composition.join_sections',join)
     monkeypatch.setenv('ADEX_APP_URL','http://app')
     original=httpx.AsyncClient
     monkeypatch.setattr(httpx,'AsyncClient',lambda **kw:original(transport=httpx.MockTransport(lambda r:httpx.Response(200,content=b'ID3part'))))
@@ -241,8 +241,8 @@ async def test_music_composition_resume_reuses_stable_child_keys(monkeypatch):
 
 
 async def test_unknown_composition_section_stops_without_later_submission(monkeypatch):
-    from adex_tools import creative
-    from adex_tools.music_composition import MusicCompositionProvider
+    from adex_tools.creation import service as creative
+    from adex_tools.creation.composition import MusicCompositionProvider
     calls=[]
     async def unknown(core,owner,body,**kw):
         calls.append(body['request_key'])
@@ -257,7 +257,7 @@ async def test_unknown_composition_section_stops_without_later_submission(monkey
 async def test_dashscope_image_payload_private_download_and_no_resubmit(monkeypatch):
     import httpx
     import json
-    from adex_tools.dashscope_media import DashScopeMediaProvider
+    from adex_tools.creation.providers.dashscope import DashScopeMediaProvider
     monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-key')
     requests=[]
     def handle(request):
@@ -281,7 +281,7 @@ async def test_dashscope_image_payload_private_download_and_no_resubmit(monkeypa
 
 
 def test_browser_restricts_urls_to_public_allowlisted_https():
-    from adex_tools.browser import allowed_url
+    from adex_tools.runners.browser import allowed_url
     assert allowed_url('https://github.com/jiamingze/Adex')
     for url in ['http://github.com/jiamingze/Adex','https://github.com.evil.test','https://127.0.0.1','https://user:pass@github.com','https://github.com:8443','https://github.com/#fragment']:
         assert not allowed_url(url)

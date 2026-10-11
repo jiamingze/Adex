@@ -1,0 +1,185 @@
+package io.adex.app.notification;
+
+import io.adex.app.conversation.ConversationStore;
+import io.adex.kernel.Kernel;
+import java.util.*;
+import org.springframework.stereotype.Service;
+
+/**
+ * Idempotent result consumer: dedupe, memory revision, artifact and notification share one
+ * transaction.
+ */
+@Service
+public class ResultAttachmentService {
+  private final Kernel k;
+  private final ConversationStore chat;
+
+  public ResultAttachmentService(Kernel k, ConversationStore chat) {
+    this.k = k;
+    this.chat = chat;
+  }
+
+  public Object monitorAttach(Map<String, Object> claims, Map<String, Object> b) {
+    UUID owner = Kernel.uuid(b.get("owner_id")),
+        conv = Kernel.uuid(b.get("origin_conversation_id")),
+        event = Kernel.uuid(b.get("event_id"));
+
+    if (!owner.toString().equals(claims.get("owner"))) throw Kernel.error(403, "SCOPE_DENIED");
+    String content = Kernel.text(b, "content", 64000);
+    return k.tx.execute(
+        s -> {
+          k.row("SELECT id FROM users WHERE id=? FOR SHARE", owner);
+          var conversation =
+              k.row(
+                  "SELECT id,deleted_at FROM conversations WHERE id=? AND owner_id=? FOR UPDATE",
+                  conv,
+                  owner);
+          if (k.db.update(
+                  "INSERT INTO consumed_events(event_id) VALUES(?) ON CONFLICT DO NOTHING", event)
+              == 0) return Map.of("ok", true);
+          if (conversation.get("deleted_at") != null)
+            return Map.of("ok", true, "discarded", "CONVERSATION_DELETED");
+          chat.append(conv, "assistant", content, "monitor:" + event);
+          k.db.update(
+              "INSERT INTO notifications(id,event_id,owner_id,conversation_id,title,body) VALUES(?,?,?,?,?,?)",
+              Kernel.id(),
+              event,
+              owner,
+              conv,
+              "监控发现新信息",
+              content);
+          return Map.of("ok", true);
+        });
+  }
+
+  public Object attach(Map<String, Object> claims, Map<String, Object> b) {
+    UUID owner = Kernel.uuid(b.get("owner_id")),
+        conv = Kernel.uuid(b.get("origin_conversation_id")),
+        event = Kernel.uuid(b.get("event_id"));
+
+    if (!owner.toString().equals(claims.get("owner"))) throw Kernel.error(403, "SCOPE_DENIED");
+    String content = Kernel.text(b, "content", 64000);
+    return k.tx.execute(
+        s -> {
+          var u = k.row("SELECT memory_revision FROM users WHERE id=? FOR SHARE", owner);
+          var conversation =
+              k.row(
+                  "SELECT id,deleted_at FROM conversations WHERE id=? AND owner_id=? FOR UPDATE",
+                  conv,
+                  owner);
+          if (k.db.update(
+                  "INSERT INTO consumed_events(event_id) VALUES(?) ON CONFLICT DO NOTHING", event)
+              == 0) return Map.of("ok", true, "deduplicated", true);
+          if (conversation.get("deleted_at") != null)
+            return Map.of("ok", true, "discarded", "CONVERSATION_DELETED");
+          if (((Number) u.get("memory_revision")).longValue()
+              != Kernel.number(b, "memory_revision"))
+            return Map.of("ok", true, "discarded", "MEMORY_REVISION_CHANGED");
+          if (!k.db
+              .queryForList(
+                  "SELECT id FROM messages WHERE conversation_id=? AND dedupe_key=?",
+                  conv,
+                  "run:" + b.get("run_id"))
+              .isEmpty()) return Map.of("ok", true, "deduplicated", true);
+          String kind = String.valueOf(b.getOrDefault("kind", "CHAT"));
+          if (Set.of("RESEARCH", "TRAVEL", "GAME", "DIAGRAM", "IMAGE", "AUDIO", "VIDEO")
+              .contains(kind)) {
+            UUID artifact = Kernel.id();
+            String artifactKind = kind.equals("RESEARCH") ? "REPORT" : kind;
+            k.db.update(
+                "INSERT INTO artifacts(id,owner_id,kind,title,revision,origin_conversation_id,source_run_id) VALUES(?,?,?,?,1,?,?)",
+                artifact,
+                owner,
+                artifactKind,
+                "任务作品 · " + kind,
+                conv,
+                Kernel.uuid(b.get("run_id")));
+            Map<String, Object> details =
+                b.get("artifact") instanceof Map
+                    ? (Map<String, Object>) b.get("artifact")
+                    : Map.of();
+            UUID file = details.get("file_id") == null ? null : Kernel.uuid(details.get("file_id"));
+            if (file != null)
+              k.row(
+                  "SELECT id FROM files WHERE id=? AND owner_id=? AND status='READY' FOR SHARE",
+                  file,
+                  owner);
+            if (details.get("poster_file_id") != null)
+              k.row(
+                  "SELECT id FROM files WHERE id=? AND owner_id=? AND status='READY' FOR SHARE",
+                  Kernel.uuid(details.get("poster_file_id")),
+                  owner);
+            String source =
+                k.encode(
+                    Map.of(
+                        "content",
+                        content,
+                        "source_run_id",
+                        b.get("run_id"),
+                        "format",
+                        "markdown",
+                        "media",
+                        details));
+            k.db.update(
+                "INSERT INTO artifact_versions(id,artifact_id,revision,source,file_id,sha256,source_job_id) VALUES(?,?,1,?::jsonb,?,?,?)",
+                Kernel.id(),
+                artifact,
+                source,
+                file,
+                Kernel.hash(source),
+                Kernel.uuid(b.get("run_id")));
+          }
+          UUID resultMessage = chat.append(conv, "assistant", content, "run:" + b.get("run_id"));
+          if (Set.of("RESEARCH", "TRAVEL", "GAME", "DIAGRAM", "IMAGE", "AUDIO", "VIDEO")
+              .contains(kind)) {
+            var data = new LinkedHashMap<String, Object>();
+            data.put("kind", kind);
+            data.put("run_id", b.get("run_id"));
+            data.put("title", "任务作品已保存");
+            if (Set.of("IMAGE", "AUDIO", "VIDEO").contains(kind)
+                && b.get("artifact") instanceof Map<?, ?> audio) {
+              data.put("file_id", audio.get("file_id"));
+              data.put("mock", audio.get("mock"));
+              data.put("model_id", audio.get("model_id"));
+              data.put("duration_ms", audio.get("duration_ms"));
+              data.put("poster_file_id", audio.get("poster_file_id"));
+            }
+            var card =
+                Map.of(
+                    "schema_version",
+                    1,
+                    "card_id",
+                    Kernel.id(),
+                    "conversation_id",
+                    conv,
+                    "message_id",
+                    resultMessage,
+                    "type",
+                    kind.equals("AUDIO")
+                        ? "generated_audio_player"
+                        : kind.equals("VIDEO")
+                            ? "generated_video_player"
+                            : kind.equals("IMAGE") ? "image_gallery" : "artifact_preview",
+                    "data",
+                    data,
+                    "actions",
+                    List.of("open_workspace"));
+            k.db.update(
+                "UPDATE messages SET cards=?::jsonb WHERE id=?",
+                k.encode(List.of(card)),
+                resultMessage);
+            chat.event(conv, "message.cards", Map.of("message_id", resultMessage));
+          }
+          k.db.update(
+              "INSERT INTO notifications(id,event_id,owner_id,conversation_id,title,body)"
+                  + " VALUES(?,?,?,?,?,?)",
+              Kernel.id(),
+              event,
+              owner,
+              conv,
+              "任务已完成",
+              content);
+          return Map.of("ok", true);
+        });
+  }
+}

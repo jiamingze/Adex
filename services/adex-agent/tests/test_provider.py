@@ -1,4 +1,4 @@
-from adex_agent.provider import ThinkFilter, MockProvider
+from adex_agent.models.provider import ThinkFilter, MockProvider
 
 
 def test_reasoning_is_never_displayed():
@@ -24,7 +24,7 @@ async def test_mock_is_labelled():
 
 def test_tool_protocol_split_frames_never_expose_marker():
     import pytest
-    from adex_agent.provider import ToolProtocolFilter, ProviderFailure
+    from adex_agent.models.provider import ToolProtocolFilter, ProviderFailure
     for marker in ('<minimax:tool_call>', '[minimax:tool_call]', '<invoke name="search">'):
         guard = ToolProtocolFilter()
         exposed = ''
@@ -35,7 +35,7 @@ def test_tool_protocol_split_frames_never_expose_marker():
 
 
 def test_search_intent_uses_explicit_and_current_queries():
-    from adex_agent.router import search_intent
+    from adex_agent.routing.intent import search_intent
     assert search_intent('帮我搜一下近期周杰伦的演唱会')
     assert search_intent('近期周杰伦有哪些演唱会')
     assert not search_intent('解释二分查找的时间复杂度')
@@ -44,7 +44,7 @@ def test_search_intent_uses_explicit_and_current_queries():
 
 async def test_qwen_stream_model_and_usage(monkeypatch):
     import httpx,json
-    from adex_agent.provider import QwenProvider
+    from adex_agent.models.provider import QwenProvider
     monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-key')
     monkeypatch.setenv('DASHSCOPE_CHAT_MODEL','qwen3.8-max')
     def handle(request):
@@ -60,7 +60,7 @@ async def test_qwen_stream_model_and_usage(monkeypatch):
 
 
 def test_qwen_pseudo_tools_are_blocked_across_frames():
-    from adex_agent.provider import ToolProtocolFilter,ProviderFailure
+    from adex_agent.models.provider import ToolProtocolFilter,ProviderFailure
     import pytest
     for marker in ('[TOOL_CALL]', '{tool =>', '<tool_call'):
         for split in range(1,len(marker)):
@@ -71,7 +71,7 @@ def test_qwen_pseudo_tools_are_blocked_across_frames():
 
 
 def test_explicit_provider_selection_does_not_change_default(monkeypatch):
-    from adex_agent.provider import provider, QwenProvider, MiniMaxProvider
+    from adex_agent.models.provider import provider, QwenProvider, MiniMaxProvider
     monkeypatch.setenv('ADEX_MODEL_PROVIDER','qwen')
     monkeypatch.setenv('MINIMAX_API_KEY','fixture-minimax')
     monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-qwen')
@@ -81,7 +81,7 @@ def test_explicit_provider_selection_does_not_change_default(monkeypatch):
 
 
 def test_automatic_search_for_fresh_information():
-    from adex_agent.router import search_intent
+    from adex_agent.routing.intent import search_intent
     assert search_intent('整理最新关于 SpaceX 的信息')
     assert search_intent('今天上海天气怎么样')
     assert search_intent('latest SpaceX updates')

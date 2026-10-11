@@ -38,7 +38,8 @@ public class RequestTrace extends OncePerRequestFilter {
             "request_id={} method={} path={} status={} duration_ms={}",
             trace,
             req.getMethod(),
-            req.getRequestURI().replaceAll("/api/v1/(media|previews)/[^/]+","/api/v1/$1/[redacted]"),
+            req.getRequestURI()
+                .replaceAll("/api/v1/(media|previews)/[^/]+", "/api/v1/$1/[redacted]"),
             res.getStatus(),
             (System.nanoTime() - start) / 1000000);
       MDC.remove("request_id");

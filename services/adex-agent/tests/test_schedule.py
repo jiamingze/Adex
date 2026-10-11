@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from adex_agent.schedule import ScheduleDraft
+from adex_agent.routing.schedule import ScheduleDraft
 
 
 def test_daily_requires_timezone_and_time():

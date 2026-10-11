@@ -1,4 +1,4 @@
-from adex_tools.search import normalize_results
+from adex_tools.retrieval.search import normalize_results
 
 
 def test_result_links_and_evidence():

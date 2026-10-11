@@ -2,8 +2,8 @@ import asyncio
 import os
 from uuid import uuid4
 from adex_kernel.core import Core, digest
-from adex_agent.runtime import Runtime
-from adex_agent.provider import ProviderFailure
+from adex_agent.execution.runtime import Runtime
+from adex_agent.models.provider import ProviderFailure
 
 
 async def main():

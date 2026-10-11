@@ -72,3 +72,7 @@ Generated HTML executes in a sandboxed isolated origin with resource/network lim
 | External provider | Models/search/media | Explicit rejection, timeout or UNKNOWN reconciliation |
 
 See [service contracts](../SERVICE_CONTRACTS.md), [storage](../LOCAL_FILE_STORAGE.md), [recovery runbook](../RUNBOOK.md), and [original design](../Adex_Product_Technical_Design_v4.1.md). Design requirements are contracts; only acceptance evidence establishes a tested result.
+
+## Backend code organization
+
+See the [engineering conventions and module map](../architecture/engineering.md) and [ADR 002](../adr/002-backend-modules.md). Capability modules separate HTTP adapters, use cases, execution, persistence ports and provider adapters. CI checks entrypoint size, controller dependency boundaries and formatting. Reliability remains established through isolated PostgreSQL integration/fault tests.

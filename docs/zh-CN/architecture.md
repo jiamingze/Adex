@@ -44,3 +44,7 @@ App 管理私有磁盘文件和 PG 元数据。写入采用临时文件、持久
 PostgreSQL 不可用时拒绝不安全写入；Redis 故障退化为缓存未命中；Elasticsearch 异步重试并退回 PG 搜索；磁盘异常报告存储或完整性失败；供应商异常保留拒绝、超时或 UNKNOWN 状态。
 
 继续阅读 [服务契约](../SERVICE_CONTRACTS.md)、[文件存储](../LOCAL_FILE_STORAGE.md)、[运维恢复](../RUNBOOK.md) 与 [原始设计](../Adex_Product_Technical_Design_v4.1.md)。设计是目标契约，是否通过测试要看验收证据。
+
+## 后端代码组织
+
+参见[工程规范与模块地图](../architecture/engineering.md)和 [ADR 002](../adr/002-backend-modules.md)。四服务内部按业务能力划分，区分 HTTP 适配器、用例服务、执行逻辑、存储端口与供应商适配器。CI 检查入口职责、控制器依赖边界和格式规范；可靠性仍通过独立 PostgreSQL 集成与故障测试验证。

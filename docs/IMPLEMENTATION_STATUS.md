@@ -148,3 +148,9 @@ Xcode 26.3 / iPhone 16 Pro Max（iOS 26.6.1）：真机 Debug 编译通过，修
 - Upload uses a 45-second total deadline, native 10-second connection and 30-second read timeouts. Failure releases the spinner and offers retry with the same file/idempotency key; late native responses do not append an attachment after timeout. Deadline success, rejection and never-settling-request tests passed.
 - First accepted user message persists a whitespace-normalized 24-character title. Existing default-title chats display their first user message prefix. Backend API and browser history verified this behavior. Manual renamed historical chats keep their title.
 - Web typecheck/build, Java build and signed iPhone build passed. Physical photo selection and upload still require device verification because native click control is unavailable.
+
+## 2026-10-11 后端模块化重构
+
+四业务服务内部按能力划分，Java 控制器拆分并提取身份、账户、会话、记忆、通知、调度和运行用例；Agent 分离上下文、模型调用、检查点、交互与后台执行；Tools 分离 API、供应商、审批和 Runner。引入 ConversationStore / UploadedFile 端口、模型/媒体能力契约与供应商工厂，保留原有 HTTP/数据库契约。参见 `docs/architecture/engineering.md` 与 ADR 002。
+
+验证：`make build test check-style`；隔离数据库 `make test-integration`；秘密扫描。格式和边界约束纳入 CI。旧版验证记录仅代表当时源码；大型生产容量、SLO 和剩余 Workspace 耦合不由本次重构证明。

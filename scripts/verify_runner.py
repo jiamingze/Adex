@@ -13,7 +13,7 @@ from config import load, ROOT
 
 cfg = load()
 source = ROOT / "services/adex-tools/src/adex_tools"
-from adex_tools.code_runner import check_game
+from adex_tools.runners.code_runner import check_game
 
 runtime = ROOT / ".local-data/gateway-runtime"
 runtime.mkdir(exist_ok=True)
