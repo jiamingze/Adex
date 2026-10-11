@@ -19,7 +19,7 @@ This refactoring preserves public/internal HTTP contracts and database schemas. 
 | --- | --- | --- |
 | App | `identity`, `account`, `conversation`, `memory`, `workspace`, `notification`, `integration`, `config` | `AppMain`; `ConversationStore` → `PostgresConversationStore`; `UploadedFile` → `MultipartUpload`; kernel `FileStorage` → `LocalFileStorage` |
 | Automation | `schedule`, `run`, `monitor` | `AutomationMain`; scope-checked controllers → `ScheduleService`, `RunService`, `RunExecutionService` |
-| Agent | `api`, `routing`, `execution`, `models` | `main.create_app`; `Runtime` composes `ContextService`, `InvocationService`, `CheckpointStore`, `BackgroundWorker`; `InteractiveTurnService` handles chat intents; `ModelProvider` is the streaming port |
+| Agent | `api`, `routing`, `execution`, `models`, `skills` | `main.create_app`; `Runtime` composes `ContextService`, `InvocationService`, `CheckpointStore`, `BackgroundWorker`; `InteractiveTurnService` handles chat intents; `ModelProvider` is the streaming port |
 | Tools | `api`, `retrieval`, `creation`, `creation/providers`, `approvals`, `runners`, `workspace` | `main.create_app`; provider factory selects submission adapters; `MediaSubmissionProvider` separates submission from optional cancellation/catalog capabilities |
 
 The Java packages use capability-first organization: controller, application service and adapter names expose the responsibility inside each module. Python separates HTTP composition from capability implementations. Neither arrangement requires a separate deployable service for each feature.
@@ -36,3 +36,7 @@ The Java packages use capability-first organization: controller, application ser
 ## Remaining explicit engineering debt
 
 Workspace preview/Range streaming and some file/artifact endpoints still combine HTTP response handling with persistence checks. Preserve their authorization and crash-recovery tests when extracting them further. Maps remain in parts of the legacy wire contract; convert to typed DTOs incrementally with contract tests. Central kernel JDBC helpers are infrastructure, not domain entities. Additional load/SLO, tracing, vulnerability and deployment evidence is required before describing this as a production system at large-company scale.
+
+## Skill boundaries
+
+See [Skill architecture](skills.md) and [ADR 003](../adr/003-skills-and-transaction-boundaries.md). Skills are versioned, trusted execution policies, never permission grants. Booking adapters remain disabled until concrete quotes, user approval and durable effect reconciliation are implemented.

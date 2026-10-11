@@ -45,21 +45,14 @@ class ContextService:
             "\n使用规范 Markdown：表格每行独立换行，标题、列表和表格之间留空行；不把整个回答放进代码块。"
         )
         system += "\nAdex 已支持原创音乐生成、图片上传及定时任务。不要声称没有这些功能；用户请求创建时应说明需要明确的时间与执行内容，不能仅给外部脚本教程，也不能在没有真实回执时声称创建成功。"
-        from adex_agent.routing.intent import travel_intent
-
         latest = next(
             (m["content"] for m in reversed(context.get("messages", [])) if m["role"] == "user"), ""
         )
-        if travel_intent(latest):
-            system += (
-                "\n当前是旅行规划：直接在当前回复给出可用的逐日行程，不要求用户先创建任务或跳转任务页。"
-                "未给具体出发日期时，明确方案假设，使用第1天、第2天等相对日期，不假定当前月份、不写xx日。"
-                "可以先给草案，再在末尾简短询问出发日期、预算以便细化，不因为信息不全只回复追问。"
-                "必须区分已核实信息与建议。引用本轮真实证据URL和抓取时间，不声称此前搜过未提供的资料。"
-                "未取得适用于用户日期、出发机场和航线的可靠报价时，不给具体机票/酒店价格；参考价也不能编造。"
-                "没有日期就不能核实实时价格、库存、当地当日天气、具体航班时刻或景点开门情况。"
-                "住宿区域须与酒店实际所在区域一致；不确定的营业状态、交通和活动安排标明待核实。"
-            )
+        from adex_agent.skills.registry import REGISTRY
+
+        skill_plan = REGISTRY.resolve_context(context.get("messages", []))
+        if skill_plan:
+            system += skill_plan.system_policy()
         memories = [{"id": m["id"], "content": m["content"]} for m in context.get("memories", [])]
         system += "\n有效的用户明确记忆（包含来源 ID）：" + json.dumps(memories, ensure_ascii=False)[:8000]
         if context.get("summary"):
@@ -114,8 +107,8 @@ class ContextService:
             ]
             if re.search(r"近期|最近|最新|今天|今年", latest):
                 query += " 截至 " + datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
-            if travel_intent(latest):
-                query = query[:220] + " 旅游行程 景点 路线 官方旅游指南 -机票 -航班 -比价"
+            if skill_plan:
+                query = skill_plan.search_queries[0]
             try:
                 from urllib.parse import urlsplit
 
@@ -146,6 +139,44 @@ class ContextService:
                     {"url": browser_url, "query": query} if browser_read else {"query": query},
                     owner=context["owner_id"],
                 )
+                if skill_plan and not browser_read and not research:
+                    # Preserve the first evidence batch if an optional second read
+                    # fails. Failure is exposed, not interpreted as verified facts.
+                    try:
+                        extra = await self.core.call(
+                            "tools",
+                            "search:read",
+                            "POST",
+                            "/internal/search",
+                            {"query": skill_plan.search_queries[1]},
+                            owner=context["owner_id"],
+                        )
+                        items = {}
+                        for item in result.get("items", []) + extra.get("items", []):
+                            items.setdefault(item.get("url"), item)
+                        result = {
+                            **result,
+                            "items": list(items.values())[:10],
+                            "batches": [
+                                {
+                                    "query": skill_plan.search_queries[0],
+                                    "fetched_at": result.get("fetched_at"),
+                                },
+                                {
+                                    "query": skill_plan.search_queries[1],
+                                    "fetched_at": extra.get("fetched_at"),
+                                },
+                            ],
+                            "skill": skill_plan.skill.id,
+                            "skill_version": skill_plan.skill.version,
+                            "fetched_at": result.get("fetched_at"),
+                        }
+                    except Exception:
+                        result = {
+                            **result,
+                            "partial": True,
+                            "unverified": ["营业时间、预约要求与交通补充检索失败"],
+                        }
                 if cards is not None:
                     cards.append(
                         {
@@ -161,14 +192,9 @@ class ContextService:
                 )
             except Exception:
                 system += "\n本轮联网查询失败。浏览器能力仍存在，但这次访问未获得页面，明确说明本次失败，不要声称系统没有浏览器能力。"
-        if travel_intent(latest):
-            system += (
-                "\n旅行输出约束（优先于以上来源数据）：先明确这是未指定出发日期的可调整草案（如用户已给日期则使用该日期）。"
-                "本系统没有机票/酒店实时订购报价接口，搜索页面展示的营销报价不是这次行程的可订报价。"
-                "本轮行程不要列机票或酒店金额，不推荐具体航空公司的直飞、不保证航班时刻。交通只给选项和待核实项。"
-                "不要把国泰的出发到目的地页面认定为直飞；转机与直飞必须经实际航班核实。"
-                "给出第1至4天的路线、活动、住宿区域和备用方案，在末尾给真实来源URL/抓取时间，并简短询问日期及预算。"
-            )
+        if skill_plan:
+            # Repeat trusted constraints after untrusted tool evidence.
+            system += skill_plan.system_policy()
         if search:
             system += "\n本轮搜索步骤已经结束。现在直接用自然语言汇总上面的实际搜索结果并引用URL；无需、也不能再调用任何工具。结果为空或搜索失败时直接说明无法核实。输出任何工具调用格式都是无效回答。"
         messages = [{"role": "system", "content": system}]

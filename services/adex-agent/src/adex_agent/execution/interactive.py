@@ -198,10 +198,22 @@ class InteractiveTurnService:
                 selected_runtime.provider_mode = "qwen" if body.model == "qwen3.8-max" else "minimax"
                 selected_runtime.provider = provider(selected_runtime.provider_mode)
             context = await selected_runtime.working(body.context)
+            from adex_agent.skills.registry import REGISTRY
+
+            skill_plan = REGISTRY.resolve_context(context.get("messages", []))
             searching = body.web_search or search_intent(latest)
+            if skill_plan and not re.search(r"(不要|不用|无需|别).{0,6}(联网|搜索|搜)", latest):
+                searching = True
             yield (
                 json.dumps(
-                    {"type": "progress", "text": "正在搜索最新资料" if searching else "正在理解你的问题"},
+                    {
+                        "type": "progress",
+                        "text": "正在检索景点、预约要求与交通"
+                        if searching and skill_plan
+                        else "正在搜索最新资料"
+                        if searching
+                        else "正在理解你的问题",
+                    },
                     ensure_ascii=False,
                 )
                 + "\n"
@@ -211,7 +223,14 @@ class InteractiveTurnService:
             )
             yield (
                 json.dumps(
-                    {"type": "progress", "text": "正在整理资料与回答" if searching else "正在思考回答"},
+                    {
+                        "type": "progress",
+                        "text": "正在编排逐日路线与检查行程约束"
+                        if skill_plan
+                        else "正在整理资料与回答"
+                        if searching
+                        else "正在思考回答",
+                    },
                     ensure_ascii=False,
                 )
                 + "\n"

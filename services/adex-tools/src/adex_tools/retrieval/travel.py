@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone, timedelta
 import httpx
 from fastapi import HTTPException
 from adex_tools.retrieval.search import web_search
+from adex_tools.booking.contracts import capabilities
 
 
 async def plan_evidence(city, start, end):
@@ -44,6 +45,7 @@ async def plan_evidence(city, start, end):
         "hotels": hotel["items"],
         "pois": poi["items"],
         "inventory_verified": False,
+        "booking_capabilities": capabilities(),
         "fetched_at": datetime.now(timezone.utc).isoformat(),
         "geo_source": "https://open-meteo.com/",
         "map_url": f"https://www.openstreetmap.org/?mlat={location['latitude']}&mlon={location['longitude']}#map=12/{location['latitude']}/{location['longitude']}",

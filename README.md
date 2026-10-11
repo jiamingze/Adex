@@ -144,6 +144,7 @@ Integration tests create isolated `adex_test_*` databases and mock external prov
 
 ## Documentation
 
+- [Skills and travel-to-booking roadmap](docs/architecture/skills.md)
 - [Installation & iOS](docs/en/installation.md) / [安装与 iOS](docs/zh-CN/installation.md)
 - [Architecture](docs/en/architecture.md) / [技术架构](docs/zh-CN/architecture.md)
 - [Configuration](docs/en/configuration.md) / [配置说明](docs/zh-CN/configuration.md)

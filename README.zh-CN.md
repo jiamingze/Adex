@@ -139,6 +139,7 @@ uv run python scripts/check_secrets.py
 
 ## 更多文档
 
+- [Skill 架构与行程／预约／下单演进](docs/architecture/skills.md)
 - [安装](docs/zh-CN/installation.md)、[配置](docs/zh-CN/configuration.md)、[开发](docs/zh-CN/development.md)
 - [运维与恢复](docs/RUNBOOK.md)、[文件存储](docs/LOCAL_FILE_STORAGE.md)
 - [路线图](ROADMAP.md)、[更新记录](CHANGELOG.md)、[安全说明](SECURITY.md)
