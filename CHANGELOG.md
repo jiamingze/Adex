@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Allow vertical chat scrolling from iOS Markdown tables while retaining horizontal table scrolling.
+- Welcome contributors with bilingual participation steps and project entry points.
+
 - Add IntelliJ IDEA/PyCharm service launch configurations, local JVM attach debugging, scoped environment generation and bilingual IDE guides.
 
 - Collapse chat source/evidence cards by default, with source counts, concise excerpts and a bounded detail list on Web and iOS.

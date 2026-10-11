@@ -136,6 +136,10 @@ Integration tests create isolated `adex_test_*` databases and mock external prov
 - [Roadmap](ROADMAP.md), [changelog](CHANGELOG.md), [security](SECURITY.md)
 - [Original design](docs/Adex_Product_Technical_Design_v4.1.md), [acceptance gates](docs/ACCEPTANCE.md)
 
+## Join the development
+
+Adex welcomes contributors of all experience levels. Help shape the project through code, design, device testing, documentation, or ideas. Start with the [roadmap](ROADMAP.md), [open issues](https://github.com/jiamingze/Adex/issues), and [contribution guide](CONTRIBUTING.md). For a larger feature, open an issue to discuss the scope before starting; small fixes are welcome as pull requests.
+
 ## Contributing
 
 Bug reports, reproducible device tests, provider adapters, and documentation improvements are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing contracts or reliability mechanisms. Report security issues privately using [SECURITY.md](SECURITY.md).
