@@ -1,0 +1,10 @@
+[project]
+name = "adex-kernel"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["fastapi==0.115.12", "httpx==0.28.1", "psycopg[binary,pool]==3.2.6"]
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+[tool.hatch.build.targets.wheel]
+packages = ["src/adex_kernel"]

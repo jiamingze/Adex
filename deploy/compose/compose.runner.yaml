@@ -1,0 +1,31 @@
+services:
+  adex-tools:
+    environment:
+      ADEX_CODE_RUNNER_MODE: gateway
+      ADEX_CODE_RUNNER_URL: http://code-runner-gateway:8120
+      ADEX_RUNNER_KEY: ${ADEX_RUNNER_KEY:?initialize dedicated runner key}
+  runner-permissions:
+    image: alpine:3.21
+    user: "0:0"
+    command: ["sh", "-c", "mkdir -p /runner-tmp && chown 10001:10001 /runner-tmp && chmod 700 /runner-tmp"]
+    volumes: ["${ADEX_RUNNER_HOST_DIR:?set absolute shared runner directory}:/runner-tmp"]
+    restart: "no"
+  code-runner-gateway:
+    build: {context: ../.., dockerfile: runners/gateway/Dockerfile}
+    environment:
+      ADEX_RUNNER_KEY: ${ADEX_RUNNER_KEY:?initialize dedicated runner key}
+      ADEX_CODE_RUNNER_TEMP_ROOT: ${ADEX_RUNNER_HOST_DIR:?set absolute shared runner directory}
+      ADEX_CODE_RUNNER_IMAGE: adex-code-runner:local
+    volumes:
+      - ${ADEX_RUNNER_HOST_DIR}:${ADEX_RUNNER_HOST_DIR}
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add: ["${ADEX_DOCKER_GID:-0}"]
+    read_only: true
+    tmpfs: ["/tmp:size=32m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    pids_limit: 64
+    depends_on:
+      runner-permissions: {condition: service_completed_successfully}
+    restart: unless-stopped

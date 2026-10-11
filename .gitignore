@@ -1,0 +1,25 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.local-data/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+node_modules/
+dist/
+apps/ios/web-dist/
+**/target/
+*.log
+
+apps/ios/ios/App/App/public/
+**/xcuserdata/
+**/.swiftpm/
+
+# Personal device signing and credentials
+**/Signing.local.xcconfig
+*.p12
+*.mobileprovision
+*.xcarchive
+*.ipa

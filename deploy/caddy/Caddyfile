@@ -1,0 +1,6 @@
+{$ADEX_PUBLIC_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy web:8080 {
+        flush_interval -1
+    }
+}

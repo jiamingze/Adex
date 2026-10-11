@@ -1,0 +1,161 @@
+name: adex
+x-runtime: &runtime
+  restart: unless-stopped
+  read_only: true
+  tmpfs: ["/tmp:size=64m"]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  pids_limit: 256
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+services:
+  file-permissions:
+    image: alpine:3.21
+    user: "0:0"
+    command: ["sh", "-c", "mkdir -p /var/adex/files && chown 10001:10001 /var/adex/files && chmod 700 /var/adex/files"]
+    volumes: ["${ADEX_FILES_HOST_DIR:-../../.local-data/compose-files}:/var/adex/files"]
+    restart: "no"
+  postgres:
+    image: postgres:16.13-alpine
+    environment:
+      POSTGRES_USER: adex_admin
+      POSTGRES_PASSWORD: ${ADEX_ADMIN_PASSWORD:?initialize .env}
+      POSTGRES_DB: ${ADEX_PG_DB:-adex_dev}
+    volumes: ["pg-data:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U adex_admin"], interval: 5s, timeout: 3s, retries: 20}
+    restart: unless-stopped
+    mem_limit: 2g
+  redis:
+    image: redis:7.4.2-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+    mem_limit: 256m
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
+    profiles: [search]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes: ["es-data:/usr/share/elasticsearch/data"]
+    mem_limit: 1g
+  migrate:
+    build: {context: ../.., dockerfile: deploy/docker/migrate.Dockerfile}
+    env_file: ../../.env
+    environment: {ADEX_PG_HOST: postgres, ADEX_PG_PORT: "5432", ADEX_PG_DB: "${ADEX_PG_DB:-adex_dev}"}
+    depends_on: {postgres: {condition: service_healthy}}
+  adex-app:
+    <<: *runtime
+    build: {context: ../.., dockerfile: services/adex-app/Dockerfile}
+    depends_on: {migrate: {condition: service_completed_successfully}, file-permissions: {condition: service_completed_successfully}}
+    mem_limit: 1g
+    environment:
+      ADEX_SERVICE: "app"
+      ADEX_ALLOWED_ORIGINS: "${ADEX_ALLOWED_ORIGINS:-capacitor://localhost}"
+      BIND_ADDRESS: "0.0.0.0"
+      PORT: "8080"
+      ADEX_APP_URL: "http://adex-app:8080"
+      ADEX_AUTOMATION_URL: "http://adex-automation:8081"
+      ADEX_AGENT_URL: "http://adex-agent:8105"
+      ADEX_TOOLS_URL: "http://adex-tools:8107"
+      ADEX_APP_KEY: "${ADEX_APP_KEY:?set issuer key}"
+      ADEX_AUTOMATION_KEY: "${ADEX_AUTOMATION_KEY:?set issuer key}"
+      ADEX_AGENT_KEY: "${ADEX_AGENT_KEY:?set issuer key}"
+      ADEX_DB_JDBC_URL: "jdbc:postgresql://postgres:5432/${ADEX_PG_DB:-adex_dev}?currentSchema=app"
+      ADEX_DB_USER: "adex_app"
+      ADEX_DB_PASSWORD: "${ADEX_APP_DB_PASSWORD:?set DB password}"
+      ADEX_SMTP_HOST: "${ADEX_SMTP_HOST:-}"
+      ADEX_SMTP_PORT: "${ADEX_SMTP_PORT:-587}"
+      ADEX_SMTP_USERNAME: "${ADEX_SMTP_USERNAME:-}"
+      ADEX_SMTP_PASSWORD: "${ADEX_SMTP_PASSWORD:-}"
+      ADEX_SMTP_FROM: "${ADEX_SMTP_FROM:-}"
+      ADEX_OWNER_USERNAME: "${ADEX_OWNER_USERNAME:-owner}"
+      ADEX_OWNER_PASSWORD: "${ADEX_OWNER_PASSWORD:?set owner password}"
+      ADEX_TOOLS_KEY: "${ADEX_TOOLS_KEY:?set issuer key}"
+      ADEX_FILE_STORAGE_ROOT: "/var/adex/files"
+      ADEX_ES_URL: "http://elasticsearch:9200"
+    volumes: ["${ADEX_FILES_HOST_DIR:-../../.local-data/compose-files}:/var/adex/files"]
+  adex-automation:
+    <<: *runtime
+    build: {context: ../.., dockerfile: services/adex-automation/Dockerfile}
+    depends_on: {migrate: {condition: service_completed_successfully}}
+    mem_limit: 1g
+    environment:
+      ADEX_SERVICE: "automation"
+      BIND_ADDRESS: "0.0.0.0"
+      PORT: "8081"
+      ADEX_APP_URL: "http://adex-app:8080"
+      ADEX_AUTOMATION_URL: "http://adex-automation:8081"
+      ADEX_AGENT_URL: "http://adex-agent:8105"
+      ADEX_TOOLS_URL: "http://adex-tools:8107"
+      ADEX_AUTOMATION_KEY: "${ADEX_AUTOMATION_KEY:?set issuer key}"
+      ADEX_AGENT_KEY: "${ADEX_AGENT_KEY:?set issuer key}"
+      ADEX_APP_KEY: "${ADEX_APP_KEY:?set issuer key}"
+      ADEX_DB_JDBC_URL: "jdbc:postgresql://postgres:5432/${ADEX_PG_DB:-adex_dev}?currentSchema=automation"
+      ADEX_DB_USER: "adex_automation"
+      ADEX_DB_PASSWORD: "${ADEX_AUTOMATION_DB_PASSWORD:?set DB password}"
+  adex-agent:
+    <<: *runtime
+    build: {context: ../.., dockerfile: services/adex-agent/Dockerfile}
+    depends_on: {migrate: {condition: service_completed_successfully}}
+    mem_limit: 512m
+    environment:
+      ADEX_SERVICE: "agent"
+      BIND_ADDRESS: "0.0.0.0"
+      PORT: "8105"
+      ADEX_APP_URL: "http://adex-app:8080"
+      ADEX_AUTOMATION_URL: "http://adex-automation:8081"
+      ADEX_AGENT_URL: "http://adex-agent:8105"
+      ADEX_TOOLS_URL: "http://adex-tools:8107"
+      ADEX_APP_KEY: "${ADEX_APP_KEY:?set issuer key}"
+      ADEX_AUTOMATION_KEY: "${ADEX_AUTOMATION_KEY:?set issuer key}"
+      ADEX_AGENT_KEY: "${ADEX_AGENT_KEY:?set issuer key}"
+      ADEX_DB_URL: "postgresql://adex_agent:${ADEX_AGENT_DB_PASSWORD:?set DB password}@postgres:5432/${ADEX_PG_DB:-adex_dev}"
+      ADEX_REDIS_URL: "redis://redis:6379/0"
+      MINIMAX_API_KEY: "${MINIMAX_API_KEY:?set model key}"
+      MINIMAX_BASE_URL: "${MINIMAX_BASE_URL:-https://api.minimaxi.com/v1}"
+      ADEX_PRICE_INPUT_PER_MILLION: "${ADEX_PRICE_INPUT_PER_MILLION:-}"
+      ADEX_PRICE_OUTPUT_PER_MILLION: "${ADEX_PRICE_OUTPUT_PER_MILLION:-}"
+      ADEX_PRICE_CURRENCY: "${ADEX_PRICE_CURRENCY:-CNY}"
+      MINIMAX_MODEL: "${MINIMAX_MODEL:-MiniMax-M2.5}"
+      ADEX_MODEL_PROVIDER: "${ADEX_MODEL_PROVIDER:-minimax}"
+      ADEX_DAILY_MODEL_CALL_LIMIT: "${ADEX_DAILY_MODEL_CALL_LIMIT:-50}"
+      ADEX_MAX_OUTPUT_TOKENS: "${ADEX_MAX_OUTPUT_TOKENS:-4096}"
+  adex-tools:
+    <<: *runtime
+    build: {context: ../.., dockerfile: services/adex-tools/Dockerfile}
+    depends_on: {migrate: {condition: service_completed_successfully}}
+    mem_limit: 512m
+    environment:
+      ADEX_SERVICE: "tools"
+      BIND_ADDRESS: "0.0.0.0"
+      PORT: "8107"
+      ADEX_APP_URL: "http://adex-app:8080"
+      ADEX_AUTOMATION_URL: "http://adex-automation:8081"
+      ADEX_AGENT_URL: "http://adex-agent:8105"
+      ADEX_TOOLS_URL: "http://adex-tools:8107"
+      ADEX_AGENT_KEY: "${ADEX_AGENT_KEY:?set issuer key}"
+      ADEX_APP_KEY: "${ADEX_APP_KEY:?set issuer key}"
+      ADEX_AUTOMATION_KEY: "${ADEX_AUTOMATION_KEY:?set issuer key}"
+      ADEX_CALDAV_URL: "${ADEX_CALDAV_URL:-}"
+      ADEX_CALDAV_USERNAME: "${ADEX_CALDAV_USERNAME:-}"
+      ADEX_CALDAV_PASSWORD: "${ADEX_CALDAV_PASSWORD:-}"
+      ADEX_VISION_PROVIDER: "${ADEX_VISION_PROVIDER:-disabled}"
+      ADEX_VISION_API_KEY: "${ADEX_VISION_API_KEY:-}"
+      ADEX_MEDIA_WEBHOOK_SECRET: "${ADEX_MEDIA_WEBHOOK_SECRET:-}"
+      ADEX_CALDAV_OWNER_ID: "${ADEX_CALDAV_OWNER_ID:-}"
+      TAVILY_API_KEY: "${TAVILY_API_KEY:-}"
+      ADEX_TOOLS_KEY: "${ADEX_TOOLS_KEY:?set issuer key}"
+      ADEX_DB_URL: "postgresql://adex_tools:${ADEX_TOOLS_DB_PASSWORD:?set DB password}@postgres:5432/${ADEX_PG_DB:-adex_dev}"
+  web:
+    <<: *runtime
+    build: {context: ../.., dockerfile: apps/web/Dockerfile}
+    ports: ["127.0.0.1:${ADEX_WEB_PORT:-5173}:8080"]
+    depends_on: [adex-app]
+    tmpfs: ["/tmp:size=32m", "/var/cache/nginx:size=32m", "/var/run:size=1m"]
+    mem_limit: 128m
+volumes:
+  pg-data: {}
+  es-data: {}

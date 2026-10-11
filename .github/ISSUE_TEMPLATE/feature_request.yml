@@ -1,0 +1,15 @@
+name: Feature request / 功能建议
+description: Describe the user problem and a concrete proposal.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem / 用户问题
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal and alternatives / 方案与备选
+    validations:
+      required: true

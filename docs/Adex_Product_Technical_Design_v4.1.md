@@ -1,0 +1,2699 @@
+# Adex v4.1 · 一期正式实施规范（优先于 v3.1 的变更总章）
+
+> **状态：APPROVED FOR PHASE-1 IMPLEMENTATION / 2026-10-10**。这是设计与开发交付契约，**尚未实现代码**。本章与《Adex 产品与技术设计 v3.1》共同组成 v4.1；当两者冲突时，本章、下方 ADR 和仓库根目录 `AGENTS.md` 优先。不要把“目标架构”误写成“已验证可运行”。
+>
+> **一句话产品**：Adex 是 iPhone / Web 上统一入口的个人超级助手：可持续聊天、有三层记忆、能联网与搜索、规划真实旅游、制作小游戏、研究并生成文件、搜索并合法播放音乐、**根据需求绘制/编辑图片与架构图、生成原创音乐与视频**、创建定时及条件任务、后台执行并将结果回流原会话。多模态生成模型的正式生产接口由项目所有者后续提供；先实现 provider-agnostic 契约、Mock、持久生成链路，不伪称已接通真实接口。
+
+## P1-00 · 决策冻结与对旧文档的覆盖规则
+
+| ID | v4.1 一期不可擅自更改的决定 | 覆盖 v3.1 内容 |
+| --- | --- | --- |
+| ADR-P1-01 | 仍为 **4 个独立业务服务**：`adex-app`（Java 21）、`adex-agent`（Python 3.12+）、`adex-automation`（Java 21）、`adex-tools`（Python 3.12+）。Runner/Worker 可独立容器，不算新服务域 | 不退回 v2.0 15 微服务或任意第 5 服务 |
+| ADR-P1-02 | iOS 一期：**React + TypeScript UI、Capacitor 容器、Xcode Personal Team 免费安装真机**；Web 共用 `packages/ui-web` / UI Schema；一期不单独实现 React Native/SwiftUI 两套界面 | v3.1 `apps/mobile = React Native` 仅保留历史参考；Desktop/Device Agent 不纳入一期交付 |
+| ADR-P1-03 | **PostgreSQL + Redis + Elasticsearch + ECS 本地持久化磁盘**为一期集成部署与测试目标：PG 权威；Redis 临时缓存；ES 负责索引/检索且可重建；上传图片/视频/音频/文件、报告、游戏、截图与大对象均由 LocalFileStorage 写入挂载的数据盘；**一期不部署 OSS / S3 / MinIO**；未来仅经 StorageProvider 接口迁移；**ES 不可用不应阻止基础聊天、Memory 权威写入、任务运行**，搜索退化到 PG FTS/明示不可用 | v3.1 的“ES 非首期依赖”更新为“ES 一期启用，但业务有降级路径”；ScyllaDB/Kafka 非一期依赖 |
+| ADR-P1-04 | **三层 Memory 必须交付**：L1 Working、L2 Conversation、L3 Long-term；用户可查看/纠正/删除 L3；Agent Checkpoint 与 Automation Task State 是另一套数据，不能伪装成 Memory | 继承 v3.1 三层定义，补齐验收与遗忘防复活 |
+| ADR-P1-05 | **单 Agent 为默认，按需规划/并行子步骤**；同一个 Agent Runtime 扩展 Supervisor/Subagent，但一期不要求通用多 Agent 编队；后台研究与游戏生成必须经 Automation 持久运行 | 不为每种能力单建 Agent 微服务 |
+| ADR-P1-06 | 单机阿里云 ECS 为一期部署形态，**可靠性机制全部实现**（唯一创建、Lease、Fencing、Checkpoint、Outbox、幂等、UNKNOWN 对账、备份恢复演练）；不声称单机高可用 | 不能把可靠性简化成 Redis 锁或内存队列 |
+| ADR-P1-07 | 音乐：**真实曲目检索与可点击歌曲卡**必须有；**站内播放只允许用户拥有/授权内容及合法提供播放权限的音源**；其他歌曲提供官方平台跳转/打开播放。不得盗链、抓取受版权保护的 MP3、绕过 DRM。 | 新增 Music Catalog / Playback Provider 契约，不误认为搜索 API 自动授权全曲播放 |
+| ADR-P1-08 | 前端始终只访问 `adex-app` 公共 API；服务内部 API 做身份与 Scope 校验；App 数据归 App，Task/Run 归 Automation，工具副作用归 Tools | 沿用 v3.1 数据 Owner 边界 |
+| ADR-P1-09 | 开发与部署：MacBook 开发测试，阿里云单 ECS 集成部署。通过 Git/CI/CD 投放到云端；不要求在云端运行 Codex。Linux AI CLI 可选，不拥有生产密钥 | v3.1 示例资源预算需实测调整；加 ES 和 Browser Runner 后 4C16G 不是保证可运行配置 |
+| ADR-P1-10 | 中国内地 ECS 的 LLM / WebSearch / 多模态模型供应商需选择合法可用的接口并按地域验证；所有 provider 做适配器，不能在业务里硬编码 OpenAI 或非授权数据源 | 模型/搜索/音乐/图片/音频/视频接口依赖可替换 |
+| ADR-P1-11 | **一期增加四项创作体验**：图片生成与编辑、可编辑架构图生成、原创音乐生成、视频生成；多模态模型 API 待用户提供，**一律经可插拔 `MediaGenerationProvider` 接入**，不得把凭证与 SDK 写死在 UI 或 Agent Prompt 中 | FEAT-16～19、P1-14/P1-15 新增一期规范 |
+| ADR-P1-12 | **所有生成原图/视频/音乐/架构图与预览/缩略图均保存在 ECS 本地持久化磁盘**，元数据、作品版本、任务状态写 PG；多模态异步任务必须复用 Automation Lease/Fencing/Checkpoint/Outbox/EffectLedger | 一期绝不引入 OSS、MinIO 或新的业务微服务 |
+
+**冲突优先级**：本 v4.1 一期规范 > `AGENTS.md` 中的补充执行约束（不能推翻 v4.1 决策） > v3.1 核心架构章节 > v2.0 历史章节。Codex 不得悄悄引入另一套认证/存储/模型框架；发现冲突请写 ADR 和影响评估。
+
+## P1-01 · 一期体验范围（完工即能个人长期使用）
+
+| ID | 产品模块 | 一期可验收的用户体验 | 服务归属 | 级别 |
+| --- | --- | --- | --- | --- |
+| FEAT-01 | 身份、设备与会话 | 登录/登出；iPhone/Web 同账号看历史；会话创建、重命名、列表分页、删除；消息准确排序与幂等发送 | App | 必须 |
+| FEAT-02 | 多轮聊天 | SSE 流式文本/工具进度、停止生成、重新生成、消息引用、Markdown/代码渲染、富卡片、弱网续读 | App + Agent | 必须 |
+| FEAT-03 | 三层 Memory | 长会话自动摘要、跨会话记住偏好、基于来源检索与解释、修改/删除记忆、防摘要复活、用户偏好开关 | App + Agent | 必须 |
+| FEAT-04 | 联网搜索 | 当前信息查询、网页提取、来源链接/抓取时间、证据不足不编造、联网失败明确告知 | Agent + Tools | 必须 |
+| FEAT-05 | 旅游场景 | 景点/酒店真实查询、城市/日期/预算/家庭偏好筛选、地图/列表、两天行程、保存编辑、可见来源与时效 | Agent + Tools + App | 必须 |
+| FEAT-06 | 音乐搜索与播放 | “搜索周杰伦的歌曲”生成歌单卡、歌曲封面/歌手/专辑/时长/提供方、点击可播放合规音源或跳转已安装音乐 App，播放器暂停/切歌、失败降级 | Agent + Tools + App + UI | 必须 |
+| FEAT-07 | 定时任务 | 自然语言创建一次性/周期性提醒/简报；展示时区、下次执行、暂停/恢复/删除、原会话回流 | Agent + Automation + App | 必须 |
+| FEAT-08 | 条件监控 | 天气变化/演唱会动态/特定关键词、共用监控源、订阅规则、去重通知、可取消；价格监控只对合法数据源 | Automation + Tools + App | 必须 |
+| FEAT-09 | 深度研究 | 可后台继续执行、实时/历史进度、多段检索分析、证据引用、文档产出与下载、失败/重启恢复 | Agent + Automation + Tools + App | 必须 |
+| FEAT-10 | 小游戏制作 | 自然语言生成可交互 HTML/CSS/JS 游戏，沙箱预览、修改对话、版本保存、可分享本人的受控预览链接 | Agent + Automation + Tools + App | 必须 |
+| FEAT-11 | 文件/Workspace | 上传 PDF/文本/图像（优先）、内容问答、报告生成、作品列表/版本/下载、隔离授权；Office 格式通过适配器扩展 | App + Agent + Tools | 必须 |
+| FEAT-12 | 通知中心 | App 内事件、离线恢复、原会话补消息、站内未读；邮件/Web Push 至少一个离线可达通道，按环境告知能力 | App + Automation | 必须 |
+| FEAT-13 | 多模态输入 | 图片上传提问、截图识别、语音录制并转文字；音频转写通过供应商能力标注 | App + Agent + Tools | 必须 |
+| FEAT-14 | 外部实际操作 | 至少完成一个有权限审批的真实动作，如日历新增事件（首选）或发送邮件；包含授权、幂等、取消/UNKNOWN 对账 | Tools + App + Automation | 必须 |
+| FEAT-15 | 账户设置与用量 | Memory 管理、模型供应商配置（管理员环境级）、任务预算与 Token 成本、通知开关、安全设置、错误反馈 | App | 必须 |
+| FEAT-16 | 图片绘制与编辑 | “画一张亲子游插画”生成图片；输入已有图片执行局部/整体编辑，支持风格、尺寸、参考图、版本历史、下载 | App + Agent + Automation + Tools + UI | 必须（真实模型接入待提供 API） |
+| FEAT-17 | 架构图/流程图绘制 | 自然语言生成 **可编辑 Mermaid/结构化 Graph DSL**，自动校验节点/连线，安全渲染，预览、修改并导出 SVG/PNG/源文件；允许从服务架构继续生成泳道/时序图 | App + Agent + Tools + UI | 必须 |
+| FEAT-18 | 原创音乐制作 | 文本/歌词/风格/时长生成音乐或纯伴奏，支持播放、试听、版本、下载、再生成；与“搜索商业歌曲/播放授权音乐”严格分离 | App + Agent + Automation + Tools + UI | 必须（真实模型接入待提供 API） |
+| FEAT-19 | AI 视频制作 | 文生视频、图生视频，选择时长/比例、展示排队/进度、播放/保存/下载、可基于参考图重新生成；基础视频剪辑/多镜头拼接作为可选增强 | App + Agent + Automation + Tools + UI | 必须（真实模型接入待提供 API） |
+
+**不纳入一期**：支付/酒店下单/自动购票、完整商业音乐库全曲播放、通用电脑桌面控制、正式公开 App Store 上架、企业多人空间、通用 Multi-Agent 角色市场、跨机房容灾、ScyllaDB/Kafka、所有外部平台连接器。以上为体验范围取舍，**不允许推迟可靠性机制**。
+
+## P1-02 · UI / iOS / Web 具体交互
+
+### 页面和导航
+
+- 一级导航：**聊天 / 任务 / 作品 / 我的**。聊天含历史会话和全局搜索；任务含 Scheduled / Monitoring / Running / Completed / Failed；作品含 Travel Plan / Research / Game / Document / File / Image / Diagram / Generated Audio / Video；“我的”含 Memory、音乐/模型工具授权、通知、设备、用量。
+- 聊天输入支持文字、附件、录音、停止、继续、重新生成；Card Registry 包含 `source_list`、`hotel_list`、`poi_list`、`trip_itinerary`、`music_playlist`、`music_player`、`task_status`、`artifact_preview`、`image_gallery`、`diagram_editor`、`generated_audio_player`、`generated_video_player`、`media_generation_progress`、`approval_request`、`error_notice`。
+- 每张卡含 `schema_version`、`card_id`、`conversation_id`、`message_id`、`actions`，未知版本优雅降级为安全文字和外链；浏览器无法任意执行 LLM 生成的脚本。
+- 后台 Run 不依赖用户手机在线；任务卡回流原会话，事件序号可补读；跨端读已提交的同一权威状态。
+- 移动端要求 375pt 宽、深色模式/安全区、弱网、横竖屏、触控音乐播放/暂停、音频焦点处理，生成游戏预览可全屏但处于隔离 origin/iframe/WebView 策略中；架构图编辑器默认使用安全 Mermaid/Graph DSL 而非执行 AI 任意代码；AI 音视频只读取鉴权流，支持进度、取消与继续查看。
+
+### iOS 免费真机策略
+
+- 使用 `apps/web` + `packages/ui-web` 复用 React/TS；`apps/ios` 或 `apps/mobile` 存 Capacitor 项目和原生桥接，**必须固定单一路径并在 README 说明**。Mac 上安装 Xcode，Personal Team 选择 Apple Account；真机开启 Developer Mode 并建立信任。
+- **免费签名 7 天有效**，每 7 天需要经 Xcode 重新签名安装；不提供 TestFlight/App Store；不依赖需开发者账号资格的 APNs 服务。iOS 与 Web 的通知功能要做 Capability Matrix，不能假装 native push 可用。
+- 一期 App 内在线 SSE + 站内信是基本通道；离线消息选 **邮件**，并另外提供 **添加主屏幕 PWA + Web Push**（适用的 iOS 和授权环境才启用）。PWA Web Push 与原生 Capacitor 的 APNs 是两个不同端点。
+- 使用 HTTPS、设备安全存储凭证、麦克风/相册用途声明；原生音频后台播放及锁屏媒体控制只有在所用音源授权及所需 iOS entitlement 可用时作为加分能力，**不作为免费签名一期硬性承诺**。
+
+### Web 测试策略
+
+- Web `Vite + React + TS`，支持本机 `pnpm dev` + Mac/浏览器；访问云端 BFF 通过 HTTPS/CORS 白名单；所有 API 通过 `apps/web/src/api` 生成的 TS SDK，不在组件里拼 URL。
+- 生产环境浏览器与 Capacitor 共用组件与 UI Schema，针对 `media`、`file picker`、`notifications`、`browser open` 定义 PlatformAdapter 处理差异。
+
+## P1-03 · 完整业务闭环（必须端到端跑通）
+
+### J1 聊天、记忆与主动个性化
+
+1. iPhone/Web 以 `client_message_id` 提交用户消息。App 验证身份、写入 PG `messages`、`message_outbox`，返回 `message_id`。
+2. App 调用 Agent 短会话请求；Agent 通过 App Context API 读取 L2 对话与摘要、L3 相关 Memory；L1 从 Redis 或工作态加载，缺失时重建。
+3. Agent 根据意图选择 Direct / Single-Agent、需要时调用 Tools；App 以 SSE 发布文本/卡片/工具进度，完成后原子持久化 Assistant 消息和结束事件。
+4. 记忆候选异步抽取写入待确认/可信 L3 事实，携带 `source_message_ids`、时间、置信度、版本；冲突合并与纠错要可追溯。
+5. 用户在新对话中说“按我过去的亲子偏好推荐”能引用有效偏好；删除记忆后不允许旧摘要或索引再写回删除事实。
+
+### J2 “搜周杰伦的歌曲，列表点击播放”
+
+1. App 保存用户消息，Agent 识别 `music.search`，Tools 调用已配置且合规的 `MusicCatalogProvider.search(artist="周杰伦")`。
+2. 返回规范化曲目列表：`provider`、`track_id`、`title`、`artists`、`album`、`duration_ms`、`artwork_url`、`isrc?`、`availability`、`available_actions`、`source_url`。
+3. 展示 MusicPlaylistCard；点曲目由 UI 调 `POST /v1/music/playback:resolve` 或平台授权 player adapter；**只有返回 `INLINE_LICENSED` / `USER_LIBRARY` 的合法授权 URI 才允许 `<audio>` 播放**；`PROVIDER_OPEN` 使用官方 deep link / H5；`UNAVAILABLE` 给出说明。
+4. 合法站内音频显示播放/暂停、下一首/上一首、进度；播放器资源有过期/版权地区/订阅校验；停止或离开页面能释放 MediaSession。
+5. 搜索无结果、音源不可播放、第三方平台未安装、网络失败均有明确 UI 与退化路径；不得显示“完整播放”却只有 30 秒试听。
+6. **自动化 E2E 用许可明确的测试音频验证真正的站内播放**；商业歌曲列表以已授权目录/平台官方跳转测试，不能依赖抓取盗版音源通过测试。
+
+### J3 旅游规划与酒店、景点搜索
+
+1. 用户给日期、出发地、预算、人数/亲子偏好；缺失关键预订条件才简短追问。
+2. Tools 分别查酒店、POI、天气、距离/地理定位、网页来源；每条价格/房态注明供应商/时间/币种，未经供应商接口确认不可宣称“实时有房”。
+3. Agent 生成 `trip_itinerary`（日期、时段、POI/Hotel 引用、位置、建议、风险、来源）；UI 展示地图+行程编辑；App 保存 Travel Artifact 版本。
+4. 用户说“换一家近景点的酒店”，仅重规划相关段并保存新版本。后续可创建天气变化监控。
+
+### J4 创建早间简报、暂停/恢复
+
+1. 用户说“每天早上八点发送 AI 与美股简报”；Agent 提议 `ScheduleDraft`，明确 **Asia/Shanghai**、执行窗口、内容与通知通道；App 展示确认卡。
+2. 经确认，App → Automation `POST /internal/automations`，提交 `Idempotency-Key`，PG 事务保存定义、下一触发、Outbox。
+3. 多台 Scheduler 通过短事务 `FOR UPDATE SKIP LOCKED` 领到期日程，创建 `UNIQUE(schedule_id,scheduled_at)` Occurrence、唯一 Task Run 并推进 `next_fire_at`。
+4. Agent Background Worker 通过 Automation Claim 获取 `attempt_id/epoch/lease`，持续 heartbeat 与 Checkpoint；失败/重启接管后恢复。
+5. 完成时 Automation 原子提交 Run 状态与通知 Outbox；App Notification 消费后**先幂等写回创建任务时的 `origin_conversation_id`**，再更新通知中心并尝试渠道投递。
+6. 关闭 iPhone 仍能执行；重新打开查看结果和运行历史；同一 occurrence 不会重复生成两条成果/重复通知。
+
+### J5 条件监控与共享采集
+
+1. 监控规则例如“如果明天上海天气预报降雨提前通知”；保存 Monitor Source Key + User Subscription + Rule。
+2. 同源订阅可共享采集；Monitor Worker Lease 抢占采集权；Observation 落 PG，并对版本/去重。
+3. 按用户规则匹配产生唯一 Notification Intent (`observation_id, subscription_id, channel`)；不要每个用户跑一个常驻 LLM。
+4. 监控支持静默期、去重窗口、数据源限流、费用限额、取消与策略关闭。通知回流原会话。
+
+### J6 研究与小游戏生成（持久运行）
+
+1. Agent 路由复杂请求为 `BACKGROUND_WORK`；App/Automation 幂等创建 Task 和关联会话 `task_id`。
+2. Worker Claim → 按 Plan 的可恢复节点执行；搜索/分析/报告及网页工程各阶段持久 Checkpoint；长 Node 需要细分以减少崩溃重复计算。
+3. 研究引用真实来源，报告产物存 ECS 本地持久化数据目录并在 PostgreSQL 保存文件元数据；小游戏源码、依赖锁和产物版本通过 LocalFileStorage 存 Workspace，独立 Code Runner 构建/运行测试。
+4. HTML/JS 游戏预览在独立沙箱 origin 且 CSP 阻断读取 Adex Session、Cookie 与任意网络访问；**不能直接执行模型生成的前端 JS 于 Adex 主站 Origin**。
+5. 用户对游戏说“增加计分” -> 基于指定 `artifact_version` 做新版本修改；乐观并发冲突给出明确选项。
+
+### J7 日历动作审批与外部幂等
+
+1. 用户说“下周一上午十点创建会议”；Agent 解析并读取时区/日历连接权限，显示审批卡。
+2. 用户审批后，Tools 根据 `effect_key = run_id + logical_action_id` 持久记录状态及 provider request ID，校验授权及当前 epoch。
+3. 成功保存 provider event ID / result_ref；超时未知状态 `UNKNOWN` 不盲目重试；恢复时优先按 provider ID/可查询标识对账，无法确认则要求人工介入。
+
+### J8 图片生成、图片编辑
+
+1. 用户在 iOS/Web 中说“绘制一张上海迪士尼亲子游海报”，或上传参考图片说“把背景换成蓝天”；App 将用户输入与上传文件引用持久化。
+2. Agent 将意图路由到 `creative.image.generate` / `creative.image.edit`，校验参考图权限与能力参数，生成确认/参数卡；App 经 Automation 幂等创建 `MEDIA_GENERATION` Run，支持队列、取消与进度。
+3. Tools `MediaGenerationProvider` 调用已配置的合法图片模型，支持同步结果或异步 provider job；结果通过 App 内部 File API 从授权下载地址分块写入 ECS LocalFileStorage，校验 hash/MIME/尺寸并完成原子 READY。
+4. App 将生成图写入 Workspace 的 ArtifactVersion，并作为 `image_gallery` 卡回流原会话；用户可继续说“改成水彩风”生成新版本，保留原图、Prompt、参数、模型来源和父版本关系。
+5. 未提供真实模型 Key/API 时，走确定性 Mock/Fixture 通过契约、错误/恢复测试，但必须在用户界面与验收报告标记 `BLOCKED_EXTERNAL`，**不得谎称已实现真实生成**。
+
+### J9 可编辑架构图/流程图生成
+
+1. 用户说“绘制 Adex 四服务架构图，标明 App/Agent/Automation/Tools 和 PostgreSQL/Redis/ES 调用”；Agent 产生机器可读 `DiagramSpec` 与 Mermaid 文本（图型、节点、连线、分组、样式、说明）。
+2. Tools 使用语法和安全验证器检查节点 ID/引用、图规模、Mermaid 语法；前端沙箱安全渲染 SVG，支持节点、连线及文本源码编辑，导出 SVG/PNG/.mmd/JSON。**源图是权威作品，PNG 只是导出预览**。
+3. 点击“调整 Automation 和 Agent 的连接”产生新 ArtifactVersion；保留可编辑源码和渲染器版本，图渲染失败返回可修复错误，不渲染任意用户 HTML/脚本。
+4. 对长时生成/批量导出可走 Automation，但简单 Mermaid 图可以走普通 Single-Agent + Tools，不必人为后台化所有图。
+
+### J10 原创音乐制作（与音乐搜索播放分开）
+
+1. 用户说“生成一段 30 秒轻快的旅行背景音乐”；选择有权限的生成模型、提示词、语言、风格、时长、是否有人声，Agent 与 Tools 校验参数、预算及音频内容许可。
+2. App/Automation 创建可恢复生成 Run，Tools 发送生成任务并持久 provider_job_id / client_request_id、重试/UNKNOWN 核对状态；轮询或验证 webhook 完成事件。
+3. 获取合法生成音频后由 App 保存到 ECS 本地磁盘；Probe 音频时长/编码/大小，生成波形/封面可选，关联 ArtifactVersion。前端 `generated_audio_player` 支持播放、暂停、进度、循环、下载与版本迭代。
+4. 用户请求“改成纯音乐版本”只创建新版本与新的受控 Run；不得把没有授权的商业歌、翻唱或真人音色克隆当作无条件可生成。
+
+### J11 AI 视频制作
+
+1. 用户说“把这张亲子游图片变成 5 秒小视频”，上传一张拥有权限的参考图，或直接提供文本提示词；检查供应商支持 `text_to_video` / `image_to_video`、时长、分辨率、比例、参考图上传限制。
+2. 通过 Automation 后台长任务持久创建 provider job、保存 provider_job_id；可取消、轮询进度、控制超时/预算、SIGKILL 后恢复查询，**不可因为 HTTP 超时重复下发无法对账的生成订单**。
+3. 生成完成后经 App File API 受控拉取至 ECS 磁盘，探测封装/视频流、生成海报帧、可选转码，发布 ArtifactVersion。Web/iOS 支持封面、视频播放（HTTP Range）、下载与在聊天中打开。
+4. 超时/供应商失败显示可靠状态和重试选择；取消只是最佳努力，若供应商无法取消须停止结果公开并按实际账单记录成本。不能默认声称已实现复杂多镜头剪辑。
+
+## P1-04 · 四服务功能、API 触发点与数据读写矩阵
+
+| 服务 | 必须实现的模块 | 何时触发 | PG 读写 | Redis/ES/本地文件磁盘 |
+| --- | --- | --- | --- | --- |
+| **App (Java)** | Auth、Conversation、Message、L1/L2/L3 Memory Owner、Knowledge/Files、Workspace/Artifacts、Music/Trip/Task/CreativeMedia 卡片、SSE、Notification、Audit | 所有前端请求；异步通知/结果回流 | 用户、消息、摘要、长期记忆、作品、通知、outbox 的 R/W；消息序号与幂等 | Redis Hot Context/限流；ES 异步索引与搜索；LocalFileStorage 负责本机数据盘文件/作品 |
+| **Agent (Python)** | Request Router、Context Builder、Direct/Single-Agent/Planner、Model Gateway、LangGraph Checkpointer、Research/Trip/Game/Music/Creative Skill | App 同步 Turn；Automation 后台 Run 派发 | 只读 App 授权 Context API；Agent 自身 PG Schema 的持久 Checkpoint/调用账务/诊断 | L1 缓存辅助；通过 Tools 搜索、模型调用；大产物由 Tools/App 受控保存 |
+| **Automation (Java)** | Schedule、Task/Run/Step、Claim、Heartbeat、Epoch/Fencing、Recovery、Monitor/Subscription、Rules、Outbox、User Approval State | 创建自动化、调度到期、事件采集、工作完成/超时 | 对 Automation Schema 的任务、租约、调度、观测、规则、通知意图 R/W | Redis 可作唤醒通知但不持久调度；不直接访问 App 的消息表 |
+| **Tools (Python)** | Tool/MCP Registry、WebSearch、MusicCatalog、Trip/HOTEL/POI Provider、Weather/Maps、MediaGenerationProvider、DiagramRenderer、File Parse、Code/Browser Runner、Calendar/Mail、Tool Effects/Vault | Agent 调用工具；Monitor 受控采集 | Tools Schema 的凭证引用、授权、连接器、EffectLedger、Runner 状态 R/W | 搜索服务、媒体合法来源；通过 App File API 持久化截图/产物到本地数据盘；Redis 短缓存 |
+
+**跨服务事务边界**：只有本服务数据库内用单事务；跨域通过 Outbox + 消费幂等协调，不使用同步分布式大事务。所有服务自管 migration 和 DB Role。API 传 resource refs，不能直接 join 其他服务 Schema。
+
+## P1-05 · 统一 Agent 策略与三层 Memory
+
+**模型执行模式**：`DIRECT`（模型直答，无工具）、`SINGLE_AGENT`（单一循环 + tool calls）、`BACKGROUND_WORK`（带 Run、Checkpoint 的持久工作）。`MULTI_AGENT` 为 Runtime 扩展接口，一期不强制启用通用 Supervisor；研究内部可以通过有界并行子计划而不称独立 Agent。工具/模型的动态选择受限于 Scope、预算和可用 Provider。
+
+| 记忆层 | 权威与缓存 | 读写过程 | 失效与删除 |
+| --- | --- | --- | --- |
+| **L1 Working** | Agent 运行态 + Redis TTL；持久 Run 的必要状态转 Agent Checkpoint | 每 Turn 缓存最近摘要/上下文/工具临时结果；Redis 丢失可从 PG L2/L3 及 checkpoint 重建 | TTL/版本键；不承载唯一原文 |
+| **L2 Conversation** | App PG `messages`、`conversation_summaries`、索引/游标 | 消息先事务写入再异步索引；长对话按 Token 阈值摘要且保留引用和版本 | 删除会话触发来源删除/失效，全文/向量索引需异步删除，禁止读墓碑数据 |
+| **L3 Long-term** | App PG `memories` + `memory_versions` + `memory_deletions`；ES 是可重建索引 | 从对话/用户明确偏好抽取候选、归并/冲突解决；保存可验证来源、confidence、valid_at；Context Builder 检索 Top-K 且按隐私范围过滤 | 用户修改、删除、禁止该来源重建；必要时 Tombstone/Extraction Watermark；多版本记录和异步索引补偿 |
+
+**读链路**：`App.authorized_context_snapshot` → Agent Context Builder → L1 hot state → L2 最近消息+摘要 → L3 长期偏好/语义检索 → 按 Token/时效/可信度组织 Prompt；ES 不可用退回 PG 与最近消息。**写链路**：App 持久化原始消息；Agent 返回 MemoryCandidate（结构化、证据、敏感级别）；App Policy/Consent/Conflict Resolver 校验后事务写入 L3；异步更新 ES。
+
+**非常重要**：用户删除一条长期记忆后，历史摘要或尚未完成的提取作业可能重新生成该事实。必须按 `source_ref/revision` 做删除墓碑、提取水位控制和索引清理；可配置彻底删除策略及备份保留说明。个人健康、政治、财务、宗教等敏感画像禁止默认悄悄推断并持久保存；需要明确授权与删除能力。
+
+**分离规则**：`agent_checkpoints` = 计算位置和节点状态；`task_runs/attempts` = 分布式所有权；`L1/L2/L3` = 用户上下文；三套是不同的主键/Owner/生命周期。
+
+## P1-06 · 音乐能力的严谨产品/技术方案
+
+### 音乐模块不是“网页搜到 MP3 URL 就播放”
+
+- 音乐目录（曲目/歌手/专辑）与播放权益是两个不同问题，**搜索成功不代表可以站内全曲播放**；商业录音受版权及平台协议约束。
+- `MusicCatalogProvider` 只输出有来源的元数据和 provider deep link；`PlaybackProvider` 单独决定 `availability/mode/uri/expiry/authorization`。支持适配 QQ/网易云/Apple Music 等合法官方平台，**是否可集成及提供播放取决于具体服务的公开授权与当前条款，未签约时默认仅官方跳转**。
+- **Apple iTunes Search API Preview 不能当任意娱乐网站流媒体接口**：Apple 文档限定其预览为商店内容推广用途，且有展示商店标识等条件；不可默认把它当 Adex 娱乐播放的免费音源。Apple Music 的完整 MusicKit 集成涉及开发者 Token/权限/用户订阅，**不作为免费开发者账号的一期前置条件**。
+- 一期可合法真实站内播放的来源：**用户自行上传且拥有权限的音频**、公共领域/明确允许应用内播放的示例曲目、签约/官方明确授权的播放 URL；必须验收至少一个这样的来源，并支持商业目录“周杰伦列表 + 官方平台点击打开”。
+
+### Provider Adapter 接口（示例）
+
+```python
+class MusicCatalogProvider(Protocol):
+    async def search(self, *, query: str, artist: str | None, region: str, limit: int) -> list[Track]: ...
+
+class PlaybackProvider(Protocol):
+    async def resolve(self, *, user_id: str, track: TrackRef, device: DeviceContext) -> PlaybackResolution: ...
+```
+
+`Track` 示例：
+
+```json
+{
+  "track_id": "provider:track-001",
+  "title": "示例曲目",
+  "artists": ["演唱者"],
+  "album": "专辑",
+  "duration_ms": 200000,
+  "artwork_url": null,
+  "source_url": "https://music.example/track/001",
+  "provider": "official-provider",
+  "availability": "PROVIDER_OPEN",
+  "available_actions": ["OPEN_PROVIDER"],
+  "updated_at": "2026-10-10T00:00:00Z"
+}
+```
+
+`PlaybackResolution` 取以下之一：`INLINE_LICENSED`（授权的临时播放链接+`expires_at`）、`USER_LIBRARY`（用户上传音频的鉴权链接）、`PROVIDER_OPEN`（官方 Deep Link 和 HTTPS fallback）、`UNAVAILABLE`（明确原因）。**禁止把 provider deep link 塞进 `<audio src>`**；也不缓存或转存未经授权的流媒体内容。
+
+`music_playlist` Card v1：曲目列表、provider badge、播放能力、封面、来源、明确试听/全曲标识；`music_player` 维护 activeTrack、playing、progress、repeat/shuffle（后两者可作为增强）；`OPEN_PROVIDER` 保证在 iOS 使用 Capacitor Browser/Linking 打开适配 URI，失败降级到 HTTPS 官方页面。
+
+**音乐场景验收**：真实检索一个艺人（如周杰伦）并展示不空的、有来源歌曲列表（若供应商未接入则标记 BLOCKED，不得用虚构曲目蒙混验收）；点击 `INLINE_LICENSED` 测试音频确实发声且可暂停/切歌；商业曲目有官方可用跳转且无盗链；非法/过期的播放 URI 被拒绝；供应商故障有超时/缓存/错误信息。
+
+## P1-07 · 存储、索引、本地文件磁盘与基础设施
+
+| 组件 | 一期角色与 SLA 边界 | 本地 / 阿里云部署 |
+| --- | --- | --- |
+| PostgreSQL | 唯一权威：用户/会话/原始消息/长期记忆/调度/监控/Agent Checkpoint/Tool Effect/通知 | 本地 Docker；ECS 数据卷+定期异机备份，按服务独立 DB Role + Schema + Flyway/Alembic |
+| Redis | TTL 缓存、L1 热上下文、限流、短实时唤醒；丢失不影响权威数据 | Docker 数据卷可选，不作为任务事实源 |
+| Elasticsearch | 聊天历史搜索、知识全文/向量/混合检索和长期 Memory 检索的异步索引；**一期集成环境启用**，索引可重建 | 单节点配置资源/堆/磁盘水位；不可写时保留 Outbox 待补建 |
+| **ECS LocalFileStorage** | 图片、视频、音频、上传文档、小游戏工程、研究报告、浏览器截图、沙箱产物、必要的 Checkpoint 大对象 | **一期只有本地文件系统后端**：Mac 测试目录 + 阿里云 ECS 独立数据盘 bind mount；不部署 MinIO/OSS/S3；文件元数据与权限在 App PostgreSQL；备份/恢复演练 |
+| 模型 Provider | 商业托管模型，多家可切换、按 Token/请求预算 | 国内节点选可用且合规的模型服务，不要求本机 GPU |
+| WebSearch / Travel / Music | 正规 Provider adapter，独立密钥、配额与超时 | 各自网络连通性、地区/许可验证，不允许把聚合站的 HTML 当实时预订 API |
+
+**容量建议**：此前 4vCPU/16GiB 是 v3.1 的无 ES 保守方案；四服务 + ES + Browser Runner + 构建工具在同 ECS 可能资源紧张。**建议 8vCPU / 32GiB 起步评估，4C16G 只作为受限按需启停测试环境**；必须记录 Java Heap/ES Heap/Runner 内存峰值与 OOM 测试，不把经验数字当保障。
+
+### 本地文件存储 ADR（一期强制，不接 OSS/MinIO）
+
+- **物理边界**：阿里云 ECS 推荐单独挂载数据盘到 `/data/adex`（不要存容器 writable layer、`/tmp`、代码 Git 仓库或随发布覆盖的目录）；Mac 开发环境使用 `./.local-data` 或可配置绝对路径。容器 bind mount 映射到 `/var/adex/files`。数据卷在容器重建、服务滚动更新、整机正常重启后保留；云盘与 ECS 同故障域，**不能声称主机或云盘永久损坏时不丢数据**。
+- **目录规划**（服务启动时创建、校验权限）：`/data/adex/files/{uploads,images,videos,audios,documents,artifacts,checkpoints,runner-evidence,tmp}`；以随机对象 ID + 分桶子目录存放文件，不拼接用户上传的原始文件名；真实文件名仅作为经过转义的 PG 元数据。每个对象包含 `owner_id`、`object_id`、`storage_backend=LOCAL`、`storage_key`、`mime_type`、`size_bytes`、`sha256`、`status`、`created_at`、`deleted_at`、`retention_until`、`source_run_id?`、`artifact_version_id?`、`access_scope`。
+- **服务归属**：App `FileStorage` 接口唯一管理长期文件对象及 PG 元数据；初期仅有 `LocalFileStorage` 实现。Tools/Agent/Runner **禁止直接向 App 的持久文件目录任意写入**；通过内部授权 `POST /internal/files` 流式上传，并获得 `file_id`；临时 Runner 文件置于与长期存储分离的隔离临时目录，验收/扫描后才能导入。Agent Checkpoint 业务表归 Agent；其大对象可以借助受控 File API 存储并保存版本引用。
+- **写入一致性**：App 先创建 `PENDING` 文件元数据 → 写入临时文件并边写边校验大小/哈希 → 在同一文件系统 `fsync + atomic rename` 发布文件 → PG CAS 标记 `READY`；DB 与文件系统不存在真正跨资源 ACID，必须实现 **PENDING/孤儿文件清理与可恢复扫描**。只有 `READY` 文件可见。失败使用稳定上传幂等键防重复对象和泄漏。
+- **鉴权读取**：Web/iOS 只通过 App `GET /api/v1/files/{id}/content` 访问，不直接暴露 `/data/adex` 路径；应用服务器每次按用户/会话/Workspace ACL 校验，按需支持 `Range` / `206 Partial Content` 以播放用户合法音频和视频；不经鉴权的 Nginx 静态别名禁止指向持久私有目录。下载链接只可使用短期受限票据或带 Cookie/Bearer 鉴权的端点；第三方授权流媒体保持在 Provider，不抓取到本地。
+- **安全与治理**：上传限制类型、大小、用户配额；拒绝路径穿越、软链接逃逸、可执行文件及危险脚本直接当同源网页访问；媒体解析/转码在独立受限 Runner；不信客户端 `Content-Type`；文件默认私有，禁止把生成游戏的 JS 放在 App 主站 Origin 执行；定期清理已确认过期临时文件，不能清理 Task/Checkpoint 仍引用的对象。
+- **备份与恢复**：初期最低标准为 **PG 一致性备份 + 本地文件增量备份/独立云盘快照**，保持同一个恢复点的元数据/文件关联；云盘快照与磁盘版本保留策略需要明确；更可靠方案是异机文件副本（仍不是 OSS）。必须演练重建 ECS 后从备份恢复 PG 与 `/data/adex/files`；备份不在同一系统盘。监控磁盘剩余容量、inode、I/O 错误，达到水位停止新上传而不是删用户文件。
+- **未来迁移**：`FileStorage.put/get/head/delete` 保留 `storage_backend` 与 `storage_key`，以后可以新增 `OssFileStorage` 并逐对象迁移与校验，不允许先期业务直接 import OSS SDK。迁移仍要保护历史 `LOCAL` 文件可读。
+
+```yaml
+# deploy/docker-compose.yml 中 App 的示意配置
+services:
+  adex-app:
+    environment:
+      ADEX_FILE_STORAGE_BACKEND: local
+      ADEX_FILE_STORAGE_ROOT: /var/adex/files
+    volumes:
+      - /data/adex/files:/var/adex/files
+```
+
+**本地盘并不等于多机器共享盘**。一期按单 ECS 设计；将来 App 横向扩容时，必须先引入共享存储（OSS/S3/NAS 或明确的文件路由方案），绝不能把每台机器本地盘误认为同一份数据。
+
+### 首批数据库表（必须实体实现、迁移与索引）
+
+- App：`users`、`sessions`、`conversations`、`messages`（`UNIQUE(conversation_id,seq)` / `UNIQUE(owner_id,client_message_id)`）、`conversation_summaries`、`memories`、`memory_versions`、`memory_deletions`、`artifacts`、`artifact_versions`、`uploads`、`notifications`、`notification_deliveries`、`app_outbox`、`media_catalog_cache`（仅获准元数据/短 TTL）、`media_artifacts`（图片/音乐/视频产物权威元数据）、`diagram_sources`（可编辑源码与版本）、`media_file_links`（资产与生成 Run/用户绑定）。
+- Automation：`automations`、`schedules`、`schedule_occurrences`（`UNIQUE(schedule_id,scheduled_at)`）、`tasks`、`task_runs`（`UNIQUE(occurrence_id)` 当非空）、`run_attempts`、`task_steps`、`monitors`、`observations`、`subscriptions`、`automation_outbox`、`media_generation_runs`（provider job 映射、状态/预算/回调版本）。Run 的 `lease_owner/lease_until/attempt_id/epoch` 要有 CAS 条件。
+- Agent：`agent_checkpoints`（`checkpoint_id,run_id,thread_id,node,state_ref,created_at,immutable`）、`model_invocations`、`agent_run_diagnostics`、`agent_outbox`（如需要）；原始 Checkpoint 使用稳定持久 serializer，复杂状态建议存本地持久化文件（content-hash 定位）+引用；恢复时必须先确认文件仍存在且校验通过。
+- Tools：`tool_definitions`、`connector_accounts`（encrypted credentials refs）、`tool_effects`（`UNIQUE(owner_id,effect_key)`）、`runner_sessions`、`media_provider_jobs`（外部 job/effect 记录）、`tool_outbox`（如工具完成事件需可靠投递）。
+- 搜索索引：`conversation_message_v1`、`knowledge_chunk_v1`、`memory_v1`；文档带 `owner_id/source_id/source_version/acl_revision/deleted_at`，搜索后仍到 App 校验 ACL，不能只信 ES Filter。
+
+### 任务领取与故障恢复不变量
+
+1. Schedule 读取使用数据库锁事务：`FOR UPDATE SKIP LOCKED`，**同事务**插入唯一 Occurrence、Run、Outbox 并推进下次触发；事务外启动 Worker。
+2. Agent Worker Claim 是原子更新，`epoch` 每次接管递增，`attempt_id` 每次新生成；`lease_until` 使用 DB `clock_timestamp()`，Worker 心跳必须校验当前 `epoch/attempt/lease`。
+3. Automation 写入 `COMPLETED` / `FAILED` / `CheckpointRef` 需要条件 `WHERE run_id AND epoch AND attempt_id AND lease_until > now AND status=RUNNING`；更新行数 0 代表 `STALE_EXECUTION`。
+4. Agent Checkpoint **先持久化为不可变版本，再由 Automation 提交相应引用和 Run step 状态**；如果第二步失败，孤儿 Checkpoint 可回收；如果恢复，读取 Automation 已提交引用，而非任意最新 checkpoint。
+5. HTTP 超时/网络断开不能假定失败；外部 EffectLedger 稳定 `effect_key`，有 provider 幂等键就传递；`UNKNOWN` 先查询核对，不盲目重试；没有确认渠道时暂停人工介入。
+6. `Outbox` 与本域状态更新同事务提交；投递可以重复，消费者按 `event_id/dedupe_key` 幂等；Redis Pub/Sub 仅作唤醒，PG 扫描兜底。
+7. Worker 进程 SIGTERM 优雅停止领取、保存可行 Checkpoint；SIGKILL/断电后旧 Lease 到期由其他/重启后 Worker 接管；**不能保证第三方外部副作用物理 exactly once**。
+8. 前端 SSE 与后台通知分离，SSE 按 `event_id/seq` 恢复重要已持久化进度；未落库 Token 允许丢失但最终消息必须可重查。
+9. 单 ECS 永久损坏/磁盘损毁需 PostgreSQL 备份 + 文件目录异机备份或独立数据盘快照；**只有同 ECS 上的一份目录不具备灾难恢复能力**，必须实测恢复；单机不可实现宕机时不停服。
+
+## P1-08 · API 契约与事件规范（落地路径建议）
+
+客户端只访问 App `https://<host>/api/v1`。以下路径是**待 Codex 实现的契约建议**；所有写接口校验 `Authorization` / 用户 ID、`Idempotency-Key`（状态改变操作）、`request_id`、`trace_id`；分页必须 cursor-based。
+
+| App 公共 API | 方法 | 用途/重要要求 |
+| --- | --- | --- |
+| `/auth/login`, `/auth/refresh`, `/me` | POST/POST/GET | 用户身份/刷新/账户，个人部署可以首建 owner；生产禁止匿名默认管理员 |
+| `/conversations` | GET/POST | 分页、创建 |
+| `/conversations/{id}/messages` | GET/POST | 历史读取、提交用户消息（`client_message_id` 唯一） |
+| `/conversations/{id}/events?after_seq=N` | GET (SSE) | TextDelta / ToolStatus / Card / MessageCommitted / RunStatus，断线查询快照 |
+| `/conversations/{id}:delete` | POST | 用户删除/遗忘规则，不硬删除所有审计 |
+| `/memories`, `/memories/{id}` | GET/POST/PATCH/DELETE | L3 管理、来源、遗忘 |
+| `/search` | GET | 跨会话/文件检索，ES 出问题时降级/透明报错 |
+| `/music/search` | GET | 结构化曲目检索（用于 UI），用户聊天路径仍走 Agent 意图路由 |
+| `/music/playback:resolve` | POST | 解析单曲的合法可播放性与来源打开模式，短期 URI 不长期入消息正文 |
+| `/trips`, `/trips/{id}` | GET/POST/PATCH | 行程列表、保存、乐观版本编辑 |
+| `/tasks`, `/tasks/{id}`, `/tasks/{id}:cancel` | GET/POST/GET/POST | 只返回持久 task 状态，不冒充执行完成 |
+| `/automations`, `/automations/{id}` | GET/POST/PATCH/DELETE | 时区/下一触发/暂停/订阅 |
+| `/notifications`, `/notifications/{id}:read` | GET/POST | 未读和投递状态 |
+| `/artifacts`, `/artifacts/{id}/versions` | GET/POST/GET | 作品、不可变版本、下载签名 URL |
+| `/files/uploads` | POST | 已升级为 App 本地鉴权直传；小文件 `POST /files` multipart，大文件使用受控分片 session，不提供 OSS 签名 URL |
+| `/approvals/{id}:decide` | POST | 用户批准/拒绝、审核结果审计 |
+| `/creative/capabilities` | GET | 列出可配置 image/edit, diagram, music_generate, video_generate 能力与已接通的 Provider；无 Key 时明确 BLOCKED_EXTERNAL |
+| `/creative/jobs`、`/creative/jobs/{id}` | POST/GET | 幂等创建与查看多模态生成 Job；返回 task/run、当前状态、成本/配额和原会话 |
+| `/creative/jobs/{id}:cancel` | POST | 请求取消，遵守当前 attempt/lease，外部 provider 取消为 best effort |
+| `/creative/artifacts/{id}:revise` | POST | 创建作品新版本；引用旧资源但不覆盖已完成版本 |
+| `/diagrams/validate`、`/diagrams/render` | POST | 验证可编辑 DiagramSpec/Mermaid；导出 SVG/PNG 走隔离渲染器 |
+
+| 服务内部 API / Event | 业务 Owner | 可靠性要求 |
+| --- | --- | --- |
+| `POST /internal/agent/turns` | Agent | App 提供短期授权 ContextRef，Stream 分帧/取消 |
+| `POST /internal/tasks` & `POST /internal/automations` | Automation | 业务键幂等，事务落库+Outbox；请求中带 `owner/origin_conversation_id` |
+| `POST /internal/runs:claim`、`POST /internal/runs/{id}:heartbeat` | Automation | 以 attempt/epoch/DB clock CAS 验证 |
+| `POST /internal/runs/{id}/steps:commit` & `POST /internal/runs/{id}:complete` | Automation | 对最新 lease CAS，Checkpoint Ref 指向已持久化状态 |
+| `GET /internal/context-snapshots/{ref}`、`POST /internal/results:attach` | App | 租户/TTL/Scope；回流消息 `dedupe_key` 唯一 |
+| `POST /internal/tools/{tool_id}:invoke` | Tools | 校验 Scope、工具 Schema、权限、EffectLedger、过期与 epoch（外部写风险需额外防护） |
+| `automation.run.completed`、`automation.notification.requested`、`artifact.ready`、`creative.job.progress`、`creative.job.completed`、`creative.job.failed` | Automation/App | Outbox 提交；消费者幂等；引用含 schema_version |
+
+### 流式事件示例
+
+```json
+{
+  "schema_version": 1,
+  "event_id": "evt-001",
+  "conversation_id": "conv-001",
+  "seq": 27,
+  "type": "card.upsert",
+  "message_id": "msg-009",
+  "created_at": "2026-10-10T09:00:00Z",
+  "payload": {"card_id": "music-001", "card_type": "music_playlist", "card_schema_version": 1}
+}
+```
+
+SSE 事件必须区分 `token.delta`（可短期仅流）、`message.committed`（权威消息）、`task.progress`（持久进度）、`card.upsert`（结构化）、`approval.required` 和 `error`。序号仅在同会话/同 Run 中单调，**不伪造跨服务全局总序**。
+
+## P1-09 · 安全、合规、可观测性
+
+- **权限**：user/tenant scoped 查询与外键；Agent/Tools 使用内部服务身份 + delegation token/Scope + trace；防止任意 Tool 调用逃过批准；低风险读工具允许有限自动调用，高风险写操作一律审批。
+- **音乐/旅游/网页**：审查供应商许可和地域条款、展示来源；尊重 robots / 频率限制；不得从非授权媒体源绕过版权和 DRM；未拿到房态/门票 API 不宣称库存。
+- **代码运行**：Code/Browser Runner 非 root、只读根、网络出站白名单、CPU/内存/进程/时间限制、短期凭证、删除浏览器状态；与 App 认证 cookie 隔离；不在主站同源直接打开模型生成的 HTML。
+- **账户**：注册/密码安全、刷新 token 轮换、设备撤销、登录审计；.env、OAuth token 和 provider key 不进 Git/LLM 输出/前端 bundle；LLM Prompt Injection 不授予权限。
+- **数据**：隐私删除流程、用户导出、多端用户隔离、脱敏观测、本地文件私有目录、鉴权下载与限时访问凭证；敏感 L3 记忆需要额外授权。
+- **成本预算**：每个 request/task/model/tool 设置上限；超额进入 `WAITING_APPROVAL` 而非无尽循环；失败有可解释 error code 与 retry policy。
+- **可观测性**：统一 `trace_id/request_id/user_id_hash/conversation_id/task_id/run_id/attempt_id/epoch/tool_effect_key` 结构日志；Metrics 包含 SSE TTFT、成功率、模型花费、任务延迟、恢复成功率、ES 延迟、音乐 provider 命中/播放分类率、图片/视频/音频生成任务排队时长/成功率/回调重复率/单位成本/本地文件大小、磁盘容量/本地文件 I/O 错误和推送可达性。
+
+## P1-10 · 阶段实施顺序、验收产物与 Codex 分工
+
+**所有阶段都先写契约/测试，再实现功能；每阶段不许跳过幂等或故障注入。** 推荐按以下顺序提交，每个阶段是可合并 PR/Commit，不是独立产品版本。
+
+| 顺序 | ID | 交给 Codex 的实际开发内容 | 可检查的 Done Definition | 前置 |
+| --- | --- | --- | --- | --- |
+| 0 | M00 | 仓库基础：AGENTS.md、README、Maven/uv/pnpm、Dockerfiles、Compose、PG/Redis/ES + bind-mounted 文件数据盘、CI、OpenAPI/SDK 生成、env.example、四服务 health | `make doctor && make test-contract && docker compose ... up` 环境可验证；绝不包含真实密钥 | 无 |
+| 1 | M01 | App 身份/用户/会话/消息、唯一序号与写入幂等、Event SSE、前端 Chat 页面 | Web 收/发消息、刷新不丢、重复发送 1 条、流式最终一致 | M00 |
+| 2 | M02 | Agent Runtime + Model Provider Adapter + Tools Registry + WebSearch + Search Citation | 真实合法模型和搜索源跑通，回答有来源/失败可降级；预算与调用审计 | M01 |
+| 3 | M03 | L1/L2/L3 + L3 CRUD/抽取冲突/摘要/删除防复活、ES 索引 Outbox | 多会话保留/删除测试、索引故障恢复、PG 降级测试 | M02 |
+| 4 | M04 | Automation Schedule/Occurrence/Run/Claim/Heartbeat/Epoch/Outbox/Recover/Checkpoint | 并发 3 Scheduler 只建 1 occurrence；Kill Worker 后从 checkpoint 恢复 | M02 |
+| 5 | M05 | Notification 中心、任务回流原会话、离线邮件、PWA Push（适配/条件启用） | 离线后任务照常执行，登录补历史，重复事件不重复通知 | M04 |
+| 6 | M06 | 音乐目录与 Playback Provider、Music Card/Player、用户有权音频上传、官方深链 | 艺人搜索列表、有许可证的音频可播、商业曲目合法外跳，无盗链 | M02、M01 |
+| 7 | M07 | 旅游酒店景点/天气地图 Providers、trip Card、保存/版本修改 | 真实查询出两天行程、来源与时效、编辑历史、超时退化 | M03、M02 |
+| 8 | M08 | Workspace/Files、Deep Research、报告产出与引用、后台进度 | 研究重启可恢复，报告可下载，文件用户隔离 | M04、M03 |
+| 9 | M09 | 代码隔离 Runner、小游戏生成/版本/预览与修改 | 游戏可交互但无法读主站 Cookie 或服务器秘密，重启后工程可恢复 | M08 |
+| 10 | M10 | iOS Capacitor 封装、Xcode 免费签名、录音转写/图片输入、通知能力说明 | 真机可安装、聊天、播放合规音频、查看任务；7 天签名限制在 README 写明 | M01、M05、M06 |
+| 11 | M11 | 至少一个审批外部动作（建议日历）、Tool Effect Ledger/UNKNOWN 对账 | 故障注入不重复创建事件；权限撤销立刻生效 | M04、M02 |
+| 12 | M12 | **架构图能力**：DiagramSpec/Mermaid、校验渲染、编辑与 SVG/PNG/源码导出、版本化 | 可改图且源码能 round-trip；拒绝脚本注入；真实浏览器导出可预览 | M08、M02 |
+| 13 | M13 | **图片生成与编辑**：MediaGenerationProvider 适配、参考图/参数校验、上传、作品版本、Mock 与接入位 | 真实 Key 未提供标记 BLOCKED_EXTERNAL；Mock+恢复/去重测试均通过；接 Key 后真实文生图/图编辑 | M12、M04、M08 |
+| 14 | M14 | **原创音乐生成**：异步 job、合规音频格式、本机存盘、鉴权播放器、版本/成本统计 | 音频能合法播放、暂停/下载；重复 webhook 不生成双版本；缺模型明确 blocker | M13、M06 |
+| 15 | M15 | **AI 视频生成**：文生/图生、长任务进度、provider poll/webhook、下载至本地盘、预览/版本/取消 | 网页/iPhone 可播放成品，Range 可寻址，断电后查询接管不重复提交 | M13、M04、M08 |
+| 16 | M16 | 阿里云 ECS 发布、安全组/TLS、备份恢复、负载/混沌测试、最终 E2E | 全部一期 19 项能力 + 下述可靠性测试通过，附部署与恢复日志证据 | M00-M15 |
+
+### 必过的自动化与手工验收清单
+
+| ID | 测试 | 通过标准 |
+| --- | --- | --- |
+| ACC-01 | 消息重复请求 / 客户端断线重传 | 相同 `client_message_id` 不产生第二条用户消息/重复 LLM 消耗（已启动时返回同一请求状态） |
+| ACC-02 | 断网、SSE 中断、手机关闭/重开 | 会话/任务消息最终收敛，原会话能补齐持久事件 |
+| ACC-03 | 三层 Memory | 跨会话正向命中；删除后不会从旧摘要/缓存/ES 复活 |
+| ACC-04 | PG/ES/Redis 故障分别注入 | PG 故障时拒绝不安全写入；Redis 丢失可重建；ES 故障搜索降级且索引可修复 |
+| ACC-05 | 三节点 Schedule 同抢 | 同 `schedule_id+scheduled_at` 只有一 Occurrence/逻辑 Run |
+| ACC-06 | Worker 长任务 SIGKILL/重启 | Lease 到期后新 Attempt epoch+1 接管，已确认节点不重复，旧 Attempt 拒绝提交 |
+| ACC-07 | 工具调用成功但响应超时 | Effect 状态 UNKNOWN/对账，不盲目重复外部发送/创建 |
+| ACC-08 | Outbox 提交后消费者中断 | 重启自动补投、下游幂等、无丢通知 |
+| ACC-09 | Music catalog & playback | 合法测试音频真机/Web 可播放；周杰伦曲目列表来自真实供应商；商业曲目不盗播 |
+| ACC-10 | 旅游行程 | 实体与地图匹配，查询资料可追溯；实时价格/房态未核验则不标“实时” |
+| ACC-11 | Games/Browser Sandbox | 恶意 HTML 无法读取同源 Cookie/Token、突破文件/网络约束 |
+| ACC-12 | iOS 免费安装 | Xcode Personal Team 真机打开；Web 同账号/跨端同步；文档说明 7 天重签 |
+| ACC-13 | 备份恢复 | 在独立测试环境恢复 PG 及完整本地文件备份，验证图片/视频/研究/游戏/Checkpoint 哈希，任务可继续；演练记录入 docs/runbooks |
+| ACC-14 | 重复通知/重复触发 | 事件重复投递不产生双消息、双推送；监控多人共享采集 |
+| ACC-15 | 费用/权限/租户隔离 | Budget 命中被停止；无授权无法执行副作用；用户 A 无法访问用户 B 的资源 |
+| ACC-16 | 研究/游戏作品 | 异步产出可下载/可预览，可修改产生新版本，保留来源引用与任务 ID |
+| ACC-17 | 音乐无权播放退化 | UI 明示“打开音乐平台”或“不可播放”，绝不把预览误写成全曲 |
+| ACC-18 | 服务整机重启 | ECS 恢复后 PG 数据、任务、Checkpoint、L3/通知数据仍在；不承诺宕机期间可用 |
+| ACC-19 | 本地媒体/作品与容器重建 | 图片、用户音频、视频、研究报告、小游戏作品经 `/data/adex/files` 持久保存；重建 App 容器后通过鉴权 URL 可读、媒体 Range/206 正常、原内容 SHA-256 不变 |
+| ACC-20 | 文件原子写/权限与磁盘故障 | 部分上传崩溃不暴露半文件；PENDING 和孤儿能清理；跨用户访问 403；文件服务器不可用时拒绝损坏元数据；磁盘满时受控返回错误并保留已有文件 |
+| ACC-21 | DiagramSpec 生成/编辑/版本/导出 | Mermaid/Graph DSL 语法可校验，SVG/PNG 导出可打开，源码 round-trip，安全隔离任意 HTML/JS |
+| ACC-22 | 图片生成/编辑/继承与模型不可用 | Mock 可测全流程；接入真实 API 后生成可显示图片并可编辑复用，未配置模型显示 BLOCKED_EXTERNAL |
+| ACC-23 | 原创音乐生成的文件与许可 | 有权内容真实/测试音频可播放，作品元数据/下载/版本/鉴权正确，不使用盗版音源 |
+| ACC-24 | 视频长任务、恢复、在线播放 | 重启期间 Job 可续查；合法视频可在 iOS/Web 播放/206 断点读取，封面/版本正确 |
+| ACC-25 | 重复 Webhook、网络超时、失效租约 | 同 provider_job_id / effect_key 不重复计费请求/发布版本；stale epoch 拒绝提交，UNKNOWN 先对账 |
+| ACC-26 | 媒体文件安全、额度、故障与数据恢复 | 非法 MIME/超大文件/私有媒体跨用户读/磁盘满均安全失败；恢复后 hash 校验通过 |
+
+
+## P1-11 · Codex 实施纪律与交付文件清单
+
+1. 将本规格作为 `docs/Adex_Product_Technical_Design_v4.1.md`，仓库根放 `AGENTS.md`、`README_CODEX_START_HERE.md`、`docs/PHASE1_BACKLOG.md`、`docs/ACCEPTANCE.md`，全部从本基线派生，不维护互相矛盾的功能表。
+2. **首次发给 Codex 的任务只做 M00**：阅读设计，确认仓库结构，创建最小可启动骨架、启动脚本、健康检查、接口契约和测试，运行全部命令并贴真实日志；**不要一次性要求它实现 19 个产品功能**。
+3. 每个 Mxx PR 必须包括：功能代码、API Schema、数据库 migration、至少一类自动化测试、容器/部署配置、README 使用命令、风险与局限；跨服务变更先修改 OpenAPI/事件 Schema 再修改两侧实现。
+4. `AGENTS.md` 中禁止：自行改成 Node.js 后端 / React Native / MySQL、删除三层 Memory、把任务做成单机 `@Scheduled` 的内存队列、将 Redis 当聊天永久存储、从盗链来源播放版权音乐、跳过审批、默认 root 运行任意沙箱、私自对接生产数据库。
+5. 需要外部账号/付费供应商才能运行的测试，使用可重复、明显标注的 Mock Provider 进行合同测试，同时保留一个真实 Provider 接入测试；**Mock 通过不代表线上真实源已验证**，在验收记录中标 `BLOCKED_EXTERNAL`。
+6. 每个关键特性必须可配置地完全关闭或降级；依赖挂掉不能导致聊天 API 无限等待。`/health/live` 只表示进程活着，`/health/ready` 表示必要依赖就绪，输出不泄漏密钥。
+7. 同步文档保存范围：本 v4.1 是正式一期需求与工程契约；旧 v3.1 在文末保留作架构详细参考，遇到不同说法以 ADR-P1 为准。
+
+## P1-12 · 外部依赖及明确需要接入的资源
+
+| 集成项 | 一期阶段要求 | 阻塞与退化 |
+| --- | --- | --- |
+| 模型供应商 | 至少一个中国内地 ECS 可合法调用的 API、可记录用量、支持流式输出/Tool Calling | Mock 支持工程测试，不代表在线 AI 功能完成 |
+| WebSearch | 至少一个真实可用、授权清晰的网页搜索 API | 未接入时应清楚地返回“未启用联网查询” |
+| Hotel / POI / Map / Weather | 每类至少一个提供结构化合法数据的供应商或有出处的公开信息源 | 不冒充真实酒店库存/房价，必要时用来源链接打开 |
+| Music catalog | 至少一个许可允许展示曲目元数据与链接的来源；测试曲库具合法可直接播放的音频 | 对主流艺人可以返回列表与授权跳转，**不要求未经授权的全曲站内播** |
+| **文件存储** | **一期：ECS 本地持久化数据盘 + LocalFileStorage**，未来可替换 OSS/S3 | 文件只通过 App 鉴权上传/下载/分段读取；禁止公开目录和越权访问 |
+| 多模态创作接口（用户后续提供） | 图片生成/编辑、原创音乐生成、文生/图生视频的模型 API 文档、授权密钥、支持区域、异步查询/回调/取消及价格 | 未提供前 Mermaid 图可运行；图片/音乐/视频通过 Mock 验证全链路，真实生成一律 BLOCKED_EXTERNAL |
+| 离线提醒 | 邮件 SMTP/API 至少一种；PWA Push 在满足 HTTPS 和用户安装条件时启用 | 无 Native APNs 不承诺 Capacitor App 关闭时一定收推送 |
+| iOS 测试设备 | Mac + Xcode + Apple Account Personal Team + 真机 | 不要求 Apple Developer Program 付费账号，7 天重签 |
+
+**真实资源/许可证/地域属于外部集成阻塞项。编码 Agent 不得通过捏造 API 返回或把模拟曲目当成商业可播放内容来“解决”阻塞。**
+
+## P1-13 · 参考资料与原始文档传承
+
+- v3.1：保留四服务、PostgreSQL 权威、Scylla 可选、3 层 Memory、Task/Run/Lease/Fencing、Checkpoint、Tool Effects、Outbox、动态 UI、Runner 沙箱、运维/安全/备份等章节。
+- Apple Xcode Personal Team 免费签名 7 天官方说明：https://developer.apple.com/help/account/basics/about-your-developer-account
+- Apple iOS 主屏幕 Web Push 官方：https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers
+- Apple iTunes Search API 使用限制（预览用于商店内容推广，非任意娱乐用途）：https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/
+- Apple MusicKit 开发者 Token / 订阅权限参考：https://developer.apple.com/documentation/AppleMusicAPI/generating-developer-tokens
+- PostgreSQL SELECT SKIP LOCKED：https://www.postgresql.org/docs/current/sql-select.html
+- LangGraph Checkpoint 文档（开发时核对当前 SDK API）：https://docs.langchain.com/oss/python/langgraph/persistence
+
+
+## P1-14 · 多模态创作能力（图片、架构图、原创音乐、视频）
+
+### 产品范围、差异化与交互
+
+| 能力 | 用户样例 | 交互卡 | 一期必要动作 | 作品可编辑资产 |
+| --- | --- | --- | --- | --- |
+| Image Generate/Edit | “画一张亲子旅行封面”、“把这张照片背景换成雪山” | `image_gallery` / `image_editor` | 文生图、图生图/编辑、查看大图、变体/修订、下载 | Prompt、参考图、编辑遮罩可选、输出图片与父版本 |
+| Diagram Drawing | “画 Adex 四服务图，标上 PG/Redis/ES 调用” | `diagram_editor` | 架构/流程/时序图、实时预览、源码/节点修改、SVG/PNG 导出 | **DiagramSpec JSON + Mermaid（权威可编辑源）**，渲染产物 |
+| Original Music Generation | “生成 30 秒轻快旅行 BGM” | `generated_audio_player` | 风格/长度/人声参数、状态、播放、下载、修订 | 参数、生成音频、版本、音频元数据 |
+| Video Generation | “把上传照片做成 5 秒动画” | `generated_video_player` | 文生/图生、进度、播放、下载、修订/可取消 | Prompt、参考图、视频、封面、版本 |
+
+- **搜索已有歌曲 (`MusicCatalogProvider` / `PlaybackProvider`) 和制作原创音乐（`MediaGenerationProvider` 的 `MUSIC_GENERATE` 能力）完全是两个产品域**。前者涉及商用曲库权益，后者受生成模型与合法使用条款约束；不得合并接口或误导用户。
+- 编辑既包括对现有作品调用模型生成新版本，也包括对**架构图源文件的确定性编辑**。图片/视频/music 的“编辑”以接入 Provider 支持的能力为准，不能假装某个模型支持局部修改/音频分轨/视频剪辑。
+- iOS/Web 共用 UI 卡：`media_generation_progress` 要显示 `QUEUED/RUNNING/FINALIZING/SUCCEEDED/FAILED/CANCEL_REQUESTED/CANCELED/UNKNOWN` 状态、已耗时、成本/剩余额度、参考输入、最近错误码，并可返回原会话。
+- 首次图片/视频/音乐执行可以提示模型供应商、素材使用范围、最大时长/分辨率以及费用上限，用户更改设置后形成新 request revision。
+- 用户要求“画架构图”时，默认输出**结构化可编辑图**而非单张 AI 图片，因为后续可精确调整服务节点、接口与连线；用户明确要艺术风格架构插画时可走图片生成，但不替代可编辑图。
+- 生成媒体仅来自用户授权输入或合规模型输出，明确禁止无授权使用受版权保护录音做分发、非自愿声纹/肖像冒用；生成结果标明模型来源与必要的合成标识，遵守模型及部署地域要求。
+
+### 作品空间与版本管理
+
+- 统一 `Artifact`（稳定 ID、owner、origin_conversation_id、kind `IMAGE|DIAGRAM|GENERATED_AUDIO|VIDEO`、current_version_id）和不可变 `ArtifactVersion`（parent_version_id、source_job_id、input_refs、output_file_ids、edit_source_file_id、prompt、params、model_id/version、provenance、created_at、visibility）。版本内容属于 App；数据库记录与文件均不能原地覆盖已发布版本。
+- 媒体文件必须复用 **ECS `LocalFileStorage`**：`/data/adex/files/{images,videos,audios,artifacts,tmp}`，经过 App File API 写入 `PENDING→READY`，保存 sha256/MIME/size/width/height/duration/codec/ACL；缩略图/海报帧/波形是衍生资源，需版本归属和生命周期引用计数。
+- `GET /api/v1/files/{id}/content` 为鉴权流；音视频按 Range 返回 206 以支持拖动进度，图片按缓存/ETag；**不把生成文件放在 Nginx 公共静态目录，绝不将未授权的 provider 临时下载 URL 直接回给客户端**。
+- 架构图编辑源 `.mmd`、`diagram.json` 与 SVG/PNG 预览同时保存；渲染器版本和安全策略随 ArtifactVersion 记录。Mermaid SVG 必须清洗潜在脚本、链接和不安全 HTML，使用隔离策略。
+- 若文件发布成功而事务未提交，孤儿扫描按保留期清理；若 PG 引用未完成文件，作品不进入 `READY`。删除作品执行墓碑 + 异步安全回收，备份和操作审计遵循原 v4.0 存储规范。
+
+## P1-15 · 多模态生成执行架构、接口与可靠性
+
+### 四服务职责、API 调用与数据落点
+
+| 组件 | 接到什么请求 | 调用什么 | 读写什么 |
+| --- | --- | --- | --- |
+| iOS/Web | 用户发送文生图/音乐/视频/画图请求或点击修订 | 只调 App `/creative/jobs`、`/diagrams`、`/artifacts`、`/files`；SSE 获取进度 | 本地仅短期预览状态，不存长期原件 |
+| **adex-app** (Java) | 消息、创建与读取媒体任务、上传参考素材、展现作品 | App → Agent 解释创作意图；App → Automation 建持久 Run；完成后接 `artifact.ready` 事件 | PG 消息/Artifacts/Files/版本/通知；LocalFileStorage 文件；Redis 热态；ES 仅异步索引标题/描述（不存二进制） |
+| **adex-agent** (Python) | 解释 Prompt、选择图/图像/音/视频工具与 Provider、参数归一 | Agent → Tools `diagram.*` / `creative.*`；长任务由 Automation 驱动 Agent 后台 Worker | Agent PG Checkpoint/模型审计；不直接拥有 App 文件/作品表 |
+| **adex-automation** (Java) | 长时媒体 Job/重试/恢复与回调状态变化 | PG 事务创建 Run/Occurrence/Outbox、Claim/Lease/Epoch、将合法完成事件触达 App | Automation PG Task/Run/Step、ProviderJob 映射/预算/状态/Outbox；Redis 仅可做唤醒 |
+| **adex-tools** (Python) | MediaGenerationProvider、Mermaid 校验/渲染、模型回调解析、媒体探测 | 第三方模型 API；受控抓取输出资源，再通过 **App 内部 File API** 上传完成文件；如处理长视频可调用独立 Runner | Tools PG provider_effects / idempotency / external job ID / audit；临时磁盘；正式资产由 App 接管 |
+
+**状态与流程**：`REQUESTED → QUEUED → RUNNING → FINALIZING → SUCCEEDED`；异常路径 `FAILED_RETRYABLE / FAILED_FINAL / UNKNOWN / CANCEL_REQUESTED / CANCELED`。状态变更均条件 CAS + `run_id/attempt_id/epoch`。`UNKNOWN` 不代表失败，更不能立即重新下单。轮询和 Webhook 可并存；**Webhook 必须验证签名与时效**并经版本号/事件 ID 去重，回调可能乱序、重复或迟到，必须忽略回退状态。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant UI as iOS / Web
+  participant APP as Adex App
+  participant AUT as Automation
+  participant AG as Adex Agent Worker
+  participant TOOL as Adex Tools
+  participant MODEL as External Media Model
+  participant PG as PostgreSQL
+  participant FS as ECS Local Disk
+  UI->>APP: POST /creative/jobs + Idempotency-Key + input_file_ids
+  APP->>PG: R/W Message, request, owner, budget, references
+  APP->>AUT: POST /internal/tasks (type=MEDIA_GENERATION)
+  AUT->>PG: Unique Run + Outbox (atomic)
+  AUT-->>AG: claim / lease / epoch
+  AG->>TOOL: creative.submit (effect_key, ProviderCapability)
+  TOOL->>PG: Write provider job / effect BEFORE side effect
+  TOOL->>MODEL: Submit image/music/video generation
+  MODEL-->>TOOL: provider_job_id / operation result
+  TOOL->>PG: Commit job handle / effect status
+  loop poll or verified webhook
+    TOOL->>MODEL: GET job status / retrieve authorized result
+    TOOL-->>AG: canonical progress
+    AG->>AUT: heartbeat / checkpoint / progress
+    AUT-->>APP: durable progress event (Outbox)
+    APP-->>UI: SSE media_generation_progress
+  end
+  TOOL->>APP: Internal authenticated upload finalized media
+  APP->>FS: tmp write, fsync, rename, sha256, probe
+  APP->>PG: Mark file READY and ArtifactVersion
+  AG->>AUT: complete run with fencing
+  AUT-->>APP: artifact.ready / job completed
+  APP->>PG: Attach result to original conversation + notification
+  APP-->>UI: artifact card + authenticated media playback
+```
+
+### 可插拔模型能力协议（待用户提供 API 后接入）
+
+```python
+from typing import Protocol
+
+class MediaGenerationProvider(Protocol):
+    async def capabilities(self) -> dict: ...
+    async def submit(self, *, kind: str, prompt: str, input_refs: list[str],
+                     params: dict, request_key: str) -> dict: ...
+    async def get_status(self, *, provider_job_id: str) -> dict: ...
+    async def get_result(self, *, provider_job_id: str) -> dict: ...
+    async def cancel(self, *, provider_job_id: str) -> dict: ...
+    async def reconcile(self, *, request_key: str, provider_job_id: str | None) -> dict: ...
+```
+
+- `kind = IMAGE_GENERATE | IMAGE_EDIT | MUSIC_GENERATE | VIDEO_TEXT | VIDEO_IMAGE`；架构图默认独立 `DiagramProvider`（LLM→DiagramSpec→validate→render），**不需要多模态模型**。能力发现字段必须包含支持的 kind、输入 MIME/文件大小、尺寸比例、时长、是否原生异步、是否可取消、是否有查询/幂等、收费单位、区域/安全策略。无能力时返回 `UNSUPPORTED_CAPABILITY`。
+- **统一结果协议**：同步模型也正规化成一次终态 job；异步 Provider 保存 `provider_job_id`、`provider_request_key`、`model_id`、`provider_config_version`、`status`、`next_poll_at`、`attempt`、`estimated_cost/actual_cost`、`output_metadata`。**禁止把 Provider Key 暴露给用户或写到 LLM Prompt**；配置经 Tools Vault/服务密钥管理。
+- 缺真实 API 时提供 `MockMediaGenerationProvider`，自动化契约测试覆盖 job 状态、超时、重复回调、未知结果、模型错误、取消、引用丢失、权限检查；用显式受权 fixture 进行播放验收，并标注 `BLOCKED_EXTERNAL`。之后新增实际 provider 适配器，不动公共 API、四服务数量、作品 Schema。
+- 生成请求幂等键应基于 owner/request_id；外部 `submit` 的稳定 `effect_key = media-job:{job_id}:submit`，且必须**先持久化准备提交状态再调用供应商**；当 `submit` 响应丢失但外部可能接单，先 `reconcile` 查询外部，不得在无法判定时继续自动提交导致重复生成或重复收费。
+- 回调仅作为 job 状态通知，**最终产物拉取由 Tools 控制**。所有外部下载地址必须做 SSRF 防护（URL 白名单/重定向检查/私网阻断），限制解码大小、视频时长、尺寸、MIME，使用超时、断点与容量配额，并记录内容指纹。回调不直接绕过 Owner/ACL 写 App DB。
+- 取消请求只保证停止 Adex 后续处理与尝试调用模型取消；供应商可能已生成且已计费，必须在状态与成本提示里明确。恢复中若文件已 READY 而 ArtifactVersion 尚未发布，用稳定 key 补写版本，不重复下载/重复计费。
+- 生产媒体保留原始文件，不要只留缩略图；发布前进行权限、许可、基础内容风险检查；作品元数据包括生成/编辑来源、输入引用、模型版本、Prompt 参数、生成时间、输出格式、可复现局限性。用户可删除作品并追踪清理衍生件。
+
+### 实体主键与幂等索引约束（Codex 必须实现）
+
+- App `creative_artifacts(artifact_id PK, owner_id, kind, current_version_id, origin_conversation_id)`；`artifact_versions(version_id PK, artifact_id FK, parent_version_id, source_job_id, prompt_json, params_json, output_file_id, source_file_id, created_at)`；新增作品版本插入必须不可变。`UNIQUE(artifact_id, source_job_id)` 可用于消除重复完成事件，多个输出图时应扩展为 `(artifact_id, source_job_id, output_index)`。
+- Automation `creative_jobs(job_id PK, run_id UNIQUE, owner_id, kind, status, budget, provider_status, created_at)`；主用户提交 `UNIQUE(owner_id, idempotency_key)`；外部 provider job 索引允许重试后的版本变化，但必须限定 `(provider, provider_job_id)` 非空唯一。
+- Tools `media_provider_effects(effect_key UNIQUE, job_id, provider, provider_request_key, provider_job_id, status, last_event_id, next_poll_at, error_code, observed_at)`；同一 provider webhook 的事件 ID 单独唯一约束并保存签名验签结果；接管之后旧 Attempt 无权将过期结果发布。
+- App `files` 已有表作为所有生成二进制真实 owner；每个 `artifact_versions.output_file_id` 必须指向 READY 文件；不可跨域直接使用另外服务的 schema 改写数据。
+- 独立 `creative.job.progress` / `creative.job.completed` Outbox 事件至少有 `event_id, schema_version, owner_id, job_id, run_id, origin_conversation_id, status, artifact_version_id?, occurred_at`，消费方 `(consumer_name,event_id)` 去重；回流原会话时 `dedupe_key=creative-complete:{job_id}` 唯一。
+
+### 首期性能、安全和验收
+
+- 单 ECS 不运行音视频大模型推理，**阿里云只调用用户将提供的多模态模型服务**；音视频文件按流写本机独立持久化数据盘，避免把大视频一次性加载进 Java 堆/Redis/PG。可选后台 ffprobe/ffmpeg/安全预览 Runner 设 CPU/内存/时长上限。
+- 图片可配置尺寸/张数，音乐时长、视频分辨率/时长均由实际 Provider Capabilities 驱动，而非前端写死。统一预算、用户配额和最大磁盘容量阈值，越界拒绝新任务但不破坏已有文件。
+- iOS 免费签名不影响通过 HTTPS 获取授权文件并播放常见兼容格式；具体支持的 codec/MIME 应在真机验收，支持不可播放时提供下载/外部打开退化路径。
+- 6 个新增测试（ACC-21～ACC-26）：图源码可编辑/可导出；图片生成/编辑链路；原创音乐播放；视频长任务与重启恢复；重复 Provider 回调/UNKNOWN/幂等；媒体/磁盘/访问隔离与备份恢复。**所有外部真实生成在模型 API 提供前记为 BLOCKED_EXTERNAL，不把 Mock 通过当作“真实生成完成”**。
+
+---
+
+**v4.1 一期正式实施规范结束。以下完整继承 v3.1 技术设计作为扩展参考；如有冲突以上面的 v4.1 ADR 和一期明确接口为准。**
+
+
+# v3.1 全量技术章节（原文继承；如与 P1 决议冲突以 v4.1 为准）
+
+> 本部分从原 Adex_Product_Technical_Design_v3.1.html 所有正式 section 转换而来；仅清理 HTML 版“返回顶部”导航。保留完整底层实现细节、SQL、权限、运维、测试和参考资料。
+
+## 01 设计基线与不可妥协的约束
+
+> **v3.1 决策基线（2026-10-10）**：继续沿用 v2.0 的安全、持久状态、幂等、可恢复、预算和审计设计，调整服务拓扑及前端工程。**四个业务服务域 + 多端前端 + 可独立扩容的 Worker / Runner**；首期单台阿里云 ECS 4 vCPU / 16 GiB，受控内测，不承诺生产高可用。
+
+Adex 是面向个人消费者的多模态超级个人助手。基本能力为对话和问答；进一步支持联网工具、个人记忆、交互式大卡、文档与代码作品、长任务 Agent、主动监控、定时提醒、浏览器和用户设备操作。**普通 Chat 是一等公民，不是 Task 的一种特例；需要延迟、异步和持久执行的工作才进入 Automation。**
+
+| 架构决定 | v3.1 约束 |
+| --- | --- |
+| 业务服务 | `adex-app`、`adex-agent`、`adex-automation`、`adex-tools`；采用逻辑独立、物理渐进拆分 |
+| 前端 | `apps/web`、`apps/desktop`、`apps/mobile`；共享 API 契约、UI 组件协议及可复用领域逻辑 |
+| 运行单元 | 服务进程可以独立部署；Agent interactive/background、Monitor、Notification、Sandbox Runner 可作为单独 Worker 扩容 |
+| Monorepo | 同一 Git 仓库集中开发；每个可部署单元独立构建镜像、迁移、健康检查、配置、权限；不要求同机部署 |
+| 任务权威 | PostgreSQL 持久化 Task / Run / Step / Schedule / Subscription；Redis/队列不是唯一事实来源 |
+| 执行可靠性 | 至少一次调度 + 幂等 + 租约/epoch + 外部副作用核对；不承诺第三方 exactly-once |
+| 模型与工具 | LLM 的判断不能授予权限；模型输出经 Schema、租户、Scope、预算和敏感数据控制后才执行 |
+| 用户敏感信息 | 身份证、OAuth 凭证等不直接拼入 LLM Prompt；采用受控引用、最小授权与审计 |
+| 浏览器与代码 | 仅可信试用允许在受限 ECS 容器运行；开放任意用户执行前迁出至单独隔离宿主机/池 |
+| 部署基线 | Ubuntu Linux、商用 LLM API、PostgreSQL、Redis、本地对象目录；未来迁移 OSS、托管 DB、MQ |
+
+\*\*设计事实与推断范围：\*\*本版是目标实现规范，不表示代码、压测、容量、服务高可用已经实现。原 v2.0 的设计级 SQL/伪代码继续保留；新增接口、字段及 Monorepo 目录属于建议契约，需在开发时验证。
+
+### v3.1 已确认的语言、数据库和记忆架构
+
+| 领域 | 正式方案 | 长期演进 |
+| --- | --- | --- |
+| 后端技术栈 | **App / Automation：Java 21 + Spring Boot；Agent / Tools：Python 3.12+ + FastAPI** | 协议与部署独立，OpenAPI 生成 Java / Python / TS SDK |
+| 核心存储 | **PostgreSQL + Redis**，均允许本机 Docker 部署 | PostgreSQL 高可用；Redis Cluster；按指标扩容 |
+| 用户聊天记录 | **PostgreSQL 是所有聊天原文、消息顺序和会话摘要的权威数据源**；Redis 仅缓存热点上下文 | 可选 ScyllaDB 分桶消息存储；不是初期依赖，也不能简单换连接串 |
+| 全文/向量检索 | 首期 PostgreSQL FTS / 可选 pgvector；**ES 非首期依赖** | 需要跨会话检索、RAG、向量/混合检索时接 Elasticsearch / OpenSearch |
+| 三层 Memory | **L1 Working、L2 Conversation、L3 Long-term** | App 是记忆数据 Owner，Agent 负责 Context Builder 和候选抽取 |
+
+这几项决策优先于 v3.0 文档中遗留的 Node.js/pnpm 后端部署示例；原章节设计的任务幂等、授权和可靠性机制仍然有效。
+## 02产品定位、用户与成功标准
+
+### 1. 用户与核心价值
+
+目标用户包含学生、日常生活用户、内容创作者、办公用户和个人开发者。同一用户可能在手机上询问信息，在桌面上处理资料，再让助手持续跟踪一个目标。产品不应要求用户先理解模型、工具或服务器；用户提出目标，系统展示过程、成果、预算与需要的授权。
+
+| 用户目标 | 产品流程 | 可核验成功标准 |
+| --- | --- | --- |
+| 日常问答 | 文本 / 语音输入 → 必要时搜索 → 引用回答 | 来源可打开；无法确认的信息清楚标记；用户可追问。 |
+| 资料研究 | 明确范围 → 多来源阅读 → 综合 → 输出报告 | 证据与结论对应；报告文件可下载；任务可恢复。 |
+| 办公作品 | 上传资料 → 处理 → 生成文档 / 表格 / 演示 → 预览 | 文件可被目标应用打开；公式、排版或页数检查通过。 |
+| 写小游戏 | 需求 → 代码 → 构建 → 浏览器验证 → 预览 → 修改 | 能实际运行；移动触屏适配；新版本可回退。 |
+| 长期目标 | 目标 → 日程 / 事件 → 周期工作 → 变化通知 | 用户可暂停；无变化时安静；费用不超授权预算。 |
+| 跨设备动作 | 选择设备 → 声明权限 → 执行 → 核验 → 审计 | 没有权限不执行；用户可接管；结果未知不盲重试。 |
+
+### 2. 非目标与可变范围
+
+首期不训练基础模型、不承诺任意手机 App 自动控制、不建设第三方插件交易平台、不实现完整办公软件编辑器，不提供公开匿名任意代码执行。办公编辑首先采用生成文件、受控预览和版本修改；深度原生编辑作为后续产品。
+
+### 3. 验收指标
+
+产品评测用任务完成率、成果可用率、引用正确率、用户介入次数、单任务成本和重复副作用次数；系统评测用排队时间、P95 服务延迟、恢复时间、权限拒绝正确性和备份恢复成功率。仅统计满意度或生成字数不足以判断系统有效。
+## 03豆包、工作模式、Codex 与超级助手目标
+
+产品对比以需求方向为主，不推测竞品架构。豆包官方功能介绍确认对话、语音与智能体定制；工作官网正文此前无法读取，因此具体工作模式细节仍需实测。Codex 官方资料描述工程工作、工作区与远程管理。Muse 未给出确切链接，本文仅将其视作超级个人助手愿景。[[R1]](#ref-1)[[R2]](#ref-2)[[R3]](#ref-3)
+
+| 维度 | 豆包 / 工作模式方向 | Codex 方向 | Adex 设计目标 |
+| --- | --- | --- | --- |
+| 交互 | 低门槛、自然对话、多模态；工作方向重视成果 | 任务、工程上下文、改动审阅 | 统一会话＋工作台，不让用户操作底层调度器 |
+| 持续执行 | 本文不确认其内部恢复协议 | 长任务、自动化、手机管理远程工作 | 持久步骤、恢复、日程、事件唤醒与预算 |
+| 成果 | 研究 / 办公是对标需求；细节待实测 | 代码与工程产物 | 文档、表格、演示、网页、小游戏、代码 |
+| 本地能力 | 手机助手公开描述存在设备边界 | 本地 / 远程工作区 | 云端沙箱＋Mac 本地代理＋移动能力层 |
+| 个人化 | 公开智能体定制 | 项目上下文、技能与工具 | 长期记忆、目标、习惯、授权连接器 |
+| 信任 | 不将竞品 UI 当作权限规范 | 审阅、工作区与任务监督方向 | 授权卡、日志、费用、来源、删除与接管 |
+
+### 对工作模式的定义
+
+工作模式不是更长的回复，而是可观测、可暂停、可恢复、可验收的执行会话。它拥有任务目标、计划版本、步骤、工作区、预算、等待事项和成果。对话与工作模式共享底层任务机制；不同之处在默认执行时间、工具权限、预算、产物以及前端呈现。
+
+### 超级个人助手的额外要求
+
+目标持续存在，日程能自动触发，记忆可被用户纠错，设备可被远程撤销；同一项目在手机和电脑之间无缝继续。主动性必须有明确订阅与预算，不能变成无限自唤醒或未经授权的发送、购买和文件修改。
+## 04完整功能清单与优先级
+
+| 域 | 首期 P0 | 试用 P1 | 平台 P2 |
+| --- | --- | --- | --- |
+| 账户 | 登录、会话管理、个人空间、配额 | 多设备、订阅、导出删除、恢复账户 | 家庭 / 团队空间、角色、组织策略 |
+| 聊天 | 流式文本、附件、搜索引用、历史 | 语音、图片、会话分支、跨端草稿 | 视频、实时陪伴、无障碍交互 |
+| 工作 | Task / Run / Step、检查点、取消、简单计划 | 等待用户、暂停恢复、并行 DAG、模板 | 受限多代理、事件触发、自定义流程 |
+| 作品 | 代码 / 小游戏、版本、预览、下载 | 文档、表格、演示、可交互分析 | 发布协作、作品模板、插件编辑器 |
+| 工具 | 搜索、网页、本地作品文件、受控构建 | 官方连接器、OAuth、MCP | 插件审核、扩展市场、工具动态发现 |
+| 记忆 | 当前上下文、摘要、项目资料检索 | 偏好与事实记忆、纠错、遗忘 | 跨领域个人知识图、检索反馈 |
+| 自动化 | 数据模型与任务模板 | 一次性 / 周期 / 监测任务、通知 | 外部事件规则、长期目标评估 |
+| 设备 | 协议与设备身份接口 | Mac 代理、手机遥控、能力探测 | Android 合规可行路径、iOS 原生集成 |
+| 运营 | 日志、任务诊断、用量账本、反馈 | 管理台、申诉、内容治理、账单 | 多区域、灰度模型、容量规划 |
+
+每项功能的优先级不改变其服务边界。P0 可以提供浅实现，例如知识服务先做全文检索、用量服务先做内部额度、事件服务先做站内通知；不把功能缺省等同于架构缺失。
+## 05产品交互、页面与关键旅程
+
+### 信息架构
+
+| 页面 | 交互与信息 | 错误 / 边界处理 |
+| --- | --- | --- |
+| 首页 / 会话 | 输入、模式、附件、语音、助手、近期任务 | 提交后立刻获得任务卡；网络超时先查询，不重复创建 |
+| 工作台 | 目标、计划、步骤、预算、等待事项、执行位置 | 失败显示可恢复点；未知外部结果不能显示成功 |
+| 作品面板 | 文件树、版本、预览、下载、差异、继续修改 | 构建失败保留源码；预览超时可重建 |
+| 日程中心 | 自然语言规则、规范化时间、下次执行、预算 | 时区 / 夏令时歧义核对；暂停日程不默认取消在途任务 |
+| 记忆中心 | 来源、范围、更新时间、编辑、删除、关闭 | 展示猜测 / 已确认区别；遗忘进度可查询 |
+| 设备与授权 | 设备能力、在线、访问范围、授权历史 | 离线等待或显式改选设备，不自动越权迁移 |
+| 用量与隐私 | 额度、任务成本、通知、数据保留、导出 | 未知供应商费用标待结算；删除有状态与完成通知 |
+
+### 小游戏旅程
+
+用户说“做一个可手机玩、带分数的贪吃蛇”。系统检查是否缺关键限制；一般采用默认简单实现并告知目标。用户看到计划和工作区。执行者生成文件、运行构建、浏览器检查和修复，交付预览＋下载。用户说“改成蓝色并加暂停按钮”，创建依赖已交付版本的新任务。并行修改产生分支，不覆盖旧版本；验收后发布新版本。
+
+### 授权卡规则
+
+当任务需要发送、购买、删除、外部发布或设备敏感操作时，卡片显示目标对象、最终内容、费用 / 后果、执行设备和有效期。允许 / 拒绝 / 修改三个明确入口。一次确认绑定动作参数摘要；内容变化或授权过期需要重新评估。只读常规步骤不反复打断用户。
+
+### 可访问性与响应
+
+所有控制可通过键盘访问；流式内容避免每个 Token 都向读屏播报；进度使用结构化短语，终态才发清楚提示。手机上成果优先单列全屏、桌面上会话与作品并排。用户始终可以停止任务或关闭语音。
+## 06 前端总体架构：Web、Desktop、Mobile 与端侧代理
+
+前端不是一个简单的聊天输入框，而是 **Chat + Tasks + Workspace + Automations + Settings** 的完整产品。客户端模块可按页面拆分，逻辑能力必须遵守统一 API、事件和 UI 协议。
+
+| 前端项目 | 首要功能 | 技术建议 | 和后端的关系 |
+| --- | --- | --- | --- |
+| `apps/web` | 主聊天界面、历史会话、文件、交互大卡、任务中心、计划/订阅中心、工具授权、浏览器接管视图 | React + TypeScript + 路由/查询缓存 | 仅调用 `adex-app` 公共 API；通过 SSE/WS 接收流和事件 |
+| `apps/desktop` | Web 级聊天与工作区、文件管理、桌面通知、设备配对、交互接管 | Tauri 或 Electron（二选一，ADR 固定） | UI 调 App API；原生动作通过白名单 IPC 到本地代理 |
+| `apps/mobile` | 聊天、语音、拍照上传、任务/通知中心、移动交互大卡、授权与接管 | React Native + 必要原生模块 | App API + Push token 注册 + App Links；平台许可内支持设备能力 |
+| `apps/device-agent` | 可选独立桌面守护进程：本地文件、应用、浏览器和设备命令 | TS/Rust/平台原生按试验决定 | 主动出站连接；仅执行明确授权、具审计的设备命令 |
+
+**Web 关键功能模块**：`auth`、`chat`、`conversation-list`、`composer`、`attachments`、`media`、`rich-cards`、`task-center`、`automation-center`、`workspace`、`skills-tools`、`notifications`、`settings`、`device-takeover`。Mobile/Desktop 共享业务协议，不强制共享全部界面组件。
+
+**前端事件接收**：LLM token 流是短时间、高频通道；任务进度是持久事件流；离线通知通过 Push/站内信。前端 Reducer 按 `message_id` / `event_id` / `task_seq` 幂等消费，断线以 API 快照恢复，不能假设所有 SSE 都可永久重放。
+
+**渲染原则**：服务端返回受白名单约束的结构化内容：Markdown 文本、来源引用、图表、大卡、交互表单、媒体、文件/作品卡片、任务进度、授权确认、浏览器接管。客户端将 Schema 映射到版本化 Component Registry。LLM **不能**直接向前端输出可执行的任意 JS/HTML/脚本。
+
+**可访问性/兼容**：移动小屏和折叠、弱网恢复、多端登录、语言/时区、字幕与转写、内容脱敏、权限分级、桌面原生桥接；Chat、卡片、任务运行状态均要验收移动端表现。
+## 07 总体系统框架：交互面、智能面、自动化面、工具执行面
+
+**架构原则：产品交互与智能执行解耦；Agent 决定“做什么及怎么做”，Automation 决定“何时/是否/能否持续做”，Tools 决定“具有什么合法能力及怎样安全调用”，App 决定“用户如何交互、保存和查看”。**
+
+```
+apps/web       apps/desktop       apps/mobile       apps/device-agent
+    \              |                 /                /
+     +-------------+----------------+----------------+  前端共享 SDK / UI Schema
+                   |
+              HTTPS / SSE / WebSocket
+                   |
+          ┌────────▼────────┐
+          │    adex-app     │  公共 ToC API；用户/会话/记忆/知识/作品/大卡/通知
+          └───────┬─────────┘
+          单轮请求 │                     未来/长期工作定义
+                  ▼                                |
+          ┌──────────────┐          ┌──────────────▼──┐
+          │  adex-agent  │◄─────────│ adex-automation │
+          │  Agent Loop  │  dispatch │ Task/Schedule/   │
+          │  Plan/Model  │─checkpoint►│ Monitor/Rule     │
+          └───────┬──────┘          └──────────┬──────┘
+                  │     tools.invoke             │  notification.requested
+                  ▼                              ▼
+          ┌──────────────┐                  adex-app.Notification
+          │  adex-tools  │  Registry / MCP / OAuth / Skills / Tool Policy
+          └───────┬──────┘
+                  ▼
+        隔离 Browser Runner / Code Runner / 用户设备代理
+                  │
+           Web / SaaS / 景区 / 文件系统 / External APIs
+
+ Data: PostgreSQL(按服务 Schema/账号), Redis, Outbox/MQ, File/OSS,
+       搜索索引与日志/指标/追踪；基础设施不是额外业务微服务。
+```
+
+| 执行类型 | 谁先收到请求 | 谁执行智能逻辑 | 谁拥有持久运行状态 | 是否必须有 Automation |
+| --- | --- | --- | --- | --- |
+| 普通聊天或简单工具问答 | App | Agent（交互模式） | App 保存消息，Agent 仅短期运行态 | 否 |
+| 长时深度研究 / 开发作品 | App | Agent（后台模式） | Automation 的 Task / Run；App 拥有作品 | 是 |
+| 每天 8:00 提醒喝水 | App | 无需 Agent（创建阶段可解析） | Automation 的 Schedule/Occurrence | 是 |
+| 监控演唱会，发现变化通知 | App | Agent 可辅助建规则，常态无需 LLM | Automation 的 Monitor/Subscription | 是 |
+| 明早按天气推荐酒店/景点 | App | Agent 在到期后执行 | Automation 的 Schedule + Run | 是 |
+| 浏览器订票 | App | Agent + Tools Browser Runner | Automation 的长运行态和副作用核对 | 是，涉及可靠交易 |
+
+### 控制面与信任边界
+
+- **外部统一入口**：只暴露 `adex-app`（和静态前端资源）；Agent、Automation、Tools 不对普通客户端暴露内部管理 API。
+- **内部服务身份**：mTLS/服务令牌、租户 scope、trace\_id、deadline、限流和限权；绝不因内网来源直接信任请求。
+- **代码和网页**：工具的执行进程不是 Tool API 主进程；Runner 必须限制 CPU/内存、网络、挂载、密钥和运行时间。
+- **通知**：Automation 持久化通知意图，App.Notification 从可靠事件通道消费、管理渠道投递和重试；Chat Token Stream 仍由 App 传给客户端。
+- **服务拆分≠仓库拆分**：同一 Monorepo 可以按四个构建目标交付到完全不同的宿主机；拆成四个 Git 仓库是维护选择，不是运行前提。
+## 08 四个独立服务：职责、内部模块与扩容边界
+
+| 独立服务 | 公网职责 / 内部职责 | 核心内含模块 | 数据所有权 | 扩容维度 |
+| --- | --- | --- | --- | --- |
+| **`adex-app`** | 唯一公开 ToC API；用户交互、会话、附件、知识、记忆、作品、结构化渲染；通知出口 | Gateway/BFF、Identity、Conversation、Knowledge、Memory、Workspace、Storage、Media、UI Schema、Usage/Billing、Notification | 用户、消息、记忆、文档、作品、账本、通知及设备身份 | API QPS、会话/SSE 连接、文件/媒体流量 |
+| **`adex-agent`** | 统一交互/后台智能执行，负责理解请求、LLM 决策、工具选择、Skill 加载、规划、验收 | Request Router、Context Builder、Model Gateway、Agent Runtime、Planner/Replan、Skills Loader、Tool Orchestrator、Checkpoint Adapter | 模型调用记录、提示模板/Agent 配置、临时诊断；**不拥有 Task 状态** | 模型并发、推理耗时、Agent Worker 数 |
+| **`adex-automation`** | 任务和自动化定义，持久运行控制，定时、监控、订阅匹配、恢复 | Task/Run/Step、Workflow、Scheduler、Monitor/Ingestion、Subscription、Rule Engine、Goal、Recovery、Outbox | 任务、运行、租约、检查点、Schedule、Occurrence、Observation、Monitor、用户订阅、规则/触发状态 | 活跃任务、到期日程、监控源、规则匹配吞吐 |
+| **`adex-tools`** | Tool/Skill/MCP/Connector 接入、凭证与授权、外部调用、副作用回执，控制隔离 Runner | Tool Registry/Runtime、Skill Registry、MCP Gateway、Connectors、Credential Vault、Policy、Sandbox Manager、Browser/Code Executor Adapter | 工具目录、插件安装、外部连接、工具执行效果状态、Runner 会话 | API 执行并发、连接器数、浏览器/代码负载 |
+
+**四个是独立业务服务域**，内部模块不是独立微服务。`adex-agent` 的 `interactive` 与 `background` Worker 可独立扩容，代码与协议一致；`adex-tools` 的 Browser/Code Runner 和 `adex-app` 的 Notification Worker 是独立进程/容器，不增加第 5/6 个业务服务域。
+
+### 对原 v2.0 15 服务的映射（保留功能，不保留碎片化部署）
+
+| v2.0 名称 | v3.0 所属 |
+| --- | --- |
+| `gateway` / `identity` / `conversation` | `adex-app`：入口、用户、会话 |
+| `knowledge` / `workspace` / `storage` / `usage` / `device` | `adex-app`：知识、作品、文件、账务、设备协调 |
+| `event` | 事件产生、任务事件顺序属 `adex-automation`；通知记录/偏好/投递属 `adex-app` |
+| `agent` / `model` | `adex-agent`：Agent Runtime + 模型网关 |
+| `task` / `schedule` | `adex-automation`：Task + Scheduler，新增 Monitor/Rule/Subscription/Goal |
+| `tool` / `sandbox` | `adex-tools`：工具网关、Runner 管理；实际沙箱隔离部署 |
+
+### 模块禁区（避免责任越界）
+
+- App 不维护 Planner/Tool Loop，也不在请求线程中执行长时任务；它只调用 Agent（即时）或创建 Automation（后台）。
+- Agent 不直接修改 App 的消息/账务数据库或 Automation 的 Task/Run 表；长任务状态由 Automation 的租约、epoch 和 Checkpoint API 管理。
+- Automation 不在日程扫描器里调用模型/浏览器；只有确需推理时才向 Agent Worker 派发 Run，普通告警直接触发通知。
+- Tools 不规划业务任务；仅接收经过身份/授权/Schema 检验的具体调用，外部副作用需要 effect\_key 与对账能力。
+- 不以“是否用 LLM”判断是否走 Automation，而以**是否需要后台持久运行、未来执行、恢复、长期监控**判断。
+## 09 服务内模块归属、接口契约与不可跨越的边界
+
+### 决策所有权矩阵
+
+| 事项 | App | Agent | Automation | Tools |
+| --- | --- | --- | --- | --- |
+| 用户身份/会话/消息 | **Owner** | 只读上下文引用 | 仅传用户与授权引用 | 鉴权验证 |
+| Chat → 自动化的意图理解 | 只做产品入口/确定性路由 | **Owner**：解析意图与草拟计划 | 校验并创建规则 | 提供可用工具元数据 |
+| 多模型路由 / Token 与工具调用策略 | 计费与套餐政策 | **Owner**：选择模型、推理预算、选择动作 | 对长任务配置整体预算/重试 | 工具限流与调用授权 |
+| Task / Run / Step / 日程 | 展示/控制请求 | Worker 领取/回传结果 | **Owner**：状态、租约、checkpoint | Tool effect 回执 |
+| Monitor / Subscription / Rule | 产品编辑入口 | 可辅助复杂语义判断 | **Owner**：采集、观测、条件匹配 | 供合法采集工具 |
+| Skills / MCP / Connectors | 用户安装与授权 UI | Skill loader / 调用决策 | 与定义绑定 Skill 版本 | **Owner**：注册、版本、凭证、调用 |
+| 作品 / UI 大卡 | **Owner**：结构化展示/保存 | 生成安全的结构化提议 | 背景任务发结果引用 | 生成内容/文件的执行工具 |
+| 通知 | **Owner**：站内信、偏好、渠道 | 可生成通知文案 | **Owner**：何时通知、通知条件与意图 | 可提供受控消息工具 |
+| Browser/代码执行 | 接管与确认 UI | 决策与步骤选择 | 长时步骤状态 | **Owner**：Runner 运行及副作用 |
+
+### Service API 的最小接口
+
+| 调用方 → 提供方 | 接口（示意） | 语义/返回 |
+| --- | --- | --- |
+| App → Agent | `POST /internal/agent/turns` | 交互式短会话流，带 `conversation_ref`、`context_ref`、预算和 stream\_id |
+| App / Agent → Automation | `POST /internal/automations` | 创建定时/监控/条件规则，返回 `automation_id` 和下一触发时间 |
+| App / Agent → Automation | `POST /internal/tasks` | 创建长任务，提交键去重，快速返回 `task_id` |
+| Automation Worker → Agent | `POST /internal/agent/runs` 或 Worker 拉取 `run` | 带 `run_id`、`epoch`、`checkpoint_ref`、`policy_ref`；**二选一部署协议** |
+| Agent → Automation | `POST /internal/runs/{run_id}/steps:commit` | 验证 epoch、版本、幂等并提交结果与检查点引用 |
+| Agent → Tools | `POST /internal/tools/{tool_id}:invoke` | 经过工具版本、授权、输入 Schema、effect\_key 校验 |
+| Tools → Sandbox Runner | 内部 Runner 协议 | 容器执行、浏览器观察/动作、取消、状态查询，Runner 不连接业务库 |
+| Automation → App | `notification.requested`（持久事件） | App.Notification 幂等消费，不要求同步可达手机 |
+| Agent / Automation → App | `result.ready`、`artifact.ready` | App 读取引用并维护消息/作品展示投影 |
+
+这些接口是 v3 建议，不是已上线 API。双向操作优先使用可靠事件或受控请求，禁止同步调用环：`App → Agent → App → Agent`。如需上下文，App 先提供带过期时间的只读 Snapshot Ref / Context API；Agent 只读，不调用 App 触发新的 Agent。
+
+### 界面/后台分流：避免 App 存在另一套完整 Agent
+
+`App` 负责鉴权、持久化用户消息、选择产品模式（用户显式 Chat/Work、正在继续的 task、请求 deadline 等）；请求仍交 Agent 做语义路由：**直接回答**、**短工具问答**、**创建自动化**、**创建长任务**、**继续现有任务**。明确的未来执行请求要经 Agent 生成规范化规则，再由 Automation 严格校验权限、时间、预算、频率，要求缺失的用户确认。
+
+**实时/后台隔离**：Agent 使用一个共享 SDK/推理逻辑，但部署交互和后台两个池或两条队列；普通 Chat 不受后台超长任务抢占。`App` 转发 token 流并持久化消息，后台结果通过事件被 App 组合成可查看的聊天消息或任务卡。
+## 10 数据所有权、模块拆分与一致性
+
+四个服务即四个**逻辑数据 Owner**。初期可共用一套 PostgreSQL 实例，但采用独立 DB Role 和各自拥有的 Schema；**旧 v2.0 Schema 可以保留名称以避免破坏性迁移**，而不是为了改名立刻重命名所有表。
+
+| Owner | 数据域（建议使用的初始 Schema） | 不允许直接写入的其它域 |
+| --- | --- | --- |
+| `adex-app` | `identity`、`conversation`、`knowledge`、`workspace`、`storage`、`usage`、`device`、`notification`（v2 的 `event` 可迁移） | Task / Tool effects / Agent invocation |
+| `adex-agent` | `agent`、`model`（配置、模型调用、调试、用量原始记录） | App 消息与账本、Automation 任务状态、Tools 凭证 |
+| `adex-automation` | `task`、`schedule`、`monitor`、`automation`（Task/Run/Step、Observation/Rule/Subscription、事件 Outbox） | App 消息、Tools OAuth、模型配置 |
+| `adex-tools` | `tool`、`sandbox`（connectors、credentials、tool effects、runner metadata） | 所有用户正文与非引用的文件内容 |
+
+### 保留的原始一致性规范
+
+- Task / Run / Step 和 Schedule / Occurrence 的权威必须为 PostgreSQL；租约、`epoch` 和稳定幂等键必须先于跨服务副作用完成校验。
+- 共享 schema 名称**不等于**共享写权限。跨服务只保存稳定对象 ID/ref，绝不靠另一个服务的表来维持外键业务事务。
+- 多服务操作使用 Outbox + 幂等命令 + 状态对账；不要用一个跨服务的长数据库事务包住 LLM、支付、网站动作。
+- PostgreSQL 备份与恢复必须验证跨服务最终一致性：如 Task completed 而通知投影未生成，由 Outbox 重放恢复；不要重做已完成的外部副作用。
+- 短会话消息 App 所有；Agent 只保留必要推理运行诊断；长任务由 Automation 所有，Agent Step Checkpoint 是内容引用，不可单方面推进 Task 终态。
+- Memory/Knowledge 明确存储来源、授权范围、版本/更新时间和可删除性；敏感的外部凭证由 Tools Vault 管理，不直接写入 Memory。
+
+### 数据与事件所有权约定
+
+`TaskCompleted`、`MonitorObservationRecorded`、`AutomationConditionEntered` 由 Automation 产生。`NotificationRequested` 可由 Automation 或 App 自身业务产生，但通知最终收件人偏好与渠道、投递状态由 App 管理。`ToolEffectCommitted` 由 Tools 产生，并经携带 effect\_key 的核对 API 关联 Automation Step。`ConversationMessageCreated` 与 `ArtifactPublished` 属 App。
+
+### v3.1 消息和三层 Memory 的数据权威
+
+**App/Conversation** 在 PostgreSQL 保存完整消息、会话列表、L2 摘要以及 L3 长期记忆；**Agent** 组装 L1 工作上下文并通过 App Context/Memory API 读取授权记忆、提交候选摘要或长期记忆；**Automation** 保存当前 Task/Run/Step 等真实执行状态（不能被记忆层替代）；**Redis** 是热缓存，不能因缓存丢失而损失聊天/记忆；未来 ScyllaDB 消息适配与 ES 索引均必须通过 App 的 Storage/Context 接口抽象。
+## 10A 数据库选型与数据访问：PostgreSQL + Redis，ScyllaDB / ES 可选扩展
+
+**ADR-009 数据库决策：**第一版自托管完整功能只需要 PostgreSQL + Redis（和本地文件/兼容对象存储）。不部署 ScyllaDB、Elasticsearch、Kafka 也能完成聊天、历史记录、用户、记忆、Task 与定时任务。数据库设计目标面向规模化，但不以提前部署所有基础设施为前提。
+
+### 存储职责与权威性
+
+| 组件 | 当前承载数据 | 是否权威 | 未来扩展 |
+| --- | --- | --- | --- |
+| **PostgreSQL（首期必选）** | Identity、Conversation / Messages、Memory L2/L3、Knowledge 元数据、Task/Run/Schedule/Subscription、用量/账务、Outbox | **是**，源数据、序号、事务约束由它保证 | HA、读副本、消息分区/服务分片、PITR |
+| **Redis（首期确定）** | L1 上下文热缓存、限流、短期 Session/Tool 缓存、流式进度信号、热点查询 | **否**；所有关键数据可从权威来源恢复 | 独立 Redis、Redis Cluster、连接池与限流 |
+| ScyllaDB（可选） | 迁移后大量原始消息、不可变高吞吐事件历史等 | 按数据域切流后可成为指定消息域权威 | 多节点分区与复制、对象/用户路由 |
+| Elasticsearch / OpenSearch（可选） | 全文索引、知识 Chunk、记忆检索投影、事件候选召回 | **否**；从 PostgreSQL / 消息源 / 对象文件重建 | 独立 Search API、BM25/向量/混合检索 |
+| 文件存储 | PDF、附件、录音、视频、生成成果、浏览器截图 | 文件字节权威，元数据在 App PostgreSQL | 本地目录 → OSS / S3 兼容 |
+
+### 一次聊天请求的数据读写
+
+```
+Web / Mobile ──> adex-app(Java) ──> PostgreSQL：验证用户/会话归属并持久化用户消息
+                          │
+                          ├── Redis：读取热上下文（命中则复用）
+                          └── PostgreSQL：缓存缺失时拉取最近消息、会话摘要、相关长期记忆
+                                      │
+                                      ▼
+                              adex-agent(Python)：Context Builder → LLM/Tools
+                                      │
+                                      ▼
+                          adex-app：SSE 回答；完成后持久化助手消息到 PostgreSQL
+                                      │
+                                      └── 异步失效/更新 Redis 上下文缓存
+```
+
+**消息写入规则：**客户端携带 `client_message_id`；在会话权限验证后，用 PostgreSQL 事务分配会话内单调 `seq` 并写消息，使用用户/会话维度的幂等唯一约束。支持 branch/parent\_message\_id；展示历史用 `(conversation_id, seq)` 游标分页。流式 Token 不能逐 Token 写库，完整消息及必要的生成事件/检查点分批持久化。
+
+### 存储接口，不将 ScyllaDB 固定为启动依赖
+
+```
+// 由 adex-app 拥有；Agent 通过内部 Context API 使用，不直接读业务表。
+public interface MessageRepository {
+    Message append(AppendMessageCommand command);  // 幂等：clientMessageId / turnId
+    List<Message> listBefore(UUID conversationId, long beforeSeq, int limit);
+    Optional<Message> get(UUID conversationId, long seq);
+}
+
+// 初始：PostgresMessageRepository
+// 未来：ScyllaMessageRepository（明确切流域、回填、双读校验、对账、回滚）
+```
+
+**数据迁移触发标准：**观察消息总量、P95 查询延迟、写入吞吐、热点会话/索引、备份与恢复窗口、跨区域存储成本，再决定是否迁移 ScyllaDB；不能将“对标 ChatGPT”当作必须立即引入 NoSQL 的充分理由。
+
+### ScyllaDB 与 ES 的一致性边界
+
+未来迁移聊天消息时，按 `conversation_id + bucket_id` 分区、按 `seq` 倒序查询；需要可靠分桶路由、消息回填、双读对账和切流开关。会话列表作为 App 的 PostgreSQL 读模型，由可重放事件更新，不执行危险的跨数据库原子双写。全文/向量索引由 Outbox/CDC 构建，可重建、版本化、权限过滤，索引滞后不得影响读取原始消息。
+
+### 初期单机部署与可靠性
+
+PostgreSQL 与 Redis 可以通过 Docker Compose 在同一台 ECS 部署。PG 数据卷、备份/WAL、资源配额和恢复演练是必须项；Redis 用于缓存，丢失后可回源重建，不保存唯一的会话/Task/Memory/通知事实。Redis Pub/Sub 不能作为唯一可靠任务队列；Automation 的 Occurrence 唯一性、Run Lease、Fencing 由 PostgreSQL 保证。
+## 11 关键端到端流程：聊天、研究、监控、定时、浏览器和通知
+
+### 1. 普通对话（低延迟，**不强制进入 Automation**）
+
+```
+Web/Mobile -> App(写 user message, client_message_id) -> Agent(interactive)
+Agent -> Model Gateway(内部) -> 流式 Text / Tool Call
+Agent -> Tools(必要时 WebSearch/天气等) -> Agent
+Agent -> App(stream output/result refs) -> UI Schema 验证 + SSE -> 客户端
+App(final message + usage) -> PostgreSQL
+```
+
+### 2. 深度研究、生成游戏/文档（持久 Work）
+
+```
+App -> Agent(解析请求/必要约束) -> Automation(Create Task, idempotency)
+Automation -> Agent Worker(领取 run, epoch) -> Tools(浏览/文件/代码等)
+Agent Worker -> Automation(steps:commit, checkpoint_ref, budget)
+Agent -> App(artifact.ready)；Automation -> App(notification.requested)
+客户端通过 App 查询权威 Task 状态与 Workspace 作品版本
+```
+
+**对话和工作模式的关系**：每个长任务可关联 `conversation_id`、`origin_message_id`；聊天历史不是 Task 状态库，Task 状态不是聊天消息副本。用户关闭页面不会取消已经创建的后台任务。
+
+### 3. 监控周杰伦演唱会（长期订阅，不保留一个常驻 Agent）
+
+```
+App -> Agent(提取歌手/城市/新场次等条件)
+Agent -> Automation(创建用户 Subscription，复用 Shared Monitor)
+Monitor 从 Webhook/源 MQ 接收事件；无 Push 时 Polling/Hybrid
+Observation -> Rule Engine -> 用户独立状态迁移/去重
+    -> notification.requested -> App.Notification Worker -> App Push/站内信
+```
+
+同一公共演唱会源可由多用户共享数据采集，但每个用户的监控频率、范围、偏好、cooldown、notified\_version 独立。**采集共享 ≠ 用户身份/授权/运行状态共享**。
+
+### 4. 明早按天气推荐亲子酒店/景点（定时 Agent 工作）
+
+```
+App -> Agent(生成定时工作定义) -> Automation(Schedule)
+次日触发 -> Occurrence(唯一键 schedule_id + scheduled_at)
+-> Task Run -> Agent(查询天气、分支推荐、生成卡片数据)
+-> Automation(状态) -> App(结果/通知) -> 客户端
+```
+
+### 5. 浏览器操作景区网站（需要人工介入/核验）
+
+```
+App -> Agent -> Automation Task -> Agent Worker -> Tools Browser Executor
+-> Sandbox Browser Runner(Playwright/Headless Chromium)
+-> 登录/验证码/支付时 WAITING_FOR_USER + App takeover UI
+-> 回归 Agent -> 核验订单/预约状态 -> Automation Run 终态 -> App 通知
+```
+
+不存在合作接口时，Browser Agent 只能操作允许自动化的网站，无法保证绕过验证码或完成仅 App/小程序提供的页面；订单提交超时必须先核对，不能盲重试。
+
+### 6. 实时聊天 vs 背景通知
+
+| 消息类别 | 数据生产者 | 权威与消费 | 通道 |
+| --- | --- | --- | --- |
+| Token delta | Agent | App Conversation 聚合最后内容 | SSE/WS；不要求每个 Token 都入通知账本 |
+| Task progress | Automation / Agent Step | Automation 任务事件与 seq，App 展示 | SSE + `after_seq` 补收 |
+| User notification | Automation 或 App 领域逻辑 | App.Notification 持久化、用户偏好、投递幂等 | 站内信 / App Push / 可选邮件、短信 |
+| Shared monitor observation | Monitor | Automation Observation/Rule | 内部消息队列/Outbox，不直接下发所有用户 |
+
+### 7. 系统失败恢复的重要不变量
+
+- 模型返回 `CREATE_AUTOMATION` **不是**任务已创建；只有 Automation 保存成功并返回真实 ID 才确认用户。
+- SSE 客户端断线不是 Task 失败；后台 Run 继续按原授权与预算运行。
+- 由于外部网站或支付超时导致 `UNKNOWN`，先查询事实并核对，不能无界重试产生重复外部动作。
+- 监控轮询重复发现同一事件，按 `source_event_id` / `(monitor_id, observation_version)` 去重；匹配与通知还要按用户独立去重。
+## 12 技术栈、版本与跨语言工程组织
+
+**v3.1 正式确认：**后端采用 Java + Python 双语言，而非旧版四服务统一 TypeScript。前端仍采用 React + TypeScript；前端技术栈与后端服务语言解耦。各服务通过 OpenAPI 和事件 Schema 协作，不能相互导入对方的数据库实现。
+
+| 交付单元 | 推荐语言/框架 | 关键技术与权属 |
+| --- | --- | --- |
+| apps/web | React + TypeScript（Vite 或 Next.js 需 ADR 确定） | Chat、任务中心、丰富大卡、UI Schema、OpenAPI TS Client；只访问 App 公网 API |
+| apps/desktop | Tauri 或 Electron + React | Workspace 与本地代理分离、受控 IPC |
+| apps/mobile | React Native + 平台原生模块 | Push、语音、上传、设备权限、安全存储 |
+| **adex-app** | **Java 21 + Spring Boot（已验证兼容的维护版本）** | Spring Security、Spring MVC/SSE + WebClient、JDBC/MyBatis、Flyway、PostgreSQL、Redis |
+| **adex-automation** | **Java 21 + Spring Boot** | PostgreSQL SKIP LOCKED + Occurrence UNIQUE + Outbox、Lease/Fencing/Recovery；避免本地 Cron 当权威 |
+| **adex-agent** | **Python 3.12+ + FastAPI + Pydantic** | 统一 Chat/Background Agent Runtime、模型 SDK、Planner、LangGraph（按需）、Context Builder、三层记忆读取 |
+| **adex-tools** | **Python 3.12+ + FastAPI** | MCP Python SDK、Skills/Tools/Connector Registry、Playwright Python；Runner 独立进程/安全边界 |
+| 数据库 | **PostgreSQL + Redis（首期）** | PG 是用户/会话/消息/记忆/任务权威；Redis 是可重建缓存 |
+| 未来可选数据组件 | ScyllaDB、Elasticsearch/OpenSearch、OSS/S3、Kafka | 分别解决海量消息、检索、文件和高吞吐事件；不是必选初始依赖 |
+| 跨语言契约 | OpenAPI 3.1 + JSON Schema + CloudEvents 风格领域事件 | Java DTO/Client、Python Pydantic Client、TypeScript Client 从稳定契约生成；契约测试 |
+| 构建 | Maven + uv + pnpm（前端） + Docker Compose | 服务单独构建 Docker 镜像/部署；pnpm 只管理前端 JS 工作空间 |
+| 观测 | OpenTelemetry + 结构化日志 + Metrics | 统一 trace\_id、user\_scope、run\_id、tool\_effect\_id；敏感输入脱敏 |
+
+对 Java 并发请求：短聊天可使用 Spring MVC 异步 SSE + WebClient 转发 Python Agent 的流，后台工作不通过长时间同步 HTTP 等待，而由 Automation 的持久 Run/领取协议驱动。Redis 不作唯一消息/定时任务存储。模型调用密钥在 Agent，第三方连接器凭证由 Tools 管理。
+## 13 Monorepo 开源工程：Java + Python + 前端独立部署
+
+**确认：**一个 Git Monorepo 管理前端和 4 个后端服务。**同仓库不等于同进程**；每个服务拥有 Dockerfile、健康检查、独立依赖、数据库迁移和部署地址，允许按服务单独构建镜像、独立拉起/扩容，未来拆仓时再发布版本化 SDK/Contracts。
+
+### 推荐目录
+
+```
+adex/
+├── apps/
+│   ├── web/                         # React + TypeScript
+│   ├── desktop/                     # React + Tauri/Electron
+│   ├── mobile/                      # React Native
+│   └── device-agent/                # 可选 Mac/PC 本地代理
+├── services/
+│   ├── adex-app/                    # Java 21 / Spring Boot / pom.xml
+│   │   ├── pom.xml
+│   │   └── src/main/java/...         # Identity, Chat, Conversation, L1/L2/L3 Memory, Knowledge, UI, Notification
+│   ├── adex-agent/                  # Python / FastAPI / pyproject.toml
+│   │   ├── pyproject.toml
+│   │   └── src/adex_agent/...        # Agent Loop, Planner, Context Builder, Memory Extraction, Model Gateway
+│   ├── adex-automation/             # Java 21 / Spring Boot / pom.xml
+│   │   ├── pom.xml
+│   │   └── src/main/java/...         # Task/Run, Schedule, Monitor, Rule, Subscriptions, Recovery
+│   └── adex-tools/                  # Python / FastAPI / pyproject.toml
+│       ├── pyproject.toml
+│       └── src/adex_tools/...        # Tool/Skill Registry, MCP, Connectors, Vault, Sandbox Manager
+├── runners/
+│   ├── browser-runner/              # Playwright Python + Headless Chromium，隔离 Docker
+│   └── code-runner/                 # Python/Node/Shell 受限执行镜像
+├── packages/
+│   ├── contracts/                   # OpenAPI + JSON Schema + Event Schema（语言无关）
+│   ├── sdk-java/                    # 生成的/版本化 Java Client
+│   ├── sdk-python/                  # 生成的/版本化 Python Client
+│   ├── sdk-typescript/              # 生成的客户端 SDK
+│   ├── ui-schema/                   # 结构化大卡、授权、任务进度等 JSON Schema
+│   └── ui-web/                      # React 共用组件
+├── deploy/
+│   ├── compose/                     # 本地 PG、Redis、4 服务和可选 Runner
+│   ├── docker/                      # 独立构建 Dockerfile
+│   └── k8s/                         # 扩容后使用
+├── migrations/
+│   ├── app/
+│   ├── automation/
+│   ├── agent/
+│   └── tools/
+├── tests/                          # unit / contract / integration / e2e / fault / load
+├── docs/                           # architecture / adr / api / runbooks
+├── pnpm-workspace.yaml              # 仅前端 apps 与 TS 共享 UI/SDK
+├── .github/workflows/
+├── .env.example
+├── LICENSE
+├── CONTRIBUTING.md
+├── SECURITY.md
+└── README.md
+```
+
+### 单仓库、多语言开发
+
+```
+# Java App / Automation（各自启动，不依赖另一个的源码）
+mvn -f services/adex-app/pom.xml spring-boot:run
+mvn -f services/adex-automation/pom.xml spring-boot:run
+
+# Python Agent / Tools（每个服务拥有独立虚拟环境和锁文件）
+cd services/adex-agent && uv sync && uv run uvicorn adex_agent.main:app --host 127.0.0.1 --port 8105
+cd services/adex-tools && uv sync && uv run uvicorn adex_tools.main:app --host 127.0.0.1 --port 8107
+
+# Web（独立启动，示意：需先创建对应 package scripts）
+pnpm --dir apps/web dev
+
+# Compose（单服务启动时，需要其外部依赖可访问）
+docker compose -f deploy/compose/compose.yaml up -d adex-agent
+```
+
+以上命令是**目标仓库约定/示例**，不代表完整可运行代码已交付。两个 Python `cd` 命令应分别在独立终端/进程执行。CLI 的入口路径需与后续实际包结构一致。
+
+### 如何分别部署或未来拆仓
+
+| 可部署单元 | 镜像/工件 | 依赖与运行约束 |
+| --- | --- | --- |
+| adex-app | JAR + JRE 镜像 | 唯一公网 API；Java 连接 PG/Redis，按需调用 Agent、Automation |
+| adex-agent | Python Wheel + Runtime 镜像 | 内网；交互与后台 Worker 可分开扩容；访问 App Context API/Tools |
+| adex-automation | JAR + JRE 镜像 | 内网；多节点 PostgreSQL 领取、Lease/Fencing/Outbox |
+| adex-tools | Python Wheel + Runtime 镜像 | 内网；工具凭证/权限单独管理，不运行任意不可信代码 |
+| Browser/Code Runner | 受限执行镜像 | 独立隔离宿主机/VM 池（公网开放前）；不拥有 App DB 凭据 |
+
+部署主机可以只拉取对应镜像，不用完整 clone Monorepo；需要源码部分检出时使用 Git sparse-checkout 并保留依赖的 `packages/contracts`。若真正拆为独立 Git Repo，则需先把 OpenAPI/事件 Schema 与 Java/Python SDK 版本化发布，CI 做跨版本契约测试，逐步拆仓；不允许跨服务相对路径导入对方源码或 ORM。
+
+### 开源与数据组件兼容
+
+开源版默认只要求 PostgreSQL + Redis + 本地/OSS 兼容文件存储；将 ScyllaDB/ES 作为可选 Profile，提供 PostgreSQL MessageRepository 和未来 Scylla MessageRepository 的可替换实现。数据库镜像许可证、ScyllaDB 新版本的 source-available 许可、ES/OSS 云服务依赖应进行 LICENSE/分发核对。示例配置只能使用假数据，不得携带 OAuth Token、身份证、Cookie 或生产对话。
+## 14 单机 4C16G 预算：两套 Java JVM、两套 Python API 与浏览器
+
+首期继续允许受控内测在单台阿里云 4 vCPU / 16 GiB ECS 上自托管；外部商用 LLM API，不运行本地 GPU 模型。**初期仅 PostgreSQL + Redis 是必选数据组件**；不要同时运行 ScyllaDB 和 ES 作为默认启动项。
+
+| 运行单元 | 初始内存容量预算 | 说明 |
+| --- | --- | --- |
+| Linux / Docker / Proxy / 文件缓存 | 约 2 GiB | 主机预留，不全部分配给容器 |
+| PostgreSQL | 约 2 GiB | 受限连接池、WAL、定时备份与恢复测试 |
+| Redis | 约 512 MiB | 缓存可丢失/回源；限制 maxmemory 与 key TTL |
+| adex-app（Java） | 约 1.5–2 GiB | JVM -Xmx 与容器总内存不同，留非堆和连接资源 |
+| adex-automation（Java） | 约 1–1.5 GiB | 调度/监控小并发，设置 JDBC 池上限 |
+| adex-agent（Python） | 约 1–1.5 GiB | 单 API + 低后台并发；限制模型在途数 |
+| adex-tools（Python） | 约 0.5–1 GiB | Connector/MCP，不运行高风险脚本 |
+| Browser / Code Runner | 最多约 2 GiB（同一重任务槽） | 受限 Docker；公网开放前迁独立宿主机 |
+| 操作余量 | 约 2–4 GiB | 具体内存按 RSS/峰值和 PSI 测量，不把上限当常驻值 |
+
+以上均为设计预算，必须通过压测校准；重点监控 4 核 CPU 的 JVM GC、Python Tool 并发、Chromium 与 PostgreSQL I/O 争用。Redis 不得持有唯一长期记忆或唯一聊天消息。ScyllaDB/ES 如需验证，推荐使用单独测试环境或按 Profile 启动并暂停重 Runner。
+## 15 ECS 部署拓扑、依赖启动与容器边界
+
+```
+Internet / Web / Mobile / Desktop
+          │ HTTPS 443 / WSS
+          ▼
+      Reverse Proxy
+          │
+          ▼
+  ┌─────────────────── ECS 4C16G ─────────────────────┐
+  │  adex-app（公网访问仅经代理；SSE / Notification）   │
+  │         ├─> adex-agent（interactive / background） │
+  │         ├─> adex-automation（Scheduler / Monitor）  │
+  │         └─> adex-tools（MCP / Connectors / Vault）  │
+  │                    └─> Sandbox Runner（受限）        │
+  │  PostgreSQL（按服务 Owner Schema）/ Redis           │
+  │  /srv/adex/{objects,workspace,tmp,backup-manifest} │
+  │  Outbox publisher / 日志 / 轻量 tracing             │
+  └────────────────────────────────────────────────────┘
+       │ HTTPS 出站
+       ├─ 商用 LLM、搜索、OAuth/第三方 API
+       └─ 异机对象存储和加密备份
+```
+
+**启动顺序**：1. 数据目录/权限、PostgreSQL/Redis、备份检查；2. 四 Owner 迁移/独立帐号；3. `adex-tools`/`adex-automation`/`adex-agent`（内部连接重试与 readiness）；4. `adex-app` 公共路由；5. Notification/Monitor/Scheduler 后台 Worker；6. 受限 Sandbox Runner；7. Web 静态资源 / API E2E 烟测。依赖启动不依赖 Compose 的简单顺序作为可靠性保证。
+
+**网络约束**：公网只开放 443 和受限运维入口。PostgreSQL、Redis、Agent、Automation、Tools、CDP/Sandbox 管理接口不暴露公网；服务间保留身份和 scope 校验，部署到多节点时可通过内网 DNS/mTLS。
+
+**可独立运行/部署**：每个 `services/*` 都拥有独立 `health/live`、`health/ready`、`Dockerfile`、config schema、日志、迁移 owner。Compose 支持 `up adex-agent` 等单服务启动，缺少外部依赖时应明确 `not_ready`，不能悄悄退回内存模式。部署生产机只需要对应镜像及服务配置，不需要同步拉取全量 Monorepo。
+
+| 设置 | 初期检查项 |
+| --- | --- |
+| Auth | `issuer/audience/key_id` / 服务凭证，签名失败拒绝 |
+| DB | 每个 Owner 独立用户/Schema/池；数据库不可用不能 ready |
+| Tool/Vault | OAuth secret 不进入 Agent prompt；撤销立即阻断新调用 |
+| Task | lease/epoch、heartbeat、队列最大值、recovery 扫描有单测 |
+| Browser | 禁止任意宿主挂载、Rootless/隔离策略、网络白名单；无法长期保证高隔离时只限可信试用 |
+| Observability | trace\_id贯穿 App→Agent→Tools/Automation；服务故障可追踪 |
+## 16网络入口、安全组与部署配置
+
+生产式试用优先使用域名＋HTTPS。IP 可以用于内部联调，但 OAuth、cookie 策略、稳定回调和独立作品预览来源都更适合域名。假设 api.example.com、app.example.com、preview.example.net 是示例，不代表已注册。预览最好使用独立可注册域，避免共享主域 cookie。
+
+| 网络面 | 开放规则 |
+| --- | --- |
+| ECS 安全组 | 443 对试用用户开放；80 仅跳转 / 证书验证需要时开放；22 仅开发者固定 IP 或受控管理入口 |
+| 内部端口 | 5432、6379、8101~8114、Docker API 均不对公网开放 |
+| 服务网络 | edge 网络仅 proxy / gateway；internal 网络服务调用；database 网络只所需服务 |
+| 出站 | 模型 / 搜索 / OAuth 合法域；沙箱出口独立白名单；禁止云元数据与内网任意探测 |
+| 文件上传 | 入口限大小、超时；storage 校验实际大小与格式，下载做鉴权 |
+
+阿里云安全组是实例级网络规则，不能替代应用鉴权。确认实际生效规则，不能依赖默认组。[[R9]](#ref-9)
+
+yaml · 部署模板，须补齐身份、健康检查、镜像与初始化脚本
+
+```
+# Compose 结构示例：其他业务服务按同一模板展开
+services:
+  gateway:
+    image: registry.example/adex/gateway@sha256:<verified-digest>
+    expose: ["8080"]
+    mem_limit: 192m
+    read_only: true
+    tmpfs: ["/tmp:size=32m"]
+    networks: [edge, internal]
+    restart: unless-stopped
+    stop_grace_period: 30s
+  postgres:
+    image: postgres:<validated-version-and-digest>
+    volumes: ["/srv/adex/postgres:/var/lib/postgresql/data"]
+    mem_limit: 3g
+    networks: [database]
+    restart: unless-stopped
+    # 初始化密码通过 secrets / 受控配置注入；不写入仓库
+  redis:
+    image: redis:<validated-version-and-digest>
+    command: ["redis-server", "--maxmemory", "256mb",
+              "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 512m
+    networks: [internal]
+networks:
+  edge: {}
+  internal: {}
+  database: {internal: true}
+```
+
+数据库镜像版本的默认数据目录可能变化，实施时查对应镜像文档后固定挂载位置。配置必须经过 schema 校验，启动时缺失密钥或数据库 URL 立即失败；不要自动使用不安全默认密码。
+## 17API 通用规范与认证
+
+### 请求与响应
+
+公开 API 使用 /v1，HTTPS，JSON UTF-8；大文件走 storage 上传协议。request\_id 由入口生成或规范化，traceparent 用于追踪；用户无法通过伪造 owner\_id 扩大权限。公开接口只接受客户端可控字段，内部 executor\_id / epoch 必须由受认证服务提交。
+
+http / json
+
+```
+POST /v1/tasks
+Authorization: Bearer <access-token>
+Idempotency-Key: 7a7c...                  # 一次逻辑提交的稳定键
+Content-Type: application/json
+
+{"conversation_id":"...","workspace_id":"...","mode":"work",
+ "goal":"生成可触屏玩的贪吃蛇", "input_refs":["file:..."],
+ "budget":{"max_cost_micros":2000000,"currency":"CNY",
+           "max_steps":30,"max_wall_seconds":600}}
+
+HTTP/1.1 202 Accepted
+{"request_id":"...","task_id":"...","status":"admitting",
+ "revision":1,"events_url":"/v1/tasks/.../events"}
+```
+
+### 身份与会话
+
+浏览器使用 HttpOnly、Secure cookie 或短期令牌方案，选一种主策略并测试 CSRF。建议浏览器 cookie 会话＋CSRF token，移动端短期 access token＋轮换 refresh token。登录刷新身份服务处理；网关校验签名、issuer、audience、expiry，业务服务再校验资源归属。刷新 token 保存哈希，检测复用后撤销整个会话族。
+
+### 服务身份
+
+同机开发可用各服务独立短期签名凭证，通过可信内部 issuer 校验 audience；云端扩展采用工作负载身份 / mTLS。不能把所有服务共享一个永不过期 admin token。executor capability 绑定 task、run、epoch 和有限权限，不是普通用户 token。
+
+| 规则 | 约定 |
+| --- | --- |
+| 分页 | 游标分页，默认 50、最大 200；排序稳定含 ID |
+| 金额 | 整数微货币单位＋currency，不用浮点；Token / 时间 bigint |
+| 时间 | ISO 8601 UTC；用户时区另存 IANA ID |
+| 版本 | 乐观锁 revision / If-Match；冲突返回 409 |
+| 幂等 | 按 actor＋operation＋key 唯一；payload hash 不同返回 409 |
+| 请求上限 | JSON 初始 256KiB；超限 413；工具结果另存文件引用 |
+## 18 公共 API、服务间 API 与事件契约
+
+### 面向客户端（仅由 `adex-app` 提供）
+
+| 入口 | 示例接口 | 状态/语义 |
+| --- | --- | --- |
+| 会话与消息 | `POST /v1/conversations`、`POST /v1/conversations/{id}/messages` | `client_message_id` 幂等；返回 `message_id` / stream\_id |
+| Chat Streaming | `GET /v1/conversations/{id}/stream?after=...` | token、tool progress、component proposal；断线以快照收敛 |
+| 任务 | `POST /v1/tasks`、`GET /v1/tasks/{id}`、`POST /v1/tasks/{id}:cancel` | App 代理给 Automation；后台操作返回 202 + task\_id |
+| 自动化 | `POST /v1/automations`、`GET /v1/automations`、`PATCH /v1/automations/{id}` | Schedule、订阅、条件规则；显示时区/下一触发时间 |
+| 通知 | `GET /v1/notifications`、`PATCH /v1/notifications/{id}` | 已读、偏好、退订；Push 只有最小元数据 |
+| 作品 | `POST /v1/workspaces`、`GET /v1/artifacts/{id}` | 版本、授权、预览、下载 |
+| 凭证/工具 | `POST /v1/connections/{provider}:authorize`、`GET /v1/tools` | 通过 App 给 Tools 转发，不能向浏览器泄露 Vault Secret |
+
+### 服务间接口（仅内部认证调用）
+
+| API owner | 示例契约 |
+| --- | --- |
+| `adex-agent` | `POST /internal/agent/turns` (short/stream)、`POST /internal/agent/runs` (long) |
+| `adex-automation` | `POST /internal/tasks`、`POST /internal/automations`、`POST /internal/runs:claim`、`POST /internal/runs/{id}/steps:commit`、`POST /internal/runs/{id}:heartbeat` |
+| `adex-tools` | `POST /internal/tools/{tool_id}:invoke`、`GET /internal/tools/catalog`、`POST /internal/browser/sessions` |
+| `adex-app` | `GET /internal/context-snapshots/{id}` (短期只读引用)、`POST /internal/results:attach` (幂等结果提交) |
+
+### 消息/事件信封
+
+```
+{
+  "schema_version": 1,
+  "event_id": "uuid",
+  "event_type": "automation.notification.requested",
+  "producer": "adex-automation",
+  "owner_id": "user-id",
+  "correlation_id": "conversation-or-task-id",
+  "occurred_at": "2026-10-10T08:00:00Z",
+  "dedupe_key": "automation-id:observation-version:user-id",
+  "payload_ref": "object-or-domain-ref"
+}
+```
+
+协议必须有 `request_id`、`correlation_id`、`tenant_id/owner_id`、deadline、调用身份、Schema 版本。对副作用使用稳定 `effect_key` + scope 检查。不能用全局递增 event\_seq 假装跨服务总序；Task 内单调 `seq` 由 Automation 保证。
+
+原 v2.0 错误码继续沿用：`UNAUTHENTICATED`、`SCOPE_DENIED`、`REVISION_CONFLICT`、`IDEMPOTENCY_CONFLICT`、`STALE_EXECUTION`、`QUEUE_FULL`、`AWAITING_RECONCILIATION`。`202` 代表接收异步请求，不代表最终成功。
+## 19任务核心 SQL 模型与约束
+
+**v3.0 服务边界说明：**该章原 SQL 与 `task` Schema 属于 \*\*adex-automation\*\* 的持久数据域；其中 `task` 是数据库 Schema，不再对应一个同名独立微服务。
+
+以下 DDL 给出核心约束。user / workspace ID 在此不做跨服务外键；task / run / step 处于同一服务内，可使用外键。复杂跨行状态仍由事务与服务验证，不能仅依赖 CHECK。UUID 由应用生成；所有 timestamp 使用 timestamptz。
+
+sql · 核心迁移草案
+
+```
+CREATE SCHEMA IF NOT EXISTS task;
+CREATE TABLE task.tasks (
+  id uuid PRIMARY KEY, owner_id uuid NOT NULL, workspace_id uuid NOT NULL,
+  conversation_id uuid, mode text NOT NULL CHECK (mode IN ('chat','work')),
+  goal_ref text NOT NULL, status text NOT NULL CHECK (status IN
+    ('admitting','queued','running','waiting_user','waiting_external',
+     'pause_requested','paused','cancel_requested','cancelled',
+     'succeeded','failed','reconciling')),
+  revision bigint NOT NULL DEFAULT 1, epoch bigint NOT NULL DEFAULT 0,
+  active_run_id uuid, priority integer NOT NULL DEFAULT 0,
+  queue_class text NOT NULL DEFAULT 'interactive',
+  available_at timestamptz NOT NULL DEFAULT now(),
+  deadline_at timestamptz, control text NOT NULL DEFAULT 'none'
+    CHECK (control IN ('none','pause','cancel')),
+  budget jsonb NOT NULL, checkpoint_ref text,
+  next_event_seq bigint NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX task_claim_idx ON task.tasks
+  (queue_class, priority DESC, available_at, created_at, id)
+  WHERE status = 'queued';
+CREATE INDEX task_owner_list_idx ON task.tasks(owner_id, created_at DESC, id);
+
+CREATE TABLE task.runs (
+  id uuid PRIMARY KEY, task_id uuid NOT NULL REFERENCES task.tasks(id),
+  run_no integer NOT NULL, epoch bigint NOT NULL, executor_id text NOT NULL,
+  status text NOT NULL CHECK (status IN
+    ('active','completed','failed','lost','paused','cancelled','waiting')),
+  lease_until timestamptz NOT NULL, heartbeat_at timestamptz NOT NULL,
+  started_at timestamptz NOT NULL DEFAULT now(), ended_at timestamptz,
+  UNIQUE(task_id, run_no), UNIQUE(task_id, epoch)
+);
+CREATE UNIQUE INDEX task_one_active_run ON task.runs(task_id)
+  WHERE status='active';
+
+CREATE TABLE task.steps (
+  id uuid PRIMARY KEY, task_id uuid NOT NULL REFERENCES task.tasks(id),
+  logical_key text NOT NULL, kind text NOT NULL,
+  input_hash text NOT NULL, definition_version text NOT NULL,
+  status text NOT NULL CHECK(status IN
+    ('planned','running','succeeded','failed','unknown','cancelled')),
+  result_ref text, last_run_id uuid REFERENCES task.runs(id),
+  attempt_count integer NOT NULL DEFAULT 0,
+  UNIQUE(task_id, logical_key)
+);
+CREATE TABLE task.step_attempts (
+  id uuid PRIMARY KEY, step_id uuid NOT NULL REFERENCES task.steps(id),
+  run_id uuid NOT NULL REFERENCES task.runs(id), attempt_no integer NOT NULL,
+  status text NOT NULL, provider_request_id text, error_code text,
+  started_at timestamptz NOT NULL, ended_at timestamptz,
+  UNIQUE(step_id, attempt_no)
+);
+CREATE TABLE task.events (
+  task_id uuid NOT NULL REFERENCES task.tasks(id), seq bigint NOT NULL,
+  event_id uuid NOT NULL UNIQUE, event_type text NOT NULL,
+  payload jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(task_id, seq)
+);
+CREATE TABLE task.outbox (
+  id uuid PRIMARY KEY, event_id uuid NOT NULL UNIQUE,
+  event_type text NOT NULL, payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(), delivered_at timestamptz,
+  attempt_count integer NOT NULL DEFAULT 0, next_attempt_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX task_outbox_pending_idx ON task.outbox(next_attempt_at,created_at)
+  WHERE delivered_at IS NULL;
+CREATE TABLE task.idempotency (
+  actor_id uuid NOT NULL, operation text NOT NULL, key text NOT NULL,
+  request_hash text NOT NULL, resource_id uuid NOT NULL,
+  response jsonb NOT NULL, expires_at timestamptz NOT NULL,
+  PRIMARY KEY(actor_id,operation,key)
+);
+```
+
+goal\_ref / result\_ref 指向受控内容对象，避免把巨型模型响应堆进热表。task.active\_run\_id 只由同服务事务更新，实施时可追加同服务外键和延迟约束。budget JSON 必须用应用 schema 校验；后续热点预算字段拆成列。steps 保存逻辑步骤，step\_attempts 保存每次尝试，不把重试历史覆盖掉。
+## 20其他领域表、索引与保留策略
+
+**v3.0 服务边界说明：**章节中的旧 `identity/knowledge/workspace/storage/...` Schema 名称可保留，但按 v3.0 四个 Owner 分配账号与迁移；旧 `event` 域拆出通知投递归 `adex-app`。
+
+| 数据域 / 表 | 主要字段与约束 | 访问 / 索引 |
+| --- | --- | --- |
+| identity.users / sessions | id UUID；状态；refresh\_hash；family\_id；expires\_at；revoked\_at | 用户标识唯一；refresh\_hash 唯一；过期扫描 |
+| identity.grants | id、subject、scope、resource\_filter JSON、parameter\_hash、expiry、revision | 按 subject＋status；撤销事件 |
+| conversation.messages | id、conversation\_id、seq BIGINT、role、content\_ref、client\_message\_id、branch\_id | (conversation,seq) 唯一；(owner,client\_message\_id) 唯一 |
+| model.invocations | id、task / step、provider、model\_version、state、usage、cost\_micros、currency | invocation\_key 唯一；未知调用核对索引 |
+| tool.executions / effects | effect\_key、request\_hash、state、provider\_key、result\_ref、auth\_revision | (owner,effect\_key) 唯一；unknown 状态扫描 |
+| schedule.schedules / occurrences | rule、timezone、next\_fire\_at、revision；occurrence\_id、scheduled\_at、task\_id | 到期索引；(schedule\_id,scheduled\_at) 唯一 |
+| workspace.versions / entries | project、parent\_version、manifest\_ref、state；path、object\_id、hash | 项目版本唯一；路径规范化；base\_revision 比较 |
+| storage.objects / uploads | backend、key、sha256、size、owner、state、retention；upload\_id、expires\_at | staging / deleting 扫描；对象引用不能只靠计数 |
+| knowledge.memories / chunks | scope、source\_ref、confidence、validity、revision；doc\_version、chunk\_no、index\_version | 权限范围＋全文 / 向量索引；删除墓碑 |
+| device.devices / commands | public\_key、capabilities、last\_seen、revoked；command\_id、expires\_at、receipt\_state | 命令 ID 唯一；设备未完成命令扫描 |
+| usage.accounts / holds / ledger | currency、quota；hold\_key、reserved；entry\_key、type、amount | 账务键唯一；账户行锁；余额与流水对账 |
+| event.notifications / deliveries | notification\_key、owner、preference\_version；channel、attempt、state | 通知键唯一；投递 retry\_at 索引 |
+
+### 保留期起点
+
+幂等记录至少覆盖客户端 / 日程 / 外部回调的最大重试窗口；首期可用 7 天，长期日程 occurrence 去重记录保留更久。任务步骤、账务和授权审计不能与短期流式片段同样清理。流式片段 7~30 天、临时上传 24 小时、沙箱临时目录数小时，均按产品设置和运营要求修订。
+
+### 索引与分区
+
+任务列表按用户＋创建时间游标查询；事件按 task\_id＋seq；排队按 class＋available\_at。避免对巨大 JSON 任意排序。出现数千万事件时再按时间分区或任务分片，并定义查询路由；不提前创建影响唯一约束的分区而忽略迁移。事件大附件和截图不存 JSON 热表。
+
+### v3.1 消息与三层记忆建议新增数据结构
+
+```
+-- 在 adex-app 所有的 PostgreSQL Schema 中建表；示意，实际迁移还需 FK/分区/删除策略。
+CREATE TABLE conversation.summaries (
+  id UUID PRIMARY KEY,
+  conversation_id UUID NOT NULL,
+  branch_id UUID,
+  covered_from_seq BIGINT NOT NULL,
+  covered_to_seq BIGINT NOT NULL,
+  summary TEXT NOT NULL,
+  summarizer_version TEXT NOT NULL,
+  revision BIGINT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE memory.long_term (
+  memory_id UUID PRIMARY KEY,
+  user_id UUID NOT NULL,
+  scope TEXT NOT NULL,
+  memory_type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  importance REAL,
+  confidence REAL,
+  valid_from TIMESTAMPTZ,
+  valid_until TIMESTAMPTZ,
+  sensitivity TEXT,
+  confirmed BOOLEAN NOT NULL DEFAULT false,
+  revision BIGINT NOT NULL DEFAULT 1,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_long_term_active ON memory.long_term(user_id, scope, deleted_at);
+```
+
+L1 无权威数据库表，Redis 使用带 user/conv/turn/permission-revision 的可过期 Key；L2 摘要有覆盖 seq 的可追溯版本；L3 保存来源与遗忘标记，未来 embedding/ES 索引是派生物。原始聊天消息必须保留写入幂等键、分支、作者和会话内 seq，避免流式重连造成重复记录。
+## 21完整执行示例：小游戏与后续修改
+
+**v3.0 服务边界说明：**客户端入口改为 `adex-app`，Agent 决策改为 `adex-agent`，Task/Run/Step 权威改为 `adex-automation`，工具调用改为 `adex-tools`；小游戏产物和版本仍由 App.Workspace 拥有。
+
+本节把多个服务协议串成一条可实现链路，适合作为第一版集成验收。示例仅使用受信内测代码执行，所有外部调用带 task / step 关联。
+
+| 步骤 | 执行服务 / 持久状态 | 失败或重试规则 |
+| --- | --- | --- |
+| 1 用户发送 | conversation 保存 message m1、提交意图；显示 pending 卡 | client\_message\_id 去重，Outbox 补投 |
+| 2 创建任务 | task 创建 t1 admitting、请求 usage hold h1 | 相同提交键返回 t1；预占丢响应按 key 核对 |
+| 3 排队领取 | 准入后 queued；Agent A 获 run r1、epoch 1 | 两个 Agent 竞争只能得到一个有效领取 |
+| 4 解析需求 | 读取 context snapshot，产生 plan p1、acceptance | 模型结果保存；输入变化生成新计划 revision |
+| 5 建工作区 | workspace 创建项目与 base v0；storage ready 文件 | 创建键 t1/project 防重复；孤儿文件可清理 |
+| 6 生成代码 | model invocation i1，保存响应；tool 提交文件候选 | 断流可重新调用但记成本；文件写入有版本 |
+| 7 构建检查 | sandbox s1：安装受控依赖、构建、浏览器验证 | 失败日志保存；重试不复用已失效浏览器状态 |
+| 8 提交成果 | workspace CAS 提交 v1；task 记录 artifact 和验收证据 | CAS 冲突保候选；task 崩溃后按版本提交键查询 |
+| 9 完成结算 | task succeeded＋Outbox；usage 结算；event 通知 | 每个消费者独立去重；账务不因重复事件双结 |
+| 10 用户修改 | 新任务 t2 绑定 parent t1 与 base v1 | 不修改 t1 历史；并行修改产生分支 |
+
+### 中途重启示例
+
+Agent 在构建完成后、task 提交步骤前被杀。r1 租约过期，task 回收并创建可恢复状态。新 Agent 获 epoch 2，查询 logical step 和 sandbox / workspace 的已有结果：可核验构建结果则复用，否则重建。旧 A 恢复时 epoch 1 提交被拒绝。若工作区 v1 已提交但 task 尚未记成功，按稳定提交键查已有 v1，而不是再建一个无意义版本。
+
+### 用户实际看到的内容
+
+目标、当前步骤、已完成步骤、生成文件、验证失败与修复、费用、预览、下载和继续修改入口。默认不显示数据库租约、消息队列或内部调用参数；诊断面板可用于开发和运营。产品界面解释“检查游戏运行”而不是“执行 Worker 步骤”。
+## 22任务提交、额度预占与跨服务事务
+
+**v3.0 服务边界说明：**v3.0 中任务提交/准入由 `adex-automation` 管理，配额预占由 `adex-app` 的 Billing/Usage 模块拥有；通过内部 API + Outbox/补偿对账，不共享写表。
+
+任务只有完成资源授权、额度和并发准入才能进入 queued。由于 identity、usage 和 task 是独立服务，任务创建与额度预占不是一个数据库事务。使用 admitting 状态的显式工作流，而不是假装可以原子跨服务提交。
+
+- 客户端稳定提交键；task 事务创建 admitting 任务＋幂等记录，重复返回同一 task\_id。
+- task 或 admission 协调模块请求 identity 检查资源和动作范围；保存授权快照引用，执行时仍复查撤销。
+- 调用 usage.reserve，reservation\_key = task\_id＋budget\_revision；唯一约束避免双占额度。
+- task 接收预占成功后以 revision 比较将 admitting → queued，并写 task.queued Outbox。
+- 授权 / 预占永久失败将任务 failed，并释放已知预占；响应丢失时查询 reservation\_key，不重复创建新预占。
+- 周期扫描长时间 admitting 的任务和孤儿 holds，幂等补偿；取消 admitting 任务先阻止排队，再撤销预占。
+
+pseudocode
+
+```
+admit(task_id):
+  task = get(task_id)
+  if task.status != 'admitting': return current_state
+  grant = identity.check(task.owner, task.resources, task.requested_scopes)
+  hold = usage.reserve(key=f"task:{task_id}:budget:{task.budget_revision}")
+  transaction(task_db):
+    lock task
+    if task.control == 'cancel': record compensation_request
+    else if task.status == 'admitting':
+      task.status = 'queued'
+      persist grant_ref, reservation_ref
+      append_event_and_outbox('task.queued')
+  # 补偿与核对通过幂等命令执行；不保持跨服务数据库锁。
+```
+
+### 消息提交与任务创建
+
+conversation 先落用户消息＋task.requested outbox，以 message\_id 派生任务提交键。若 task 暂时不可用，会话卡显示“提交中”；重试映射到同一任务。不要先显示成功后因为网络丢响应创建第二个任务。
+
+配额预占必须设置状态和核对规则；调用结果未知时不能简单 TTL 到期释放，否则仍在执行的调用可能形成超额费用。
+## 23任务领取、心跳、租约与旧执行者隔离
+
+**v3.0 服务边界说明：**v3.0 中领取、lease、epoch、fencing 都由 `adex-automation` 作为权威实施；`adex-agent` worker 执行实际 Agent Loop。
+
+首期不依赖 Redis 锁执行任务。task 服务通过 PostgreSQL 原子领取任务；Agent 主动调用领取 API。每次领取增加 epoch。下例由 task 服务在一个事务内执行；公平调度先选择有容量的用户 / 队列，再查询候选。SKIP LOCKED 适用于队列式消费者，不适合一般一致性查询。[[R4]](#ref-4)
+
+sql · 不在此事务中调用模型或网络
+
+```
+BEGIN;
+-- :run_id 由 task 服务生成；时间基于数据库 clock_timestamp()
+SELECT id FROM task.tasks
+ WHERE status='queued' AND control='none'
+   AND available_at <= clock_timestamp()
+   AND (deadline_at IS NULL OR deadline_at > clock_timestamp())
+   AND queue_class=:class
+ ORDER BY priority DESC, available_at, created_at, id
+ FOR UPDATE SKIP LOCKED LIMIT 1;
+-- 若没有候选，COMMIT 后返回空；若有候选，锁在事务内保持。
+UPDATE task.tasks SET status='running', epoch=epoch+1,
+ active_run_id=:run_id, revision=revision+1, updated_at=clock_timestamp()
+ WHERE id=:task_id RETURNING epoch;
+INSERT INTO task.runs(id,task_id,run_no,epoch,executor_id,status,
+ lease_until,heartbeat_at)
+ VALUES(:run_id,:task_id,:run_no,:epoch,:executor,'active',
+        clock_timestamp()+interval '60 seconds',clock_timestamp());
+-- 同一事务写 task.running 事件 / outbox，run_no 在 task 行锁下计算。
+COMMIT;
+```
+
+### 心跳与提交
+
+初期 lease=60 秒，heartbeat 每 15 秒；续租必须满足 task.active\_run\_id、epoch、run.status 和未过期 lease，且不处于终态。提交每一步在事务里再次锁 task，检查同样条件。所有执行时间判断使用数据库时间，避免依赖 Worker 时钟。超时检查定义允许的最大漂移，但旧租约一旦被新 epoch 替代就绝不复活。
+
+### 租约回收
+
+回收器锁 task 与 active run，确认 lease 已过期，标 run lost、清空 active\_run\_id；如果有未知副作用进入 reconciling，否则按重试策略 queued。每次回收都有事件与 attempt 限制。旧 Worker 网络恢复后 heartbeat 返回 STALE\_EXECUTION，立即停止下一步并报告在途结果。
+
+### 限制
+
+epoch 保护本系统写入，不能让已发出的外部请求撤销。tool 服务发送前复查版本；已在途动作必须由供应商幂等、查询或人工核对保护。执行服务不能把自己的内存锁视作跨实例互斥。
+## 24工具副作用表与授权确认事务
+
+**v3.0 服务边界说明：**`tool.effects` 仍归 `adex-tools`；`adex-automation` 只持有稳定 effect\_ref、步骤状态与对账引用。
+
+任务和工具执行是不同数据域；task 只保存 tool\_execution\_id / effect\_key 和结果引用，tool 服务 owns effect。这样工具服务可以独立核对在途动作，不依赖 Agent 是否还活着。
+
+sql
+
+```
+CREATE SCHEMA IF NOT EXISTS tool;
+CREATE TABLE tool.effects (
+  id uuid PRIMARY KEY, owner_id uuid NOT NULL,
+  task_id uuid NOT NULL, logical_step_key text NOT NULL,
+  effect_key text NOT NULL, request_hash text NOT NULL,
+  tool_id text NOT NULL, tool_version text NOT NULL,
+  state text NOT NULL CHECK (state IN
+    ('prepared','in_flight','succeeded','failed','unknown','reconciling','cancelled')),
+  grant_id uuid NOT NULL, grant_revision bigint NOT NULL,
+  execution_epoch bigint NOT NULL,
+  provider_idempotency_key text, provider_request_id text,
+  result_ref text, last_error text, reconcile_after timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(owner_id,effect_key)
+);
+CREATE INDEX tool_effect_reconcile ON tool.effects(reconcile_after,id)
+ WHERE state IN ('unknown','reconciling');
+
+-- identity 服务中的确认记录（服务内 DDL 片段）
+-- grant: subject, action, resource_filter, parameter_hash,
+--        max_uses, used_count, expires_at, revision, revoked_at
+-- 敏感一次性授权的 consume 操作在 identity 本地事务内原子计数。
+-- tool 接收 consume receipt 后开始调用，不用“先读剩余次数再加一”。
+```
+
+### 重要动作的确认
+
+工具先准备最终参数，生成 effect\_key 与 parameter\_hash；授权卡关联这两个值。用户确认后 identity 返回短期 grant，使用次数与资源范围有限。tool 调用 consumeGrant，绑定 effect\_key 和 hash，重复消耗返回同一 receipt，不消耗第二次。参数变化重新准备授权；用户拒绝则 effect cancelled。
+
+### 授权消费和外部调用之间崩溃
+
+已消费授权但未发送时，可凭同一 receipt 和 effect\_key 恢复；不能创造新动作使用旧 grant。prepared / in\_flight 的检查必须明确；标 in\_flight 后、实际发出前崩溃会进入 unknown，这个保守状态通过供应商核对恢复。不能因为“可能没发送”就自动重发不可核对操作。
+
+### 竞态
+
+服务端检查通过到实际外部动作之间仍有短时间竞态，撤销不能承诺原子控制第三方系统。尽量使用供应商幂等和取消能力；对于设备动作在设备最终执行前再验证权限 / 期限。系统向用户展示已执行、未执行和结果未知三种真实结果。
+## 25步骤提交、检查点和外部副作用
+
+**v3.0 服务边界说明：**v3.0 中 Agent 通过 Automation 的 `steps:commit` 提交检查点引用；不直接写 `task` Schema。
+
+### 逻辑步骤与尝试
+
+logical\_key 来自计划节点＋输入版本，不含 run\_id；这样同一任务的重试可以识别同一逻辑动作。输入 hash 包括工具版本、参数、资源版本、相关模型 / 提示词版本。已有 succeeded 步骤只有在输入和定义一致时可复用；业务有时效性时显式禁用复用。
+
+pseudocode
+
+```
+commit_step(run_id, epoch, logical_key, input_hash, result_ref):
+  validate result object exists and is ready
+  BEGIN
+  task = SELECT ... FOR UPDATE
+  run  = SELECT ... FOR UPDATE
+  require active_run_id == run_id && task.epoch == epoch
+  require run.status == active && lease_until > database_now
+  step = lock logical_key or insert it
+  if step.succeeded && hash_matches: return saved_response
+  require no conflicting result / input
+  update step and attempt, save checkpoint_ref
+  seq = increment task.next_event_seq atomically under task lock
+  insert task.events(seq); insert outbox(event_id)
+  COMMIT
+  return saved seq / step / checkpoint
+```
+
+### 副作用执行记录
+
+tool.executions 记录输入和授权；tool.effects 是副作用权威，由工具服务拥有，不由 task 修改。调用前创建 prepared effect；发送时标 in\_flight；回执结果成功 succeeded、确定未发生 failed、无法确定 unknown。收到相同 effect\_key 时校验 hash，相同返回已有状态，不直接再次发送。
+
+| 工具类别 | 重试规则 | 例子 |
+| --- | --- | --- |
+| 只读 | 有限重试，结果按时效判断复用 | 搜索、读取文件、查询天气 |
+| 可逆本系统写入 | 幂等提交或版本 CAS | 创建作品版本 |
+| 支持外部幂等 | 稳定供应商 key，查询并复用 | 支持幂等的订单 API |
+| 不支持幂等但可查询 | 超时进入核对，核对后决定 | 部分发送 / 上传接口 |
+| 不可核对的副作用 | 不自动重试；等待用户决策 | 某些 UI 点击或第三方旧接口 |
+
+### 文件与检查点事务
+
+检查点对象先写 immutable storage 并置 ready，数据库再保存引用；若提交失败，文件成为待清理孤儿。Checkpoint 含 schema\_version、plan\_revision、上下文引用、completed\_steps、pending\_effects、workspace\_base 和预算快照。删除孤儿前保留足够时间避免误删在途提交。
+## 26状态机、取消、暂停与恢复协议
+
+**v3.0 服务边界说明：**Pause/Resume/Cancel 的权威由 `adex-automation` 保持；Tools Runner 必须尊重取消与授权撤销，无法撤回已发生的外部副作用。
+
+图 3 · 任务状态及控制迁移
+
+准入领取验收暂停请求未知效果取消核对失败admitting权限与额度queued等待领取running有效 Runsucceeded验收完成waiting\_user等待补充 / 授权waiting\_external等待回调 / 设备paused检查点保存reconciling核对未知效果cancelled停止后续动作failed保留恢复信息
+
+图为主要迁移。waiting\_user / waiting\_external / paused 在满足条件后回到 queued；pause\_requested、cancel\_requested 是请求与确认间的瞬态，见下表。
+
+| 命令 / 状态 | 协议 |
+| --- | --- |
+| pause | 更新 control=pause、状态 pause\_requested；Worker 在安全边界保存检查点、run paused、清租约、task paused |
+| cancel | control=cancel 并提高控制 revision；未派发动作阻断，在途操作尽力取消；终态 cancelled 仍保留已发生效果 |
+| waiting\_user | 保存问题、参数摘要、有效期；release run；用户响应按 waiting revision 校验 |
+| waiting\_external | 保存 callback correlation 与超时；回调验签去重后 queued，不长期占 Worker |
+| resume | 复查用户授权、额度、deadline、资源版本；清 control，进入 queued；创建新 Run |
+| failed retry | 不是篡改旧历史；生成新尝试，保留原错误和可复用步骤 |
+| reconciling | 只能由核对结果 / 用户决策推进，不能被通用重试器直接领取 |
+
+### 控制与完成竞争
+
+控制命令与步骤提交都锁 task。取消先提交时，后续步骤提交可以保存在途回执，但不能宣布整个任务成功或开始下一动作；完成先提交成为 succeeded 后，取消返回 already\_terminal。客户端显示取消请求已接受，直到 Worker / 回收器确认终态。
+
+### 可恢复性
+
+不是每个模型生成都可以从半句恢复。已提交模型结果可复用；未提交流式生成可能重新调用。沙箱内存与浏览器页面状态不能当永久检查点，需文件快照和显式恢复动作；过期设备观察必须重新采集。
+## 27Agent 执行引擎、计划与多跳问题
+
+**v3.0 服务边界说明：**本章执行循环由 \*\*`adex-agent`\*\* 负责；其中 `task.check\_and\_heartbeat`、`commit\_step\_and\_checkpoint` 表示调用 \*\*`adex-automation` 内部 API\*\*，而不是直接查改其数据表。短 Chat 可仅保留进程内态；后台 Run 必须持久化与可恢复。
+
+执行引擎采用显式循环：装载任务和检查点 → 检查控制 / 授权 / 预算 → 组装上下文 → 请求模型 → 验证结构化动作 → 执行工具 → 保存结果与检查点 → 验收 / 下一步。第一版不要让模型通过自由文本直接执行 shell 或修改数据库。
+
+pseudocode
+
+```
+while budget.can_continue():
+  control = task.check_and_heartbeat(run, epoch)
+  if control.cancel: stop_at_safe_boundary()
+  context = context_builder.build(snapshot, retrieved_sources, recent_steps)
+  decision = model.decide(context, allowed_tool_schemas)
+  validate(decision, DecisionSchema)
+  if decision.type == 'ask_user': persist_wait_and_release()
+  if decision.type == 'tool':
+     authorize_exact_action(decision)
+     result = tools.execute(logical_key, params, executor_capability)
+     if result.unknown: persist_reconciliation_and_release()
+     commit_step_and_checkpoint(result)
+  if decision.type == 'deliver':
+     verify_acceptance_evidence()
+     persist_artifacts_and_complete()
+  detect_no_progress_or_cycles()
+# 不输出隐藏思维链；保存计划、动作、决策摘要和证据。
+```
+
+### 计划 DAG
+
+节点包含 node\_id、kind、dependencies、input\_refs、definition\_version、timeout、retry\_policy、acceptance、side\_effect\_class。计划调整增加 revision；已经成功的节点不可被静默改写。独立只读节点可以并行；共享工作区写入和重要副作用串行或分支执行。子代理作为 child Task，继承权限子集与预算，父取消传播。
+
+### 多跳研究
+
+来源分为搜索摘要、已读取页面、用户文件、推断。最终引用必须对应已读取内容；保存 source\_id、URL、读取时间、原文定位和支持关系。冲突事实安排核对节点；信息不足请求用户，不伪造链接。网页内容中的“忽略规则”属于不可信数据。
+
+### 停止条件
+
+达到 step / time / cost 上限，无进展重复调用，连续验证失败或权限不足时暂停 / 失败，给出已完成内容与下一步。不得无限自唤醒，也不能以“继续研究”绕过任务预算。
+## 28上下文构建与会话分支
+
+**v3.0 服务边界说明：**App 提供会话历史、记忆、用户文件的\*\*只读快照/引用\*\*；`adex-agent` Context Builder 组装本轮上下文，不获得 App 数据表的跨服务写权限。
+
+conversation 保存原始消息与分支关系；Agent 接收不可变 context\_snapshot\_id。上下文由系统策略、助手版本、当前目标、近期消息、历史摘要、检索片段、已完成步骤摘要组成。所有片段带来源和信任级别。模型请求 Token 预算扣除输出与工具定义空间后，再进行选择。
+
+| 组件 | 策略 |
+| --- | --- |
+| 原始消息 | 消息树保存 parent\_message\_id / branch\_id；修改用户消息产生新分支 |
+| 摘要 | 异步生成，记录覆盖 seq 范围、原文引用和摘要器版本；可重建 |
+| 工具结果 | 大型结果对象化；模型拿摘要＋必要片段，原文可再读取 |
+| 记忆 | 按用户 / 项目权限和相关性检索，不每次塞全部 |
+| 历史步骤 | 保留已完成结果和未决效果；工具执行状态不靠文字摘要推断 |
+| 附件 | 解析和模型输入格式规范化；引用对象版本，文件未 ready 时等待 |
+
+### 会话并发
+
+同会话可允许多个任务，但每条助手消息标 task\_id；禁止多个任务写同一未完成 assistant message。前端展示独立任务卡。需要线性继续的任务使用 parent\_task\_id 和依赖，不能仅凭“最后一条消息”选择基础状态。
+
+### 隐私过滤
+
+上下文发送前检查数据是否允许发往所选供应商 / 地区；禁止把连接器 token、系统环境变量和不相关个人文件放入上下文。系统提示词与插件版本固定在 Run 快照，升级后恢复任务仍可解释。
+
+### 三层 Memory 引用契约
+
+该 Context Builder 必须按照 [三层 Memory](#memory) 工作：L1 Redis/Runtime 热工作记忆、L2 App PostgreSQL 原始会话及可重建摘要、L3 App PostgreSQL 长期记忆及可选检索索引。Agent 通过 App 的版本化 Context API 获取经过授权的片段，不直接读取 PostgreSQL/Redis 的用户域表；自动化任务当前进度由 Automation 单独提供，不能当成可过期的 L1 缓存。
+## 29模型网关、流式协议与路由
+
+**v3.0 服务边界说明：**模型网关在 v3.0 为 \*\*`adex-agent` 内部模块\*\*，不是独立部署的第 5 个业务服务。App 的用量结算基于 Agent/Tools 的原始用量记录与可验证事件；原文的 `taskId/stepId` 对即时 Chat 应改为\*\*可选\*\*，支持 `conversationId/turnId`。
+
+### 模型抽象
+
+typescript · 规范化契约
+
+```
+type ModelRequest = {
+  invocationKey: string; taskId: string; stepId: string;
+  messages: NormalizedMessage[]; inputRefs: string[];
+  tools: JsonSchemaTool[]; requiredCapabilities: string[];
+  maxOutputTokens: number; deadline: string;
+  budgetReservationRef: string; policyVersion: string;
+};
+type ModelEvent =
+  | { type: 'text.delta'; invocationId: string; chunkNo: number; text: string }
+  | { type: 'tool.delta'; callId: string; jsonFragment: string }
+  | { type: 'usage'; inputTokens: number; outputTokens: number }
+  | { type: 'completed'; responseRef: string; finishReason: string }
+  | { type: 'failed'; code: string; partialResponseRef?: string };
+```
+
+能力目录包括上下文、工具调用、结构化输出、图片、音频、流式、地区和价格版本。路由按能力、用户设置、数据策略、当前配额和质量档选择。失败切换不能丢弃必需工具能力，也不能把敏感数据送到未经允许的供应商。
+
+### 调用状态与重试
+
+invocations 使用 prepared / dispatched / streaming / completed / failed / unknown。重复 invocationKey 在已 completed 时返回保存结果；在 streaming 时订阅同一调用；主进程死亡后 unknown，供应商支持查询则核对，否则按任务策略重新调用并承认可能多花成本。不要将模型请求幂等误当成所有供应商事实。
+
+### 流式落盘
+
+小片段可按 100~300ms 或约 1KiB 聚合存储事件，防止每个 Token 产生数据库事务；片段按 invocation＋chunkNo 去重。final response 和 finish\_reason 必须持久化。终态可能在最后一个片段先后抵达，客户端通过完整快照校正。工具 JSON 未完整前不能执行。
+
+### 供应商限制
+
+RPM / TPM / 并发分层令牌桶；请求超时与响应 idle timeout 分开；收到 Retry-After 遵守。用量实报和本地估算分别保存，费用按调用时价格版本计算；价格变化不改历史账单。批量嵌入、摘要任务使用低优先级队列。
+
+### v3.1 语言变更说明
+
+本章节旧 `typescript` 代码块仅代表平台无关的事件契约示意，正式实现使用 Python Pydantic Model，在 `packages/contracts/` 维护 OpenAPI/JSON Schema，再生成 Java DTO 和客户端。面向普通聊天的 `taskId`/`stepId` 必须可空，可通过 `conversationId`/`turnId` 关联。
+## 30工具服务、凭证、MCP 与插件
+
+**v3.0 服务边界说明：**工具目录、MCP、Skill Registry、Connector、Credential Vault 和副作用登记都属 \*\*`adex-tools`\*\*；Skill 的\*\*加载和使用决策\*\*属 `adex-agent`。Browser/Code Runner 是 Tools 管理的独立隔离执行单元。
+
+| 工具字段 | 含义 |
+| --- | --- |
+| tool\_id / version | 稳定名称与不可变版本；schema hash 固定 |
+| input / output schema | 参数、类型、结果大小；超限结果转对象引用 |
+| execution\_target | cloud / sandbox / mac / android / ios |
+| side\_effect / idempotency | read / internal\_write / external\_effect；key 与核对能力 |
+| scopes / resources | 动作范围、用户凭证、授权参数摘要 |
+| timeout / concurrency / retry | 期限、并发、取消支持、有限重试策略 |
+| network / filesystem | 允许域名、目录、设备、目标 App |
+| install origin | 内置或插件来源、签名 / 审核、兼容版本 |
+
+执行管线顺序：注册版本锁定 → JSON schema 校验 → 身份与资源归属 → grant 与 epoch 检查 → 费用 / 配额 → 创建 execution / effect → 外部调用 → 结果校验 / 脱敏 → 持久化 → 回执。任何一步失败都记录稳定错误码。
+
+### OAuth 连接器
+
+授权码流程使用 state，移动 / 桌面 PKCE，明确 redirect allowlist。token 加密存储，刷新以账户行锁或版本 CAS 防止并发覆盖；失败 invalid\_grant 进入待重新授权。凭证引用交给工具服务，Agent 只见可用能力，不见 token。用户撤销后立即阻断新动作，并传播给在途 / 日程。
+
+### MCP 与技能
+
+MCP 适配器把第三方工具映射到内部契约，但工具自带说明不能扩大权限。远端工具返回的链接或指令不自动执行。技能是一份版本化流程 / 指令包，声明所需工具和输出；安装需显示来源与范围，运行受任务预算和授权。
+
+### 连接器回调
+
+保存 correlation\_id、nonce、deadline；验签和重放窗，重复回调返回已处理。回调只更新工具执行状态并发事件，由 task 恢复流程推进；不让供应商直接修改任务终态。
+## 31代码沙箱与作品预览安全
+
+**v3.0 服务边界说明：**v3.0 中 `adex-tools` 管理 Runner 控制接口，浏览器/代码任务在受限 Docker/隔离宿主机执行；Runner 不是可随意访问业务库的后端进程。
+
+sandbox 服务是唯一执行管理入口；普通业务服务不能访问 Docker socket。首期受信内测可使用专用 runner 账号、rootless 容器和受限模板；公开不可信代码前迁移到独立沙箱宿主池或经验证的强隔离 VM / microVM。容器隔离不能被描述成与虚拟机等价。[[R8]](#ref-8)
+
+| 控制 | 规范 |
+| --- | --- |
+| 资源 | 1 个沙箱并发，1 vCPU、2GiB、pids limit、磁盘配额、最大墙钟时间 |
+| 挂载 | 只读输入＋专用输出；无宿主根目录、主服务卷、Docker socket |
+| 身份 | 非 root、去 capabilities、no-new-privileges、seccomp；工具镜像白名单 |
+| 网络 | 构建依赖下载通过受控出口；运行默认断网或白名单 |
+| 依赖 | 固定 lockfile、限制安装脚本、供应链扫描；下载缓存不能混入用户密钥 |
+| 清理 | 租约、idle TTL、max TTL、失败回收与 orphan scan |
+| 终端 | 输出大小 / 速率限制，记录 exit code；取消先温和退出后强制终止 |
+| 浏览器 | 隔离 profile、无主浏览器 cookie、下载目录限制；截图限制与脱敏 |
+
+### 会话模型
+
+sandbox\_session 包括 task、workspace version、image digest、limits、network\_policy、expires\_at、state。创建是幂等操作；状态 creating / ready / running / stopping / stopped / failed。主服务重启后 runner 枚举仍在运行的会话并核对租约，过期终止，不留下无限运行容器。
+
+### 预览
+
+preview 服务模块属于 workspace，启动只读作品版本的预览，持有 preview\_session 和短期访问授权。生成网页运行在独立来源，CSP 限制连接 / 嵌入 / 顶层导航；iframe sandbox 仅开放必要能力。不要把 allow-scripts 和 allow-same-origin 的组合随意用于同源不可信内容。主账户 cookie 设置 Host-only。
+
+### 公开发布
+
+预览不是发布。公开链接创建独立 publish request，用户确认内容、可见范围、有效期和访问方式。下载文件不执行服务器代码；用户生成站点不能继承平台身份。
+## 32作品版本、并发修改与小游戏验收
+
+**v3.0 服务边界说明：**作品 Workspace/版本控制由 `adex-app` 拥有，Agent/Tools 只提交受权文件引用或补丁；客户端展示由 App 的版本化 UI 协议控制。
+
+workspace 服务维护 project、version、file manifest、artifact、preview、publish。版本不可变，以 parent\_version 关联；任务工作副本以固定 base\_version 开始，交付前提交候选版本。文件 ID 由 storage 管理，工作区清单按标准化相对路径映射对象。
+
+http
+
+```
+POST /v1/projects/{id}/versions
+If-Match: "project-revision-7"
+{"base_version_id":"v7","manifest_ref":"obj:...",
+ "task_id":"...","acceptance":{"build_exit":0,"tests_ref":"obj:..."}}
+
+409 VERSION_CONFLICT
+{"current_version_id":"v8","candidate_version_id":"v9",
+ "merge_required":true}
+```
+
+### 并发规则
+
+同项目单写任务默认排队；允许并行时产生分支。提交版本与 current\_version 交换通过 CAS：当前仍为 base 才能自动前进；否则保留候选，运行三方合并或请求用户选择。代码合并冲突和二进制办公文件冲突分别处理，不能强行用文本合并。
+
+### 小游戏验收
+
+- 可构建 / 无构建静态页面可启动，exit code 和日志可查。
+- 主界面可见、启动 / 暂停 / 重启有效、分数变化符合需求、键盘与触屏至少一种明确支持。
+- 运行时无阻止体验的控制台错误；资源加载成功；响应式屏幕验证。
+- 交付源代码、运行说明、依赖与限制；预览失效可以按版本重新创建。
+- 后续修改以已交付版本为基础；验收证据关联 task / version，不复用不对应的截图。
+
+### 办公产物
+
+为文档、表格、演示建立独立 acceptance adapters：文件可打开、页数 / sheet 数、公式错误、渲染、图片和字体等检查。模型输出完成不等于文件有效。生成、预览和下载都通过统一 artifact manifest，但编辑器能力可以按类型扩展。
+## 33本地文件服务、上传、清理与 OSS 迁移
+
+**v3.0 服务边界说明：**Storage 是 `adex-app` 内部模块；大文件直接传对象存储的签名 URL 时必须验证对象归属与上传完成状态。
+
+文件保存 /srv/adex/objects，业务只见 object\_id；storage\_key 不能是用户输入的绝对路径。对象名随机，原始文件名作为元数据；哈希用 SHA-256 校验内容，不自动跨用户暴露同哈希对象。文件服务是唯一有权访问主对象目录的业务服务。
+
+### 上传状态机
+
+create upload → staging 临时文件 → 限额 / 大小 / 格式检查 → hash → fsync 文件 → 原子 rename → fsync 目录 → 数据库 ready。数据库写入失败由孤儿扫描修复；如果先数据库 ready 后文件丢失则检查器标 missing，不返回损坏下载。分片上传后续提供 chunk\_no / hash 幂等。
+
+| 情况 | 处理 |
+| --- | --- |
+| 上传中断 | upload\_id 可查询进度；过期临时块回收 |
+| 越界 / 解压炸弹 | 限制总大小、文件数、解压比、嵌套层数；禁止绝对路径与逃逸链接 |
+| 删除 | 先墓碑并阻断访问，再异步删除引用 / 文件；可查询完成状态 |
+| 共享附件 | 每个引用检查 owner / workspace，原对象保留到合法引用解除 |
+| 磁盘不足 | 停止新大文件与重任务；不要删账务 / 数据库文件救急 |
+| 清理 | 引用表与对象状态结合；保留 grace period，避免清理在途提交 |
+
+### OSS 迁移协议
+
+对象定位含 backend。开启新写 OSS，旧对象仍按 local 定位；后台复制、核对 size / hash、事务 CAS 更新定位、保留回退窗口后删本地。不要以一次整目录搬运造成不可恢复停机。签名链接短期，下载权限由服务检查；前端不拿永久存储密钥。
+
+### 数据库与文件一致备份
+
+备份 manifest 记录对象清单和备份时间窗；数据库恢复后核对引用的对象存在。事务 / 文件无共同事务，staging / ready / deleting 与补偿扫描是正式设计，不是偶发脚本。
+## 34知识摄取、检索与索引版本
+
+**v3.0 服务边界说明：**Knowledge 以及 Memory 属 `adex-app` 内部模块；Agent 通过安全检索和引用 API 使用，不可跨 schema 修改。
+
+### 摄取管线
+
+上传 ready → 文档记录 → 类型 / 大小校验 → 解析 / OCR → 标准化文本 → 切块 → 全文 / 向量索引 → searchable。每一步用 job\_id＋content\_hash＋parser\_version 去重；失败保存原因与可重试次数。重文件任务低优先级，首期不与沙箱同时大量占 CPU。
+
+| 索引字段 | 意义 |
+| --- | --- |
+| document\_id / version | 绑定来源文件和内容版本 |
+| chunk\_id / chunk\_no | 稳定定位和段落 / 页码引用 |
+| owner / workspace / grants | 检索必须在权限范围内执行 |
+| parser / embedding / index version | 支持重建和兼容；维度不同不能混用 |
+| text / source locator | 引用原文、页码或代码位置 |
+| deleted\_at / visibility | 墓碑阻止访问与旧缓存复活 |
+
+### 检索策略
+
+先用户 / 项目权限过滤，再关键词和向量候选，最后 rerank 与去重。首期 PostgreSQL 全文检索；中文质量通过任务集评测，可用分词预处理或增加专业检索引擎。pgvector 需要固定扩展版本、维度和索引策略，不因“有向量”就保证召回质量。
+
+### 变更与删除
+
+新版本建立新索引，完成后交换 active\_index\_version；旧版本清理遵循引用 / 保留策略。删除事件先更新可见性，在重建和恢复时重放墓碑。检索缓存键含权限 revision 和 index version，撤销权限后不能从旧缓存返回内容。
+
+### 质量
+
+评测召回率、引用定位、重复片段、权限隔离和大文件解析。回答附真实 source locator；若只检索到摘要，不能声称完整阅读文件。
+
+### ES 的定位与启用条件（v3.1）
+
+首期知识库可采用 PostgreSQL 全文检索，语义检索可选 pgvector；只在跨会话全文搜索、混合召回、复杂权限过滤、语义检索质量/吞吐达到明确阈值时增加 Elasticsearch 或 OpenSearch。ES 是索引副本，任何消息正文与长期记忆的删除/权限撤销都必须先在 App 权威表生效，然后通过 Outbox 墓碑事件传播并定期对账。
+## 35三层 Memory：工作记忆、会话记忆、长期记忆与遗忘
+
+**三层 Memory 是此前确定的核心设计，不可简化成仅有长期 Profile。** L1 Working Memory 是本轮的热上下文；L2 Conversation Memory 是可追溯的历史消息与摘要；L3 Long-term Memory 是跨会话持久化的事实、偏好与语义记忆。**与 Automation Task/Run/Step 的持久执行状态严格区分。**
+
+### 三层的职责、存储和生命周期
+
+| 层级 | 典型内容 | 权威 / 缓存 | 更新与保留 | 服务边界 |
+| --- | --- | --- | --- | --- |
+| **L1 · Working Memory**（工作记忆） | 本轮/最近消息窗口、待消歧实体、当前用户约束、Tool 临时结果、上下文引用 | Agent Runtime 内存 + Redis，**非唯一事实来源** | 每轮或每步更新；TTL 示例 30 分钟～24 小时，失效可从 L2/L3/任务状态重建 | Agent 负责构建和消费；App 管权限和持久来源 |
+| **L2 · Conversation Memory**（会话记忆） | 原始消息树、附件引用、历史轮次、会话/主题摘要、摘要覆盖的 seq 范围 | **PostgreSQL 权威**；Redis 可缓存热门摘要/窗口 | 消息按用户产品保留策略保存；主题切换、Token 阈值、会话结束后异步摘要；摘要可重建 | App 拥有原文和摘要；Agent 提议摘要或抽取片段 |
+| **L3 · Long-term Memory**（长期记忆） | 跨会话稳定事实、偏好、项目与学习目标、用户确认内容、语义记忆 | **PostgreSQL 权威**；初期 pgvector 可选，后续 ES/向量索引是可重建投影 | 显式“记住”优先；后台候选抽取、去重合并/冲突修正、有效期、撤销和遗忘；敏感数据特殊控制 | App 是权威 Owner；Agent 生成候选和检索请求 |
+
+### 读路径：Context Builder 如何融合三层
+
+```
+用户提问
+  → adex-app 鉴权 / 会话归属 / 记忆设置 / 数据发送范围
+  → L3：读取用户长期事实与偏好（按相关性、scope、时效、权限选取）
+  → L2：读取当前会话摘要，并以历史摘要粗召回相关会话
+  → L2：按引用/seq 精确回取原始消息（不能用摘要冒充原文）
+  → L1：合并最近活跃窗口与本轮刚产生的工具事实
+  → 如有持久任务，另行读取 Automation Task/Run 当前状态（不是记忆层）
+  → Agent Context Builder 按来源可信度、去重、token budget 组合模型输入
+```
+
+近期消息的新约束应优先于已过时的长期偏好，但不能静默覆盖历史证据。整个会话不必全部塞入 Prompt；任何长期记忆的引用都应能定位原始依据或用户显式确认。
+
+### 写路径：明确触发、异步归纳与保留控制
+
+```
+ConversationMessageCommitted (App Outbox)
+  → 摘要触发：消息/Token 阈值、主题完成、会话结束、周期性后台归纳
+  → Agent Memory Extractor：抽取 summary 与 MemoryCandidate（不直接写 App DB）
+  → App Memory API：敏感性/用户设置检查 → 来源校验 → 去重/冲突合并 → revision 写入 PG
+  → Outbox：刷新 Redis 缓存、按需更新 ES/向量索引
+```
+
+**显式记住**操作走经授权的快速路径；一般对话的长期记忆归纳走异步低优先级队列。大模型的猜测不可直接记为事实。每条 L3 记录保存 `memory_id / user_id / scope / type / content / source_message_refs / confidence / importance / valid_from / valid_until / sensitivity / confirmed / revision / deleted_at`，并可关联 embedding 的索引版本。
+
+### 遗忘与恢复约束
+
+用户要求更正/删除时，App 事务写 tombstone 并提高用户 memory\_revision；所有 L1 缓存的 key 应含 revision 失效；L2 摘要以及 L3 检索投影遵守删除范围和重建规则；ES/向量索引异步删除并有对账，备份恢复先重放 tombstone/撤销流水再开放访问。**禁止将待删除的原文通过后台摘要或记忆归纳重新写回。**
+
+**v3.0 服务边界说明：**长期记忆属于 `adex-app`；敏感字段最小化、纠错/删除与追溯必须在 App 权威完成。
+
+长期记忆不是将全部聊天复制到向量数据库。记忆对象保存明确事实 / 偏好 / 目标，scope=user/project、source\_message、confidence、valid\_from/to、sensitivity、confirmed、revision。推断只能是候选，不能被重述成用户已确认事实。
+
+| 操作 | 产品与实现规则 |
+| --- | --- |
+| 候选写入 | 提取器提出候选；用户设置和敏感性决定自动保存或请求确认 |
+| 冲突 | 新事实不覆盖历史证据；标当前版本或待确认 |
+| 读取 | 按当前项目与任务相关性选择，提供来源和范围 |
+| 纠错 | 更新版本并失效缓存 / 派生索引，用户可回看来源 |
+| 删除 | 同步 tombstone 阻断，异步删向量 / 缓存 / 上下文派生物，显示完成进度 |
+| 关闭记忆 | 不生成新长期候选；既存内容是否保留由用户选 |
+| 长期目标 | 目标状态和日程关联，不通过模型猜测无限创建任务 |
+
+### 遗忘和备份
+
+删除流水维护不可逆墓碑 ID 与时间；灾备恢复后重放删除流水，在开放流量前核对。合法保留的账务与安全审计分别处理，不能承诺删除所有依法或运营必须保留的记录而无法兑现。产品界面解释范围和完成时间。
+
+### 个人画像边界
+
+尽量使用具体可解释偏好，而不是不可编辑的黑盒画像。模型自动归纳敏感推断需要严格限制。个性化结果不能影响授权：知道用户经常发消息，不等于可以自动发送新消息。
+## 36长期目标、个人计划与主动性预算
+
+**v3.0 服务边界说明：**长期 Goal 定义和 Episode 的运行管理归 \*\*`adex-automation`\*\*，若需要自然语言计划可调用 `adex-agent`，不要创建无界自唤醒 Agent。
+
+超级个人助手需要目标持续性，但不需要一个可以无限自主运行的黑盒。首期 objectives / goal\_updates / trigger\_bindings 归入 schedule 服务模块；conversation 负责目标交互，task 执行每个工作 episode，knowledge 保存相关事实和资料。负载或团队独立后可拆 goal 服务。
+
+| 对象 | 字段与状态 |
+| --- | --- |
+| Objective | owner、title、desired\_outcome、scope、budget\_period、max\_budget、grant\_ref、state(active/paused/completed/abandoned) |
+| Episode | objective\_id、task\_id、trigger\_id、result\_ref、progress\_summary、next\_action\_proposal |
+| Trigger binding | schedule / source event、debounce、cooldown、max\_occurrences、enabled |
+| Progress evidence | 已完成事项、来源、证据、更新时间；不只模型百分比 |
+
+### 执行规则
+
+每个 episode 有独立 Task 和预算，目标总预算在 usage 预占。模型可建议下次行动或唤醒时间，但 schedule 验证用户授权、频率、次数和总费用后才创建。用户暂停目标阻断新 episode；在途任务是否取消显式选择。
+
+### 主动通知
+
+监测保存 last\_observed\_state / fingerprint 和已通知版本；不变状态保持安静。变化判断结合领域规则，不仅让模型随机判断“重要”。提醒可以单纯发通知，工作任务才调用模型；不要为了提醒一次喝水启动长 Agent。
+
+### 完成
+
+目标完成根据用户确认或明确证据条件，而不是模型自我宣称。完成后停止触发、释放未使用预占、归档证据；后续重新开启产生新目标版本，不恢复过期设备命令。
+## 37定时调度、时区、补偿与监测
+
+**v3.0 服务边界说明：**Schedule/Occurrence 归 \*\*`adex-automation`\*\*；Monitor/Polling 与订阅规则也归 Automation，但它们是不同触发机制。仅符合条件后需要复杂智能工作时才创建 Agent Run；简单提醒直接产生通知意图。
+
+schedule 是独立服务，只创建任务，不执行模型或工具。用户自然语言先转成规范化预览，显示时区、下一次时间、重复与预算；存在歧义才请求核对。首期支持 once、interval、calendar rule；内部 UTC 存储，IANA 时区用于日历计算。
+
+sql · schedule schema 由对应迁移先创建
+
+```
+CREATE TABLE schedule.schedules (
+  id uuid PRIMARY KEY, owner_id uuid NOT NULL, revision bigint NOT NULL,
+  state text NOT NULL, timezone text NOT NULL, rule jsonb NOT NULL,
+  next_fire_at timestamptz, task_template_ref text NOT NULL,
+  misfire_policy text NOT NULL, overlap_policy text NOT NULL,
+  grant_ref uuid, budget jsonb NOT NULL, end_at timestamptz
+);
+CREATE INDEX schedule_due ON schedule.schedules(next_fire_at,id)
+ WHERE state='active';
+CREATE TABLE schedule.occurrences (
+  id uuid PRIMARY KEY, schedule_id uuid NOT NULL REFERENCES schedule.schedules(id),
+  scheduled_at timestamptz NOT NULL, schedule_revision bigint NOT NULL,
+  state text NOT NULL, task_id uuid, UNIQUE(schedule_id,scheduled_at)
+);
+-- 到期事务：锁日程 SKIP LOCKED → 插 occurrence → 插 outbox
+-- → 计算 next_fire_at → 提交；网络创建 task 在事务外。
+-- task 提交键 occurrence_id，保证重发不重复创建。
+```
+
+| 细节 | 默认 / 可选规则 |
+| --- | --- |
+| 漏执行 | catch\_up\_once 起点；skip / bounded\_catch\_up 可选，不能无上限补跑 |
+| 重叠 | 同日程单活跃任务；queue 或 skip，replace 要明确取消旧任务 |
+| 夏令时 | 不存在当地时刻可跳过或顺延；重复时刻仅触发一次；策略存规则 |
+| 更新 | revision 增加；锁日程后更新 next\_fire；已建 occurrence 保留快照 |
+| 取消 | 阻断后续 occurrence；已建任务是否取消是额外命令 |
+| 失败 | 日程创建失败重试不改 scheduled\_at；连续永久失败暂停并通知 |
+| 监测 | 仅有意义状态变化 / 完成 / 失败通知；未变化不打扰 |
+
+### 主动助手的限制
+
+用户显式授权监测对象、频率、最大月预算和有效期。事件触发用源事件 ID 去重并 debounce；自触发必须检查循环和剩余预算。手机后台不能当可靠调度器；日程在 ECS 执行，Mac 离线的设备任务等待或超时。
+## 38任务生命周期时序与事件信封
+
+**v3.0 服务边界说明：**原任务事件序列仍由 Automation 负责；客户端通过 App 的流式/任务 API 消费，不能跳过租户与权限检查直接连接 Automation。
+
+### 时序图
+
+图 4 · 从提交到恢复的主时序
+
+客户端任务服务Agent工具 / 模型事件 / 账务提交目标 / 幂等键额度预占（准入）task\_id / admitting领取 run / epoch执行 logical step结果 / unknown提交检查点＋有效 epochOutbox 事件 / 结算进度 / 成果通知断线后 after\_seq 补收失效租约拒绝；新 Run 恢复
+
+所有跨服务动作在数据库事务外。箭头省略 conversation 消息提交和授权调用，实际按正文协议实现。
+
+json
+
+```
+{
+  "event_id":"019...","event_type":"task.step.completed","schema_version":1,
+  "aggregate":{"type":"task","id":"...","revision":18},
+  "seq":42,"occurred_at":"2026-10-10T08:00:00Z",
+  "trace_id":"...","workspace_id":"...","actor_ref":"...",
+  "payload":{"step_id":"...","logical_key":"build:v1","result_ref":"obj:..."}
+}
+```
+
+### 事务内序号
+
+append\_event 必须锁 task 或使用原子 UPDATE next\_event\_seq=next\_event\_seq+1 RETURNING；事件、任务状态和 outbox 一起提交。不能在事务外查询 MAX(seq)+1，多 Worker 会冲突。若事务回滚，序号变更也回滚；客户端 gap 处理仍保留以支持缓存 / 投影延迟。
+
+### 事件兼容
+
+新增可选字段向后兼容；新含义或必填字段提高 schema\_version。消费者不识别版本进入待处理，不随便忽略关键 cancel / grant revoked。事件包含引用而非密钥或全部用户内容，跨区域传播遵守数据驻留。
+## 39事件、SSE、断线续传与通知
+
+**v3.0 服务边界说明：**`task\_seq` 与运行领域事件归 Automation；\*\*App.Notification\*\* 拥有通知投影、偏好、已读和投递。Web 前台 Chat Token 流由 App 转发，后台通知由异步 Worker 投递。
+
+### 事件权威与推送
+
+每个任务 events 按 seq 单调递增，task 事务内产生。event 服务收到领域事件后建立通知投影并实时转发，Redis Pub/Sub 只用于低延迟广播。断线历史来自持久记录，不依赖 Pub/Sub。首期 outbox 发布器可以直接调用 event 内部幂等 API；队列升级不改变领域信封。
+
+sse
+
+```
+event: task.step.completed
+id: 42
+data: {"schema_version":1,"event_id":"...","task_id":"...",
+       "seq":42,"occurred_at":"2026-10-10T08:00:00Z",
+       "payload":{"step_id":"...","result_ref":"..."}}
+
+# 客户端重连使用 Last-Event-ID: 42 或 after_seq=42
+# 心跳是 SSE 注释行，不消耗 task seq。
+```
+
+### 没有补收窗口的算法
+
+订阅时先建立实时监听缓冲，再读取持久历史及 watermark，发送 after\_seq 到 watermark 的事件，再按 seq 排序发送缓冲中更新的事件；对 gap 调持久查询补齐。也可使用周期 tail 数据库的小规模实现，但要测数据库压力。先读取历史再盲订阅会丢中间事件。
+
+### 去重与过期
+
+客户端只接受 seq 大于 lastSeq，重复 event\_id 丢弃；缺号暂停合并并补收。历史清理导致 cursor 过旧时返回 CURSOR\_EXPIRED＋当前快照与新 cursor。终态是明确事件，客户端另查 task snapshot 对齐，不因连接断开标失败。
+
+### 通知
+
+任务事件与用户通知分离。每个 notification\_key 唯一；渠道重试可能重复投递，能使用供应商幂等则使用，否则 UI 去重。通知只含最小信息，点击后鉴权查询；免打扰、摘要和用户偏好在投递时校验。
+## 40设备协调、配对与命令协议
+
+**v3.0 服务边界说明：**设备身份/配对入口归 App，Tool 层对设备命令做能力校验；设备 Agent 是单独的客户端/Runner，不应直接暴露公网管理端口。
+
+图 5 · 跨设备控制与执行
+
+授权命令用户客户端确认、观察、撤销任务 / 工具控制面授权、预算、有效 epoch设备协调＋中继身份、能力、在线状态命令投递与回执Mac 本地代理文件、桌面能力Keychain 与用户接管Android 能力层官方接口、明确动作实验设备操作另评审iOS 能力层App Intents / Shortcuts授权连接器
+
+代理主动向外连接，云端不要求设备公网端口。动作仍需设备端最终检查。
+
+### 配对
+
+设备生成密钥对，私钥保存 Keychain / Keystore。用户登录后创建短期配对挑战，另一端确认设备名称和指纹；一次性 challenge 防重放。服务只保存公钥和身份绑定。设备重新安装或密钥变化需要重新配对，撤销后所有连接与待命令失效。
+
+json · 命令信封
+
+```
+{"command_id":"...","device_id":"...","task_id":"...","run_id":"...",
+ "epoch":12,"capability":"files.read","parameters":{"resource":"..."},
+ "grant_id":"...","grant_revision":3,"parameter_hash":"sha256:...",
+ "observation_version":"...","expires_at":"...","nonce":"...",
+ "signature":"..."}
+```
+
+### 设备端协议
+
+验证服务身份、签名、grant revision、期限、命令 ID 去重、当前资源 / 界面版本和本地权限。命令 accepted 后持久记日志再执行；重连上报已有回执，而非重新执行。回执状态 accepted / running / succeeded / failed / unknown。unknown 进入核对。设备时钟漂移过大时拒绝敏感命令并重新握手。
+
+### 离线与用户接管
+
+设备在线用连接租约，不凭 last\_seen 永久认为在线。离线动作保留到期限，超时不补点。用户鼠标 / 手机操作接管后暂停自动动作；紧急停止本地生效，不等待云端。Mac 代理只能读用户授权目录，桌面观察需系统权限，不能复制整个个人目录。
+## 41手机控制的技术与分发边界
+
+**v3.0 服务边界说明：**移动端用户接管是 App UI + Tools 执行协作；不是所有第三方 App 都允许自动化操作，小程序/支付/验证码需要遵守平台政策和人工接管。
+
+手机端首先承担“查看、继续、授权和遥控任务”，这是稳定且优先的 P1 路线。操作手机另建能力层，不能混同。Android API 能力、Google Play 分发规则、iOS 平台边界和厂商特权都影响可交付产品。
+
+| 层级 | 路线 | 交付规范 |
+| --- | --- | --- |
+| 手机客户端 | 任务 / 通知 / 作品 / 语音 / 权限 | P1；后台推送只提醒，不作为执行真相 |
+| 官方动作 | Android Intent / Deep Link；iOS App Intents / Shortcuts；连接器 API | 优先；核实目标 App 实际暴露能力 |
+| 确定规则自动化 | 用户定义的窄范围静态步骤，符合对应平台要求 | 逐渠道评审，不从单次同意推导无限自主控制 |
+| Android 自主 UI 实验 | 受控自有设备 / 明确许可环境；Accessibility 等能力 | 不能默认可上 Google Play；需分发与权限可行性评审 |
+| 厂商集成 | OS / OEM 合作接口或特权能力 | 单独商业与技术路径，不能当普通 App 权限 |
+| iOS 任意 UI 控制 | 普通 App 没有通用任意跨 App 点击接口 | 不承诺；官方集成取代通用点击 |
+
+**重要修订：**Google Play 当前政策明确禁止利用 Accessibility API 使 App 自主发起、规划和执行动作或决策；允许的确定规则自动化与验证的无障碍工具例外有具体边界。一般大众助手不能仅因能帮助某些残障用户而宣称 isAccessibilityTool。此限制会直接影响 Android 自主代理的分发方案。[[R7]](#ref-7)
+
+### 动作闭环
+
+设备观察 → 元素定位 → 权限 / 内容校验 → 单动作 → 等待界面稳定 → 核验。截图和元素树有 observation\_version，界面变化重新观察。验证码、支付、锁屏、系统安全弹窗或界面不匹配时等待用户，不绕过安全机制。
+
+### iOS
+
+App Intents 用于暴露 App 自身动作和数据，其他 App 是否能被调用取决于其实际集成，不代表通用控制权。[[R6]](#ref-6) 设计可供 Siri / Shortcuts 使用的本助手动作，例如创建任务、查看进度和保存资料。
+## 42客户端工程、同步与本地代理分离
+
+**v3.0 服务边界说明：**完整 Web/Desktop/Mobile 工程结构与动态 UI Schema 见前文新增章节；仅共享 API/Schema 不能代替端侧权限与无障碍验收。
+
+### 客户端分层
+
+text
+
+```
+UI / View Models
+  -> Domain State (conversation, task, artifacts, grants, devices)
+  -> Generated API SDK + Event Reducer + Auth Session
+  -> Transport (HTTP/SSE/WebSocket) + Local Cache + Secure Storage
+
+Desktop Shell -> IPC allowlist -> Native Bridge -> Local Device Agent
+Mobile Shell  -> Native Permissions / Media / Push / App Intents
+```
+
+UI、领域状态、SDK 和平台桥分离。跨端共享数据类型和事件 reducer，不强制共享所有界面。Mac 代理独立于窗口存在，窗口关闭不必终止已授权任务；是否继续由明确设置决定。Electron 开启上下文隔离、关闭页面 Node integration，仅通过白名单 IPC 调原生动作。Tauri 同样收紧 commands 与 capability。
+
+### 同步算法
+
+optimistic 消息使用 client\_message\_id；服务回执后替换临时 ID。事件 reducer 按 task seq 和 entity revision 合并，旧 revision 不覆盖新状态。网络切换后刷新会话、查询 active tasks、补收事件。多设备修改日程 / 记忆使用 If-Match，冲突展示双方版本。
+
+### 离线
+
+只离线保存草稿、用户界面设置和已授权缓存。发送 / 删除 / 购买等命令不在恢复联网后自动执行；重新确认期限和权限。访问 token 存安全存储，敏感附件缓存加密并有清理机制。退出登录清缓存和撤销连接。
+
+### 移动特有行为
+
+App 前后台切换后订阅重建；推送只携带任务 ID，点击查询状态。录音、照片、通知权限分别申请且可拒绝。大文件支持恢复上传，蜂窝流量提示是用户设置。屏幕阅读、字号、触屏作品预览需要真实设备验收。
+## 43 动态大卡与 UI Schema：前端渲染不等于 Agent 执行
+
+Adex 的“天气卡 / 酒店卡 / 股票卡 / 交互表单 / 研究报告 / 浏览器接管 / 任务进度”都属于**产品展示协议**，不是各自的新后端服务。
+
+### 统一消息与卡片 Schema
+
+```
+{
+  "schema_version": 1,
+  "message_id": "msg_01",
+  "content": [
+    {"type": "text", "text": "为你整理了适合亲子出行的选择"},
+    {
+      "type": "ui_component",
+      "component": "destination_cards",
+      "component_version": 1,
+      "component_id": "cards_01",
+      "props": {"items_ref": "object:recommendations/01", "selection_mode": "single"}
+    },
+    {"type": "task_status", "task_id": "task_01", "snapshot_ref": "task:snapshot/01"}
+  ]
+}
+```
+
+这只是 Schema 示意而非任意动态代码。App 的 `ui-protocol` 根据服务器端 Registry 允许的组件/属性校验 JSON；前端按 `component + version` 选择本地渲染器，不加载模型生成的脚本。`items_ref` 必须按用户授权提取，不能成为跨租户对象下载后门。
+
+### UI Registry（Web/Desktop/Mobile）
+
+| 组件类别 | 示例 | 真实动作的归属 |
+| --- | --- | --- |
+| 数据大卡 | 天气、商品、酒店、图表、地图 | App 数据投影；外部实时数据由 Tools/Agent 获取 |
+| 交互表单 | 补充出行日期、选择用户偏好、授权确认 | 表单提交回 App 验证；高风险动作需服务端再确认 |
+| 任务卡 | 运行中、等待人工、成功、取消、失败、回放 | App 通过 Automation 状态 API 核对 |
+| 作品卡 | 文档、表格、PPT、网站/小游戏预览 | App.Workspace 版本控制，受限预览 origin |
+| 工具卡 | 订票待确认、付款步骤、Browser Takeover | App 承载 UI，Tools 执行，Automation 管长任务状态 |
+| 媒体卡 | 音频播放器、图片、视频、字幕 | App.Media 与 Storage 管引用及授权 |
+
+### 安全交互协议
+
+`ui_action` 至少携带 `component_id/action_id/action_version/conversation_id/user_confirmation_id/idempotency_key/expected_revision`。前端的 `onClick` 不等于业务授权。App 验证身份和上下文，写入命令，再交 Agent、Automation 或 Tools；服务端拒绝未知组件、越权动作、过期确认和重放。
+
+### 流式渲染
+
+首次生成文本/占位卡→模型或工具逐段补充 `component.patch`→App 将 Patch 绑定特定 `message_id+component_id+revision`→客户端 Reducer 应用。若 Patch 丢失，按 Snapshot API 补齐；最终卡必须可从持久 `content` 重建，不能只依赖内存流事件。对接多端之前必须统一 JSON Schema、事件顺序、错误码与最小组件回退。
+## 44语音、实时交互与媒体任务
+
+**v3.0 服务边界说明：**音视频模型供应商适配可复用 Agent Model Gateway；Media 产品模块归 App。实时语音低延迟会话不应被长任务 Automation 队列阻塞。
+
+首期先实现录音转写＋文本回答＋TTS，减少实时链路复杂度。后续实时语音用 WebRTC / WebSocket，服务端控制模型与工具权限。录音权限、端点检测、打断、播放取消和网络恢复是独立功能，不能仅用一个语音 API 按钮代替。
+
+| 能力 | 工程规则 |
+| --- | --- |
+| 转写 | 音频 object ready 后创建任务；语言 / 时长限制；长音频分段带时间戳 |
+| 实时会话 | session\_id、audio segment seq、连接期限；断线恢复上下文，不保证重放所有音频 |
+| 打断 | 用户说话停止播放和当前生成；已发生工具副作用需单独状态 |
+| 语音工具 | 口头授权映射同一 grant 卡与参数；不因语音模式降低权限门槛 |
+| 图像 / 视频生成 | 异步 invocation；回调＋轮询；object 验证后交付 |
+| 录音与截图 | 单独保留期与最小范围；用户明确知道何时上传 |
+
+### 未来媒体服务拆分
+
+图片、视频和大规模语音处理负载独立时，从 model / knowledge 模块拆成 media 服务，接口保持 task / artifact / object 引用。4c16g 首期不本地转码大量视频，不同时运行多个浏览器和 OCR。
+
+### 实时与工作任务
+
+实时语音会话用于输入和反馈，长工作仍创建 Task。用户关闭麦克风不取消所有后台工作；取消与退出语音分开。长任务完成通知可文字或语音播放，由用户设置决定。
+## 45额度、费用、账务与订阅
+
+**v3.0 服务边界说明：**账本、预占、额度和结算由 App 的 Usage/Billing 模块拥有；Agent/Tools 通过幂等 usage 事件上报，不得直接写账务表。
+
+usage 服务拥有账务，不通过 Redis 余额完成最终结算。账户以 currency / quota\_unit 分开；整数金额和原始 Token / 秒 / 字节用量分别记录。供应商成本与用户收费策略是两套账，不能简单相等。
+
+### 预占与结算事务
+
+pseudocode
+
+```
+reserve(account, hold_key, amount):
+  BEGIN
+  SELECT account FOR UPDATE
+  if hold_key exists: return existing hold after hash check
+  require available_balance >= amount
+  insert hold(active, amount)
+  increment account.reserved
+  COMMIT
+
+settle(hold_key, entry_key, actual):
+  BEGIN
+  lock account, hold
+  if entry_key exists: return original settlement
+  insert immutable ledger entry with pricing_version
+  update balance / reserved / hold according to final or incremental settlement
+  COMMIT
+```
+
+### 不确定结果
+
+未知模型或工具调用保留 pending hold，并用 invocation / provider record 核对。不能通过普通 TTL 释放全部预占后让还在执行的任务继续消耗。每任务 max\_cost 限制与账户余额都要检查；新步骤预算不足时停在安全边界。
+
+### 账单与支付
+
+账单可追溯到 task / invocation / pricing\_version；退款独立流水，不修改旧账。支付 webhook 验签、订单唯一、金额币种匹配与状态迁移；重复通知幂等。订阅续费、取消、宽限期和限额变化在产品规范中定义，首期只做内部额度即可。
+
+### 对账
+
+每日比较账户余额、holds、ledger 与供应商报表；差异进入 review，不自动扣用户未知费用。记录免费 / 失败 / 重试计费规则，用户可查询任务成本与待结算状态。
+## 46权限、提示注入与数据安全
+
+**v3.0 服务边界说明：**v3.0 中 App 管用户身份；Tools 管具体工具和凭证授权执行；Automation 管未来任务的有效 grant\_ref 和重试边界，三处都应强制校验。
+
+### 策略判定
+
+授权决策使用 subject、action、resource、environment（设备、地区、时间）、task\_scope。角色提供基本能力，grant 提供具体动作范围。模型提出工具调用不改变策略。内部接口也检查 task 归属和 executor capability，避免任意 Worker 执行其他用户任务。
+
+| 威胁 | 控制和验证 |
+| --- | --- |
+| 提示注入 | 标记不可信来源；网页文字不能调用权限管理；评测诱导发送 / 泄露 |
+| SSRF | 协议 allowlist、DNS / IP / 重定向校验、出口防火墙；禁元数据 / 内网 |
+| 越权 | 对象 ID 不等于权限；跨用户 / 组织 / 设备用例测试 |
+| 密钥 | 配置加密、KMS 后续、Keychain / Keystore；日志脱敏；最小临时凭证 |
+| 路径 / 上传 | 规范化、防软链接逃逸、类型验证、解压限制 |
+| 预览 XSS | 独立来源、CSP、无主会话 cookie、受限 iframe |
+| 供应链 | 镜像 / 依赖固定、扫描与签名；插件来源与版本 |
+| 资源滥用 | 用户预算、队列上限、沙箱限额、模型配额与封禁 |
+
+### 撤销
+
+授权撤销先阻断新工具调用和设备命令，再广播 revision 变化；每次敏感动作复查。缓存失效失败时不能继续用旧授权。执行中动作可能无法撤回，返回已发生 / 未发生 / 结果未知，避免承诺“撤销一定恢复原状”。
+
+### 内容与数据治理
+
+面向公众上线需按实际地域核实隐私、内容治理、AI 标识、未成年人、应用商店与备案要求；这是上线评审依赖，不代表本文已完成法律判断。敏感任务和滥用处理有记录、申诉和明确保留策略；管理台不能默认无审计读取用户全部内容。
+## 47Outbox、消息队列与恢复扫描
+
+**v3.0 服务边界说明：**采用四个 Owner 各自 Outbox；Automation 的任务事件与通知意图不等于 App 的最终通知记录，重放不可重新执行已经核实完成的工具副作用。
+
+首期权威任务队列直接存在 PostgreSQL；task 的领取 API 原子选 queued。Redis 用于缓存、限流和实时信号。Outbox publisher 通过内部 API 投递给 event / usage 等消费者，并由消费者 Inbox 去重；这比首期让 Redis 同时承担持久队列和可淘汰缓存更清楚。
+
+### Outbox 发布
+
+多个 publisher 可用租约领取 batch；投递成功才标 delivered，投递成功但写标记前崩溃会重复发送。消费者 event\_id 唯一，业务修改和 Inbox 同一事务。死信只表示自动处理失败，不删除权威事件；管理台可以在修复后重放。
+
+### 引入队列后
+
+Redis Streams / RabbitMQ / Kafka 可按流量与运行成本选择一种。Streams 使用 XREADGROUP、XACK 与 pending 回收，天然仍须考虑重复处理。[[R5]](#ref-5) durable queue Redis 必须独立于可淘汰缓存实例，使用明确持久化、noeviction 和恢复策略；不能在 allkeys-lru 实例上承诺队列记录不丢。
+
+### 恢复扫描清单
+
+| 扫描对象 | 修复动作 |
+| --- | --- |
+| admitting task | 核对授权 / hold，补准入或释放 |
+| expired run | 失效旧 epoch，进入 queued 或 reconciling |
+| outbox pending | 退避重投或死信 |
+| waiting\_external | 查询供应商、设备或超时 |
+| tool unknown | 核对副作用，不盲重发 |
+| upload / sandbox orphan | 检查引用 / 租约，延迟回收 |
+| 日程 occurrence | 检查 task\_id，通过同一幂等键补创建 |
+| usage holds | 对照调用和任务状态核对释放 / 结算 |
+
+所有扫描器按批次、游标和速率运行，避免故障恢复时把数据库打满；记录扫描次数、修复结果和未处理数量。
+## 48背压、公平调度与超时预算
+
+**v3.0 服务边界说明：**分为 App 交互并发、Agent interactive/background 队列、Automation 调度/Monitor 扇出、Tools 外部 API/沙箱并发四条背压轴；不能共用一个无限队列。
+
+### 分层限制
+
+入口 QPS / 请求体、用户活跃任务、队列容量、队列类型、模型 RPM / TPM、工具并发、沙箱资源、数据库连接同时限制。超限返回稳定错误与等待信息；不接收无限工作后等待 OOM。交互聊天、研究、构建和批处理分队列，避免长任务占满低延迟通道。
+
+| 初始参数 | 建议起点 / 行为 |
+| --- | --- |
+| 每用户工作并发 | 1；排队最多 5，超限拒绝或明确替换 |
+| 全局活跃 Agent | 4；根据轻 / 重任务再分槽 |
+| 沙箱 | 1；队列最长等待可配置 |
+| 领取 lease / heartbeat | 60s / 15s；提交检查 DB 时间 |
+| 同步内部 HTTP | 2~5s；模型调用采用独立墙钟与 idle timeout |
+| 任务时间 | 聊天初始 60~120s；工作初始 10min；按模板授权延长 |
+| 重试 | 最多 3 次起点，指数退避＋抖动；未知副作用不适用 |
+| 队列容量 | 初始设有限总量；达到 80% 启动降载，不承诺固定数字吞吐 |
+
+### 公平性
+
+单纯 priority 排序会饿死低优先级。task 先按用户 / 队列轮转或加权公平队列选有令牌的用户，再从其 queued 任务领取；等待超过阈值可 aging。调度器不能为同一用户创建无限积压日程。
+
+### Deadline 传播
+
+任务剩余 deadline 传给模型、工具、连接器与沙箱；子调用的超时不超过父剩余时间。客户端断线不取消服务端 deadline。重试也消耗总预算，不能每次重试重新获得完整时长。
+
+### 熔断
+
+供应商连续超时熔断，保护队列和用户额度；半开少量探测。失败不自动快速切换所有请求造成另一供应商风暴。数据库不可用时停止领取 / 提交敏感动作，不在内存继续假装成功。
+## 49容量模型、SLO 与扩容触发
+
+**v3.0 服务边界说明：**容量测试需要分别测 Chat TTFT、Agent Run 吞吐、Automation 到期延迟与大规模规则匹配、Tools Browser Runner 并发，不以单一 QPS 代表整体容量。
+
+### 容量计算
+
+planning
+
+```
+在途并发 ≈ 到达率 × 平均服务持续时间（Little 法则的稳定系统近似）
+沙箱并发上限 ≤ 可分配内存 / 单沙箱峰值，并同时受 CPU、IO 与配额限制
+单日模型成本 ≈ Σ(输入Token × 输入单价 + 输出Token × 输出单价 + 工具费用)
+事件增长 ≈ 任务数 × 平均步骤 × 聚合事件数 × 平均事件大小
+文件增长 ≈ 新输入 + 新作品版本 - 实际完成的生命周期清理
+```
+
+不能把 4c16g 换算为确定注册用户数。模型 API 延迟使长任务并发较高，文件和沙箱却受本机 CPU / 内存限制；模型供应商配额可能先成为瓶颈。测量的输入应包含聊天 / 研究 / 构建比例、同时在线、文件大小和语音使用。
+
+| 目标项 | 试用验收目标，未经过验证 |
+| --- | --- |
+| 控制 API | 排除模型 / 大文件时，P95 < 300ms；错误率 < 1% |
+| 任务提交 | P95 < 1s，返回 task\_id；准入异步状态可观察 |
+| 实时事件 | 已持久事件到在线客户端 P95 < 2s |
+| 恢复 | Worker 故障后约 2 个 lease 周期内恢复可执行任务 |
+| SLO 高可用 | 单机不宣称 99.9%；多机后按故障演练与外部依赖重新设定 |
+| 零重复要求 | 内测副作用幂等场景重复效果为 0；unknown 场景必须显式核对 |
+
+### 扩容信号
+
+持续内存压力、CPU > 70%、数据库 P95、队列等待超过目标、沙箱满槽时间、模型限流率和磁盘增长触发容量评审。阈值是告警起点，不能一个 CPU 峰值就自动建集群。先识别瓶颈，再独立扩相关服务或迁移基础设施。
+## 50大规模部署、分片与区域演进
+
+**v3.0 服务边界说明：**扩容时保留四服务域契约，可分别拆出 Agent Worker、Monitor Collector、Notification Worker、Sandbox Runner，而不必立即拆成新的业务微服务。
+
+图 6 · 生产扩展拓扑
+
+边缘接入 / WAF / 多实例网关Web 静态资源、API、事件连接控制面服务集群身份、对话、任务、日程、工作区、账务、设备、事件Agent 执行池聊天 / 研究 / 批处理按队列独立扩容隔离沙箱池代码 / 浏览器 / 构建独立主机与安全边界个人设备代理Mac / Android / iOS出站身份连接数据库域与分片HA、备份、读模型按用户 / 空间路由文件与检索OSS / 索引 / 缓存版本与权限队列与观测持久队列、审计告警、追踪、运行手册
+
+多实例、独立沙箱和数据基础设施是生产扩展的前提；具体实例数量由压测确定。
+
+### 演进步骤
+
+- A：ECS 单机受控试用，资源限额、备份、恢复扫描和幂等已经实现。
+- B：独立沙箱机器 / VM 池＋OSS，保护主数据库；控制面仍可单机。
+- C：网关 / Agent / event 多实例；数据库托管高可用、队列与缓存独立；验证旧 epoch 与故障切换。
+- D：任务与事件按用户 / workspace 分片；路由目录和迁移协议，避免全局热点账户 / 日程扫描。
+- E：区域归属与数据驻留，独立控制面和恢复；跨区域任务选择明确主区域，不无约束双写。
+
+### 任务分片
+
+task\_id / owner\_id 映射 shard\_id；一个任务所有 Run / Step / Event 保留同分片事务。跨项目子任务通过事件协作，不做跨分片事务。日程事件包含路由键，恢复扫描按 shard 运行。重新分片使用冻结 / 复制 / 增量 / 切换 / 核对流程，保持幂等键和事件历史。
+
+### 大用户群运营
+
+需要套餐配额、滥用控制、灰度、支持台、用户反馈、管理审计、容量规划和成本预算。技术扩容不能替代这些运营能力。
+## 51高可用、数据库连接与一致性保障
+
+**v3.0 服务边界说明：**单机 ECS 无法提供主机级 HA；当扩展为多实例时 Automation Scheduler/claim 需要 PG 锁、租约/epoch 和数据库连接池，App SSE 节点必须具备事件补收。
+
+### 首期数据库
+
+15 个服务若各默认 10~20 条连接会耗尽单机数据库。建议每服务池上限 3、Agent / task 特定服务 5，总应用连接控制约 50~60，留迁移 / 运维余量；有必要采用 PgBouncer 事务池。work\_mem 是每排序 / hash 操作预算，不是每连接一次分配，不能任意调大。
+
+### 多机后
+
+数据库主备切换可能丢失最近异步复制事务；恢复期间按权威数据核对任务与效果。要声明实际复制 / 故障切换 RPO，不能泛称绝不丢数据。租约时间在切换后仍要检查；消费者、executor 可能继续在旧状态，epoch 与 external effect 核对保护后续动作。
+
+### 缓存故障
+
+Redis 缓存丢失可以重建；限流临时故障采用保守本地上限或拒绝新高成本任务，不能完全无约束放行。授权缓存不可无限使用旧数据。队列丢失由 task / outbox 恢复扫描重建；如果队列承载唯一数据，这个前提不成立。
+
+### 多实例部署
+
+应用 stateless，长连接 affinity 可优化但不是正确性依赖。客户端重连到任意 adex-app 实例都能从 Automation 任务事件与 App 消息快照补收；定时触发由数据库唯一 occurrence 保护，多 publisher / Worker 用短事务并发。服务注册与负载均衡失效应有超时和有限重试。
+
+### 滚动升级
+
+先支持新字段、再写新格式、再迁移旧数据、最后删除旧字段。Checkpoint 和插件版本需要兼容读取；无法兼容的旧任务暂停并明确迁移，不静默失败或执行不同动作。
+## 52备份、恢复与数据删除重放
+
+**v3.0 服务边界说明：**备份恢复按 App/Agent/Automation/Tools 数据域恢复，一次集群级恢复需核对 Outbox 进度、Task 副作用、外部 OAuth 状态和通知去重。
+
+### 目标
+
+受控试用起点目标 RPO ≤ 24 小时、RTO ≤ 4 小时，必须通过演练验证；不是当前承诺。需要低 RPO 时启用经过验证的 PostgreSQL WAL 归档与 PITR、对象版本 / 异机复制。单机本地快照不能覆盖主机 / 区域故障。
+
+| 对象 | 备份方式与校验 |
+| --- | --- |
+| 数据库 | 逻辑备份用于小规模；PITR 用基础备份＋WAL；加密异机保存 |
+| 对象文件 | immutable 清单＋增量复制＋哈希验证；记录时间窗 |
+| 配置 / 迁移 | 仓库版本＋加密秘密备份；恢复不能丢失供应商凭证策略 |
+| 授权 / 删除流水 | 备份恢复开放前重放撤销和 tombstone，阻止已删数据复活 |
+| 设备身份 | 私钥不集中复制；设备注册公钥可恢复，授权状态重新核对 |
+| Redis | 缓存可重建；若持久队列独立存在则单独恢复和核对 |
+
+### 恢复顺序
+
+- 隔离流量，建立干净环境和正确版本的数据库 / 服务。
+- 恢复数据库、对象清单与文件，检查引用缺失和哈希。
+- 重放撤销 / 删除记录，保持外部副作用执行暂停。
+- 扫描 active runs、unknown effects、holds、日程 occurrence，核对外部实际状态。
+- 运行权限 / 数据一致性 / 作品打开检查，逐步开放只读和写流量。
+- 记录恢复时长、实际丢失窗口和修复项，更新运行手册。
+
+备份的成功状态必须包含实际可恢复检查，不仅是“脚本返回 0”。恢复演练每月至少一次起点，公开发布前必做。
+## 53运行手册、告警与故障处理
+
+**v3.0 服务边界说明：**运维 Runbook 需按四服务域及其 Worker 列出故障处理；任何局部 Worker 重启不能删除 Automation 权威任务状态。
+
+| 故障 | 自动行为 | 人工流程 |
+| --- | --- | --- |
+| 磁盘 ≥ 80% / 90% | 告警；停止大上传与重任务；清理合法临时对象 | 检查数据库 / 对象增长；扩盘；禁止 rm 数据库目录 |
+| PostgreSQL 不可用 | 停止领取和敏感动作；请求返回受控不可用 | 检查连接、磁盘、日志；恢复后运行任务扫描 |
+| 模型限流 / 故障 | 退避、排队、熔断、按政策路由 | 检查配额和费用；不可随意扩预算 |
+| Worker OOM | lease 到期回收；unknown 副作用进入核对 | 查任务资源峰值，优化 / 调整限额 |
+| 队列积压 | 准入限流、低优先级降载 | 查消费者、数据库、供应商瓶颈 |
+| 工具 unknown | 禁止自动副作用重试 | 核对供应商记录、设备回执或用户确认 |
+| 设备掉线 | 等待到期限，取消过期命令 | 检查网络 / 权限；不把旧动作补执行 |
+| 凭证泄露 | 撤销 token、冻结相关动作 | 轮换密钥、查日志、通知和审计 |
+
+### 观测
+
+日志 JSON，trace / request / owner匿名关联 / task / run / step / invocation ID；指标不使用无限 task\_id 标签，以免高基数。追踪采样，错误链完整保留；正文、token、截图默认不记录。日志轮转与总容量上限，诊断导出也要脱敏。
+
+### 管理台
+
+按角色提供任务查看、失败步骤、恢复点、日程历史、供应商状态、设备撤销、存储清理、额度对账和死信重放。重试、退款、查看敏感内容、改权限属于审计动作。不能提供“管理员执行任意 SQL”作为正常运营入口。
+
+### 健康检查
+
+/live 检查进程存活；/ready 检查必要依赖 / 配置，模型供应商短期故障不一定让所有服务 unready。退出先停止领取，持久化当前边界，释放可释放资源；超过 grace period 被杀后依赖租约回收。
+## 54开发流程、CI/CD 与发布策略
+
+**v3.0 服务边界说明：**Monorepo 的 CI 必须执行 changed packages + reverse dependents 契约测试，并为四服务/Runner 独立构建不可变镜像；禁止提交生产密钥。
+
+### 开发
+
+Mac 本地运行相同 Compose 服务并使用独立开发数据库；公网 ECS 是 demo 环境。不拿生产凭证跑本地任意代码。API 契约先定义，服务实现与集成测试并行；实现顺序按下一节里程碑。首期统一 monorepo，但服务可独立构建和发布。
+
+| 流水线阶段 | 产物 / 门槛 |
+| --- | --- |
+| 静态检查 | 类型、lint、秘密扫描、schema / OpenAPI 校验 |
+| 单元 / 属性测试 | 幂等键、状态迁移、金额、时间规则、权限决策 |
+| 集成测试 | 真实 PostgreSQL / Redis；领取、Outbox、恢复和版本竞争 |
+| 镜像 | 固定依赖、漏洞扫描、非 root、镜像 digest、SBOM |
+| 预发布 | 数据库迁移、契约、烟测、任务评测与资源峰值 |
+| 发布 | 小流量灰度，配置版本记录，监测错误 / 成本 / 延迟 |
+| 回滚 | 兼容 schema，镜像回退，停止新功能任务，旧任务可恢复 |
+
+### 配置和 feature flags
+
+敏感工具、公开沙箱、设备动作、模型路由使用按用户 / 环境 feature flag。禁用开关应立即阻断新执行，并定义在途行为；不是只隐藏 UI。配置更新有 owner、revision、变更记录、回滚。
+
+### 迁移
+
+生产迁移不由每个服务实例启动时自动竞跑；单独作业执行，锁迁移版本并验证。数据库索引大规模创建选择在线方式并评估锁影响。数据回填限速、可暂停、幂等；不可逆清理必须保留恢复窗口。
+## 55负载测试、基准场景与容量记录模板
+
+**v3.0 服务边界说明：**性能测试应包含 Chat 流式、Monitor 批量告警、定时风暴、浏览器重任务、Agent 工具超时以及四服务网络故障的综合场景。
+
+先用可控 mock 模型建立内部系统基线，再用真实模型小预算验证供应商延迟 / 限流，防止把外部花费与网络噪声混进每次性能测试。所有测试都记录镜像、机器、数据库大小、配置、数据集和费用。
+
+| 测试组 | 负载形态 | 测量 |
+| --- | --- | --- |
+| 控制 API | 创建 / 查任务、会话、权限；逐级增加到达率 | P50/P95/P99、错误、CPU、连接池等待 |
+| SSE | 长连接＋事件广播＋同时重连 | 连接数、内存、gap、补收时间 |
+| 任务并发 | 4→8→16 候选任务；遵守准入限制 | 排队、领取竞争、数据库写入、取消延迟 |
+| 重任务 | 单沙箱构建＋解析＋轻聊天 | 峰值内存、IO、聊天受影响程度 |
+| 恢复风暴 | 批量 Worker 重启 / 队列重复 / 租约过期 | 恢复扫描压力、重复效果、死信 |
+| 长期运行 | 持续 6~24 小时起点，生成版本与日志 | 内存泄漏、磁盘增长、孤儿回收、成本 |
+
+### 测试记录
+
+capacity report
+
+```
+baseline_id / git_sha / image_digests
+ecs_family / cpu / memory / disk_type / region
+db_version / data_volume / indices / connection_pool
+arrival_rate / client_connections / task_mix / sandbox_concurrency
+p50_p95_p99_latency / queue_wait / error_rate / duplicate_effects
+peak_memory / cpu / io_wait / disk_growth / provider_cost
+bottleneck / admission_limits / next_change / rollback_plan
+```
+
+### 接受条件
+
+内测 gate 不只“能跑”：到达率不超过服务率、积压可回落、超限被明确拒绝、任务不丢、取消有效、没有不可解释账务差异。生产扩容后重复同一数据集和故障场景，结果可比。
+
+### 扩容后的验证
+
+增加 Agent 实例可能增加数据库和供应商压力；连接池总量要按实例数重算。沙箱池、对象存储和读副本迁移都要跑兼容、权限与恢复测试；只有延迟下降不能证明迁移正确。
+## 56测试矩阵、故障注入与上线门槛
+
+**v3.0 服务边界说明：**新增合同测试矩阵：App↔Agent、App↔Automation、Automation↔Agent、Agent↔Tools、Automation→App.Notification；不同版本共存演练是拆仓前置条件。
+
+| 类别 | 场景 | 必须证明 |
+| --- | --- | --- |
+| 幂等 | 100 个相同请求；相同 key 不同 payload | 单任务 / 单 hold，内容冲突明确 |
+| 领取 | 多个 Agent 同时领取；暂停后旧 Worker 恢复 | 一有效提交者；旧 epoch 被拒 |
+| 崩溃 | 发送前、成功后、提交前、发布前杀进程 | 恢复或 unknown 核对，不盲重副作用 |
+| 调度 | 两调度器、时区 / 夏令时、日程修改和漏执行 | 唯一 occurrence、符合补偿策略 |
+| 事件 | 历史 / 订阅竞争、断线、乱序、重复 | 无 gap 或可补；快照终态一致 |
+| 权限 | 跨用户 / 项目 / 文件 / 记忆 / 设备 | 全部阻断；管理操作留审计 |
+| 沙箱 | 高 CPU / fork / 大文件 / 网络探测 | 限额和阻断有效；不读主数据库 / 密钥 |
+| 作品 | 并行提交、构建失败、预览攻击 | 不覆盖、保源码、隔离 cookie |
+| 费用 | 重复结算、未知调用、取消 / hold 竞争 | 账务唯一且可对账 |
+| 恢复 | 空环境恢复备份；重放删除 | 可用且已删 / 已撤销状态不复活 |
+| 客户端 | 多设备、离线草稿、网络切换、token 复用 | 状态一致与会话撤销有效 |
+
+### Agent 评测集
+
+至少覆盖简单问答、时效搜索、多跳研究、办公文件、小游戏、日程、授权工具和设备等待。定义输入、允许工具、预期事实 / 产物、预算与验收程序。模型 / 提示词 / 技能版本升级跑回归，不仅比较文风。
+
+### 上线 gate
+
+- P0 单用户完整闭环通过；任务重启恢复和副作用核对演练通过。
+- 权限隔离、秘密扫描、预览和沙箱测试通过；公开执行需独立隔离评审。
+- 数据库 / 文件备份已实际恢复；磁盘 / OOM / 模型故障手册可执行。
+- 负载测试得出 admission limits 与费用预算；不以猜测用户量宣传。
+- 公开发布地域与应用商店要求完成核实；Android 自主操作路线单独批准可行性。
+
+开发测试应基于真实数据库并行事务，不能用单线程 mock 证明分布式正确性。故障注入环境与真实外部副作用隔离，使用可查询测试工具。
+## 57 按四服务域的实施里程碑与完成定义
+
+| 里程碑 | 优先实现能力 | 通过标准 |
+| --- | --- | --- |
+| M0：开源工程底座 | Monorepo / Maven + uv + pnpm(前端) / CI、四服务独立构建、OpenAPI/Schema、Compose、身份/DB/Redis/备份 | 克隆后可在示例环境启动 Web + App + Agent；四镜像均可构建；无机密 |
+| M1：Chat First | Web 聊天、Conversation、Agent Interactive、Model Gateway、SSE、历史消息、用量 | 普通聊天不依赖 Automation；断线可恢复结果、支持基础多轮 |
+| M2：Rich UI + Tools | Tool Registry、WebSearch、RAG、UI Component Registry、天气/旅行卡、文件上传 | 大卡 Schema 验证、工具权限、跨端可回退显示 |
+| M3：Durable Work | Automation Task/Run/Step、Agent Background Worker、Checkpoint、取消/重试、Workspace 产物 | Worker 崩溃恢复、epoch 隔离、成果版本可继续编辑 |
+| M4：Automations | Scheduler、Monitor Poll/Push、Rule、Subscription、Notification Worker | 定时幂等、共享采集、用户规则独立、离线 Push 可靠通知 |
+| M5：Computer Use | Tools Browser/Code Runner、Playwright、Human Takeover、交易 UNKNOWN 对账 | 可信环境真实执行、资源限额、手动接管、无副作用重复 |
+| M6：Desktop/Mobile | 桌面 Shell+Device Agent、移动 App、Push、语音 | 多端会话/任务同步、设备授权、弱网恢复 |
+| M7：生产扩容 | 独立 Runner 池、托管 PG/OSS、MQ、自动扩容、观察与 HA | 压测/恢复演练/权限审查/告警达标，才能宣布生产规模 |
+
+M0/M1 先把“可聊天、可运行、可下载、可升级”做实，不能为了看起来工业级先一次性实现全部微服务、千万级订阅和移动电脑控制。
+
+### v3.1 的必测增量
+
+M0 采用 Maven(Java)/uv(Python)/pnpm(前端) 的单仓工程和跨语言契约 CI；M1 验证 PostgreSQL 原文保存、Redis 热上下文失效/回源、会话序号和幂等；M2 验证 L2 主题摘要和 L3 长期记忆提取/检索/删除，不允许敏感候选默认入库；检索与 ScyllaDB/ES 均非首期必须启动的服务；M3/M4 验证 Automation 与 Agent 的独立状态/检查点协议。
+## 58 从 v2.0 到 v3.0：架构迁移与开发交付清单
+
+### 文档改版的兼容策略
+
+此次修订**保留原始 55 章的业务细节**，但是不沿用其中的“15 个独立容器必需启动”的物理假设。旧章节中的 `task`、`schedule`、`tool` 等术语在 SQL 段落中指数据库 Schema 或内部模块；它们在 v3.0 **不再自动等于一个独立部署服务**。原有接口是迁移参考，新的对外 API 由 `adex-app` 暴露，并通过内部 SDK 访问服务所有者。
+
+| 迁移步骤 | 具体动作 | 风险控制 |
+| --- | --- | --- |
+| 01. 冻结四 Owner | 设置 packages/contracts 与内外 API 边界、服务账号 | 禁止服务跨 Schema 写表 |
+| 02. 迁移源码 | v2 `identity/conversation/...` → `app` 内部模块；`task/schedule` → `automation` 等 | 保留稳定业务 ID/Schema，避免先做大规模数据搬迁 |
+| 03. 统一 Agent Loop | 移除 Core 中重复的全功能 Agent；采用单一 `agent-runtime` + interactive/background 两模式 | TTFT、Tool Schema 与暂停/继续契约测试 |
+| 04. 统一工具访问 | Model Gateway → Agent 模块；Tool Registry/MCP/Skill/Vault → Tools | 内部权限与凭证隔离必须校验 |
+| 05. 通知边界 | Automation 发布通知意图；App.Notification 持久化和投递 | `notification_key` 幂等，Push 失败可重试 |
+| 06. Web UI Schema | App 产生/验证组件 Schema；Web/Desktop/Mobile 使用同一协议 | 高风险点击需二次服务端授权 |
+| 07. 可独立部署 | Dockerfile、readiness、迁移 Owner、环境示例、CI 单服务构建 | 单独部署时必须有依赖健康、契约版本检查 |
+| 08. 再拆仓（仅有明确理由时） | 先发布 Contracts/SDK，重构 CI，明确 OWNER | 独立仓库/版本不能破坏已部署客户端 |
+
+### 最小可交付的第一批仓库文件
+
+`README.md`、`docs/architecture/overview.md`、`docs/architecture/service-boundaries.md`、`docs/architecture/ui-protocol.md`、`docs/architecture/automation.md`、`docs/adr/0001-four-services.md`、`pnpm-workspace.yaml`、根 `package.json` / lockfile、四服务的 `package.json`/Dockerfile/health、`apps/web`、`packages/contracts`、`deploy/compose/compose.yaml`、`migrations/`、`.env.example`、`LICENSE`、`CONTRIBUTING.md`、`SECURITY.md`。
+
+### ADR 建议编号
+
+- **ADR-001** 四个业务服务域与 Monorepo，而非 15 个微服务。
+- **ADR-002** App 只负责产品状态；单一 Agent Runtime + 两条执行模式。
+- **ADR-003** Automation 持有 Task/Run/Step、Monitor/Subscription/Schedule 的权威状态。
+- **ADR-004** Tools 管工具权限和执行网关；Sandbox Runner 独立隔离。
+- **ADR-005** UI Schema 由 App 校验，客户端映射受信组件，模型不能下发任意脚本。
+- **ADR-006** 用户通知投递属于 App，触发与匹配属于 Automation。
+- **ADR-007** 一仓多应用、多服务可分别构建镜像；是否拆仓依据团队与发布瓶颈决定。
+
+### 从 v3.0 到 v3.1 的明确变更（覆盖旧开发指令）
+
+正式语言配置从“后端四服务 TypeScript/Node.js”改为 **App(Java)、Agent(Python)、Automation(Java)、Tools(Python)**；pnpm Workspace 只覆盖前端/TS 共用包，四服务各自使用 Maven / uv。完整聊天记录首期由 PostgreSQL 持久保存，Redis 只作 L1 热工作记忆与缓存。ScyllaDB 是消息负载规模化后的可选后端，ES 是未来可选的全文/向量检索索引，不是聊天权威存储；三层 Memory 的 L1/L2/L3 从抽象变成强制实施规范。旧 v2.0 和 v3.0 的 Node 资源估算、服务 package.json 示例、pnpm 跨四服务构建命令不再作为实现依据。
+## 59需求到实现的可追溯验收清单
+
+**v3.0 服务边界说明：**需求追踪表服务 Owner 一律按 App、Agent、Automation、Tools 四类标记；原有接口及字段可按同名模块保留。
+
+| 需求 ID | 实现归属 | 验收证据 |
+| --- | --- | --- |
+| REQ-CHAT-01 流式聊天 | conversation / model / event / clients | 断线续传、终态快照、Token 与费用记录 |
+| REQ-TASK-01 可恢复任务 | task / agent / tool | 3 个崩溃窗口＋旧 epoch 拒绝报告 |
+| REQ-EFFECT-01 不重复副作用 | tool / identity / usage | 相同键重复调用、unknown 核对、取消竞争 |
+| REQ-WORK-01 小游戏 | workspace / sandbox / storage / clients | 运行截图、测试、版本、下载与手机触屏 |
+| REQ-SCHEDULE-01 周期工作 | schedule / task / event | 多实例触发、漏执行、时区 / 重叠测试 |
+| REQ-MEMORY-01 可管理记忆 | knowledge / identity / clients | 来源、纠错、检索权限、遗忘完成记录 |
+| REQ-DEVICE-01 安全跨设备 | device / tool / native agent | 配对、撤销、离线过期、接管、回执核对 |
+| REQ-SCALE-01 可独立扩容 | 所有服务 / deploy | 多实例契约、连接池和压测报告 |
+| REQ-OPS-01 可恢复运营 | deploy / storage / task / usage | 空环境备份恢复、运行手册、对账 |
+
+开发 issue、API、迁移、测试和发布记录都关联需求 ID；里程碑完成以证据和演示为准。尚未实现的 P1 / P2 接口应明确返回 FEATURE\_NOT\_ENABLED，而不是伪造成功结果。
+
+### 最小生产资料包
+
+- 架构与 ADR；接口契约与 schema 版本；服务 / 数据责任矩阵。
+- 资源配置、负载测试与实际 SLO；告警、运行手册、恢复报告。
+- 权限模型、工具副作用策略、沙箱安全评估、手机渠道可行性。
+- 数据保留 / 删除和供应商数据处理范围；用户协议与公开发布核实记录。
+- 回归评测、灰度 / 回滚流程、账务对账与成本上限。
+## 60 v3.0 架构决策（ADR）与待验证问题
+
+| ADR | 决策 | 重新评估触发条件 |
+| --- | --- | --- |
+| 001 | **四服务：App / Agent / Automation / Tools；单 Git Monorepo** | 团队所有权分散、独立发布频繁、接口治理成熟 |
+| 002 | App 不另建一套完整 Agent；Agent 提供 interactive/background 两模式 | 极低延迟会话需要不同引擎的实测收益 |
+| 003 | Automation 持有 Task/Run/Step/Schedule/Monitor/Subscriptions 的权威状态 | 调度/监控吞吐达到拆分负载边界 |
+| 004 | Tools 管 Skill/Tool/MCP/Connector/Policy，Runner 独立隔离 | Runner 大量并发或多地部署 |
+| 005 | App 拥有通知投递、UI Schema/大卡、记忆/知识与作品 | Push 扇出成为独立瓶颈、需要多区域投递 |
+| 006 | PostgreSQL 权威，Outbox + 幂等 + 租约/epoch + 对账 | 平台规模触发独立 MQ/工作流引擎 |
+| 007 | 受控 4C16G 内测，禁止未经隔离的公网任意代码 | 建成独立执行池并经安全验收 |
+| 008 | Maven + uv + pnpm(前端) + 单服务构建镜像；拆仓需版本化 Contracts | 供应商/社区维护模式发生变化 |
+
+**待开发时确认**：Web Vite/Next.js、Desktop Tauri/Electron、Mobile RN 的实际发布路线；单元/端到端测试框架；LLM 供应商配额与 SLA；支付与第三方网站自动化的授权合规；通知渠道和推送到达指标；许可证和商标治理；公开 API 的兼容版本；各服务的 CPU/RSS/TTFT/排队/监控扇出压测结果。
+
+参考材料沿用原 55 章的工程规则；本版新增的参考链接仅用于证明 Monorepo 与独立 Agent/Automation 边界的可行性，不意味着直接采用某开源项目的架构实现或许可证。
+
+### 新增已确认 ADR（2026-10-10）
+
+| ADR | 决定 | 实施约束 |
+| --- | --- | --- |
+| 009 | 后端 Java(App/Automation) + Python(Agent/Tools) | OpenAPI + SDK 契约，Java 21，Python 3.12+；前端仍 React/TS |
+| 010 | 首期 PostgreSQL + Redis | 用户/会话/聊天原文/任务/长期记忆都以 PG 为权威；Redis 非权威 |
+| 011 | ScyllaDB 仅作为未来可替换消息存储 | 独立 MessageRepository + 迁移回填/对账；不设为首期依赖 |
+| 012 | ES / OpenSearch 为未来可选检索基础设施 | 索引派生、权限过滤、删除墓碑、可重建；PG FTS/pgvector 首期可用 |
+| 013 | 三层 Memory：L1 Working / L2 Conversation / L3 Long-term | App 为数据 Owner，Agent 负责 Context/抽取；Automation 持久 Task State 独立 |
+
+旧 ADR-008 “pnpm Workspace + 单服务镜像”应解释为**前端子工作空间**，不再覆盖 Java/Python 后端；以 ADR-009 为准。
+## 61参考资料与事实核对范围
+
+以下是主资料来源。技术内容以官方资料为事实基础；服务划分、DDL、参数、SLO 和实施计划是本项目设计。核对日期 2026-10-10；平台规则和供应商能力在发布前再验证。
+
+| 编号 | 资料 | 用途 / 限制 |
+| --- | --- | --- |
+| R1 | [豆包官方功能介绍](https://www.doubao.com/legal/feature_intro) | 对话、语音与智能体；不推测工作内核。 |
+| R2 | [豆包工作官网](https://www.doubao.com/work) | 此前正文无法读取；具体交互待实测。 |
+| R3 | [Codex 远程工程工作官方资料](https://developers.openai.com/blog/mastering-codex-remote-for-engineering) | 手机发起与管理远程工作，非任意手机 App 控制。 |
+| R4 | [PostgreSQL SELECT / SKIP LOCKED](https://www.postgresql.org/docs/current/sql-select.html) | 队列式领取、事务约束。 |
+| R5 | [Redis Streams 官方示例](https://redis.io/docs/latest/develop/use-cases/streaming/nodejs/) | consumer group、确认与 pending 回收；设计不依赖示例当完整队列系统。 |
+| R6 | [Apple App Intents](https://developer.apple.com/documentation/appintents) | 暴露 App 动作和数据给系统体验。 |
+| R7 | [Google Play AccessibilityService 政策](https://support.google.com/googleplay/android-developer/answer/10964491) | 自主动作禁令、确定规则和无障碍工具边界；发布前复核。 |
+| R8 | [Docker 安全](https://docs.docker.com/engine/security/) / [资源限制](https://docs.docker.com/engine/containers/resource_constraints/) | 宿主权限和资源限制；不等价强隔离 VM。 |
+| R9 | [阿里云 ECS 安全组](https://www.alibabacloud.com/help/en/ecs/user-guide/security-group-rules) | 网络规则与公网暴露。 |
+
+本文未声称某个特定 Muse 产品的能力，也未核实所有模型供应商的价格、幂等或任务恢复 API。需要结合选定供应商补充 adapter 契约和实际测试。

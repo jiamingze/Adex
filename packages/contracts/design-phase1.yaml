@@ -1,0 +1,725 @@
+openapi: 3.1.0
+info:
+  title: Adex Phase 1 Public Contract Starter
+  version: 0.1.0-design
+  description: >-
+    Design starter for Codex M00. Not all endpoints are fully specified;
+    complete schemas and error/retry semantics contract-first during each milestone.
+servers:
+  - url: https://adex.example.invalid/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /me:
+    get:
+      operationId: getMe
+      tags: [identity]
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/UserProfile'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [chat]
+      parameters:
+        - {name: cursor, in: query, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200':
+          description: Cursor-paginated conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Conversation'}}
+                  next_cursor: {type: [string, 'null']}
+    post:
+      operationId: createConversation
+      tags: [chat]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: {type: string, maxLength: 255}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Conversation'}
+  /conversations/{conversation_id}/messages:
+    parameters: [{$ref: '#/components/parameters/ConversationId'}]
+    get:
+      operationId: listMessages
+      tags: [chat]
+      parameters:
+        - {name: before_seq, in: query, schema: {type: integer, minimum: 1}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 30}}
+      responses:
+        '200':
+          description: Ordered message page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Message'}}
+                  next_before_seq: {type: [integer, 'null']}
+    post:
+      operationId: submitMessage
+      tags: [chat]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UserMessageInput'}
+      responses:
+        '202':
+          description: Accepted idempotently, start/read streaming via events endpoint
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MessageAccepted'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /conversations/{conversation_id}/events:
+    parameters: [{$ref: '#/components/parameters/ConversationId'}]
+    get:
+      operationId: streamConversationEvents
+      tags: [chat]
+      parameters:
+        - {name: after_seq, in: query, required: false, schema: {type: integer, minimum: 0}}
+      responses:
+        '200':
+          description: SSE stream of text.delta, message.committed, card.upsert, task.progress etc
+          content:
+            text/event-stream:
+              schema: {type: string}
+  /memories:
+    get:
+      operationId: listMemories
+      tags: [memory]
+      responses:
+        '200':
+          description: Saved, user-visible long-term memories
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Memory'}}
+    post:
+      operationId: createMemory
+      tags: [memory]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MemoryWrite'}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Memory'}
+  /memories/{memory_id}:
+    parameters: [{$ref: '#/components/parameters/MemoryId'}]
+    patch:
+      operationId: updateMemory
+      tags: [memory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MemoryWrite'}
+      responses:
+        '200':
+          description: Updated memory revision
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Memory'}
+    delete:
+      operationId: deleteMemory
+      tags: [memory]
+      responses:
+        '204': {description: Deleted/tombstoned with provenance guard}
+  /music/search:
+    get:
+      operationId: searchMusic
+      tags: [music]
+      parameters:
+        - {name: query, in: query, required: true, schema: {type: string, minLength: 1}}
+        - {name: artist, in: query, schema: {type: string}}
+        - {name: region, in: query, schema: {type: string, default: CN}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: Sourced music metadata; playback rights not implied
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, provider_status]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/MusicTrack'}}
+                  provider_status: {type: string, enum: [OK, DEGRADED, BLOCKED_EXTERNAL]}
+  /music/playback:resolve:
+    post:
+      operationId: resolvePlayback
+      tags: [music]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [track_ref, device]
+              properties:
+                track_ref: {type: string, minLength: 1}
+                device: {type: string, enum: [WEB, IOS_CAPACITOR]}
+      responses:
+        '200':
+          description: License/auth checked action
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlaybackResolution'}
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Task'}}
+    post:
+      operationId: createTask
+      tags: [tasks]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instruction, origin_conversation_id]
+              properties:
+                instruction: {type: string, minLength: 1}
+                origin_conversation_id: {type: string, format: uuid}
+      responses:
+        '202':
+          description: Persisted, not necessarily completed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Task'}
+  /tasks/{task_id}:
+    parameters: [{$ref: '#/components/parameters/TaskId'}]
+    get:
+      operationId: getTask
+      tags: [tasks]
+      responses:
+        '200':
+          description: Task status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Task'}
+  /tasks/{task_id}:cancel:
+    parameters: [{$ref: '#/components/parameters/TaskId'}]
+    post:
+      operationId: cancelTask
+      tags: [tasks]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '202': {description: Cancellation requested; effects may require reconciliation}
+  /automations:
+    get:
+      operationId: listAutomations
+      tags: [automation]
+      responses:
+        '200':
+          description: Existing user automations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Automation'}}
+    post:
+      operationId: createAutomation
+      tags: [automation]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AutomationInput'}
+      responses:
+        '201':
+          description: Definition persisted and due time computed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Automation'}
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notification]
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Notification'}}
+  /files:
+    post:
+      operationId: uploadFile
+      tags: [files]
+      description: >-
+        Upload private file into App-owned ECS LocalFileStorage. The server
+        streams to temporary disk, validates hash/size/type, atomically publishes,
+        and exposes only READY metadata. No OSS/MinIO presigned upload.
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+                purpose: {type: string, enum: [UPLOAD, IMAGE, VIDEO, AUDIO, DOCUMENT, ARTIFACT, CHECKPOINT, RUNNER_EVIDENCE], default: UPLOAD}
+                conversation_id: {type: [string, 'null'], format: uuid}
+      responses:
+        '201':
+          description: READY and authenticated metadata; upload may instead return an explicit pending state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FileMetadata'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /files/{file_id}:
+    parameters: [{$ref: '#/components/parameters/FileId'}]
+    get:
+      operationId: getFileMetadata
+      tags: [files]
+      description: Return file metadata after per-user/Workspace ACL verification.
+      responses:
+        '200':
+          description: File metadata
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FileMetadata'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Tombstone before background cleanup; preserve externally referenced files until permitted.
+      responses:
+        '204': {description: Deleted or already tombstoned}
+  /files/{file_id}/content:
+    parameters: [{$ref: '#/components/parameters/FileId'}]
+    get:
+      operationId: downloadFileContent
+      tags: [files]
+      description: >-
+        Authenticated binary stream from ECS local disk. For media, support
+        RFC 7233 byte ranges and 206. Never expose the host absolute path.
+      parameters:
+        - {name: Range, in: header, required: false, schema: {type: string}, description: 'Example: bytes=0-1023'}
+      responses:
+        '200':
+          description: Full binary content
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '206':
+          description: Authorized partial content; Content-Range/Accept-Ranges headers required
+          headers:
+            Content-Range: {description: 'Returned byte range', schema: {type: string}}
+            Accept-Ranges: {description: 'Range capability', schema: {type: string, enum: [bytes]}}
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '416': {description: Requested range not satisfiable}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /creative/capabilities:
+    get:
+      operationId: listCreativeCapabilities
+      tags: [creative]
+      description: Returns enabled model kinds/limits. A missing API is BLOCKED_EXTERNAL, never fake readiness.
+      responses:
+        '200':
+          description: Creative model adapter capabilities and provider availability
+          content:
+            application/json:
+              schema: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/CreativeCapability'}}}}
+  /creative/jobs:
+    post:
+      operationId: createCreativeJob
+      tags: [creative]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateCreativeJob'}
+      responses:
+        '202':
+          description: Persisted generation job, not completed artifact
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CreativeJob'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /creative/jobs/{job_id}:
+    parameters: [{$ref: '#/components/parameters/CreativeJobId'}]
+    get:
+      operationId: getCreativeJob
+      tags: [creative]
+      responses:
+        '200':
+          description: Current durable generation status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CreativeJob'}
+  /creative/jobs/{job_id}:cancel:
+    parameters: [{$ref: '#/components/parameters/CreativeJobId'}]
+    post:
+      operationId: cancelCreativeJob
+      tags: [creative]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '202': {description: Cancellation requested; remote cancellation may be best effort}
+  /creative/artifacts/{artifact_id}:revise:
+    parameters: [{$ref: '#/components/parameters/ArtifactId'}]
+    post:
+      operationId: reviseCreativeArtifact
+      tags: [creative]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReviseCreativeArtifact'}
+      responses:
+        '202':
+          description: New immutable revision requested
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CreativeJob'}
+  /diagrams/validate:
+    post:
+      operationId: validateDiagram
+      tags: [diagrams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DiagramSource'}
+      responses:
+        '200':
+          description: Parse and safety validation; no arbitrary HTML executed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DiagramValidation'}
+  /diagrams/render:
+    post:
+      operationId: renderDiagram
+      tags: [diagrams]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DiagramRenderRequest'}
+      responses:
+        '202':
+          description: Private rendered output stored as file artifact or short task
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DiagramRenderResult'}
+  /artifacts:
+    get:
+      operationId: listArtifacts
+      tags: [artifacts]
+      responses:
+        '200':
+          description: User artifacts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Artifact'}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    ConversationId: {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    MemoryId: {name: memory_id, in: path, required: true, schema: {type: string, format: uuid}}
+    TaskId: {name: task_id, in: path, required: true, schema: {type: string, format: uuid}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 1, maxLength: 128}}
+    CreativeJobId: {name: job_id, in: path, required: true, schema: {type: string, format: uuid}}
+    ArtifactId: {name: artifact_id, in: path, required: true, schema: {type: string, format: uuid}}
+    FileId: {name: file_id, in: path, required: true, schema: {type: string, format: uuid}}
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+    Conflict:
+      description: Idempotency key collision or revision conflict
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+  schemas:
+    CreativeCapability:
+      type: object
+      required: [kind, availability, supports_async]
+      properties:
+        kind: {type: string, enum: [IMAGE_GENERATE, IMAGE_EDIT, MUSIC_GENERATE, VIDEO_TEXT, VIDEO_IMAGE, DIAGRAM]}
+        availability: {type: string, enum: [READY, BLOCKED_EXTERNAL, DISABLED]}
+        provider: {type: [string, 'null']}
+        models: {type: array, items: {type: string}}
+        supports_async: {type: boolean}
+        limits: {type: object, additionalProperties: true}
+    CreateCreativeJob:
+      type: object
+      additionalProperties: false
+      required: [kind, prompt, origin_conversation_id]
+      properties:
+        kind: {type: string, enum: [IMAGE_GENERATE, IMAGE_EDIT, MUSIC_GENERATE, VIDEO_TEXT, VIDEO_IMAGE]}
+        prompt: {type: string, minLength: 1, maxLength: 16000}
+        origin_conversation_id: {type: string, format: uuid}
+        input_file_ids: {type: array, maxItems: 12, items: {type: string, format: uuid}}
+        model: {type: [string, 'null']}
+        params: {type: object, additionalProperties: true}
+        max_budget: {type: [number, 'null'], minimum: 0}
+    CreativeJob:
+      type: object
+      required: [job_id, kind, status, origin_conversation_id, created_at]
+      properties:
+        job_id: {type: string, format: uuid}
+        kind: {type: string, enum: [IMAGE_GENERATE, IMAGE_EDIT, MUSIC_GENERATE, VIDEO_TEXT, VIDEO_IMAGE]}
+        status: {type: string, enum: [REQUESTED, QUEUED, RUNNING, FINALIZING, SUCCEEDED, FAILED_RETRYABLE, FAILED_FINAL, UNKNOWN, CANCEL_REQUESTED, CANCELED, BLOCKED_EXTERNAL]}
+        run_id: {type: [string, 'null'], format: uuid}
+        artifact_id: {type: [string, 'null'], format: uuid}
+        artifact_version_id: {type: [string, 'null'], format: uuid}
+        origin_conversation_id: {type: string, format: uuid}
+        progress_percent: {type: [number, 'null'], minimum: 0, maximum: 100}
+        estimated_cost: {type: [number, 'null'], minimum: 0}
+        actual_cost: {type: [number, 'null'], minimum: 0}
+        error_code: {type: [string, 'null']}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: [string, 'null'], format: date-time}
+    ReviseCreativeArtifact:
+      type: object
+      additionalProperties: false
+      required: [origin_conversation_id, parent_version_id, instruction]
+      properties:
+        origin_conversation_id: {type: string, format: uuid}
+        parent_version_id: {type: string, format: uuid}
+        instruction: {type: string, minLength: 1}
+        input_file_ids: {type: array, items: {type: string, format: uuid}}
+        params: {type: object, additionalProperties: true}
+    DiagramSource:
+      type: object
+      additionalProperties: false
+      required: [format, source]
+      properties:
+        format: {type: string, enum: [MERMAID, DIAGRAM_SPEC_JSON]}
+        source: {type: string, minLength: 1, maxLength: 150000}
+        renderer_version: {type: [string, 'null']}
+    DiagramValidation:
+      type: object
+      required: [valid, errors]
+      properties:
+        valid: {type: boolean}
+        errors: {type: array, items: {type: string}}
+        warnings: {type: array, items: {type: string}}
+        normalized_source: {type: [string, 'null']}
+    DiagramRenderRequest:
+      type: object
+      additionalProperties: false
+      required: [format, source, output_format]
+      properties:
+        format: {type: string, enum: [MERMAID, DIAGRAM_SPEC_JSON]}
+        source: {type: string, minLength: 1, maxLength: 150000}
+        output_format: {type: string, enum: [SVG, PNG]}
+        origin_conversation_id: {type: [string, 'null'], format: uuid}
+    DiagramRenderResult:
+      type: object
+      required: [file_id, output_format]
+      properties:
+        file_id: {type: string, format: uuid}
+        output_format: {type: string, enum: [SVG, PNG]}
+        source_file_id: {type: [string, 'null'], format: uuid}
+    ApiError:
+      type: object
+      required: [code, message, request_id]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        request_id: {type: string}
+    UserProfile:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string, format: uuid}
+        display_name: {type: [string, 'null']}
+    Conversation:
+      type: object
+      required: [id, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: [string, 'null']}
+        created_at: {type: string, format: date-time}
+    Message:
+      type: object
+      required: [id, conversation_id, seq, role, content]
+      properties:
+        id: {type: string, format: uuid}
+        conversation_id: {type: string, format: uuid}
+        seq: {type: integer, minimum: 1}
+        role: {type: string, enum: [user, assistant, system, tool]}
+        content: {type: string}
+        cards: {type: array, items: {type: object}}
+    UserMessageInput:
+      type: object
+      required: [client_message_id, content]
+      additionalProperties: false
+      properties:
+        client_message_id: {type: string, format: uuid}
+        model: {type: string, enum: [qwen3.8-max, minimax]}
+        content: {type: string, minLength: 1}
+        attachment_ids: {type: array, items: {type: string, format: uuid}}
+    MessageAccepted:
+      type: object
+      required: [message_id, conversation_id, stream_seq]
+      properties:
+        message_id: {type: string, format: uuid}
+        conversation_id: {type: string, format: uuid}
+        stream_seq: {type: integer, minimum: 0}
+    Memory:
+      type: object
+      required: [id, content, revision, source_refs]
+      properties:
+        id: {type: string, format: uuid}
+        content: {type: string}
+        revision: {type: integer, minimum: 1}
+        source_refs: {type: array, items: {type: string}}
+        confidence: {type: number, minimum: 0, maximum: 1}
+    MemoryWrite:
+      type: object
+      required: [content]
+      properties:
+        content: {type: string, minLength: 1}
+        valid_at: {type: [string, 'null'], format: date-time}
+    MusicTrack:
+      type: object
+      required: [track_id, title, artists, provider, availability, available_actions, source_url]
+      properties:
+        track_id: {type: string}
+        title: {type: string}
+        artists: {type: array, items: {type: string}}
+        album: {type: [string, 'null']}
+        duration_ms: {type: [integer, 'null'], minimum: 0}
+        artwork_url: {type: [string, 'null'], format: uri}
+        source_url: {type: string, format: uri}
+        provider: {type: string}
+        availability: {type: string, enum: [INLINE_LICENSED, USER_LIBRARY, PROVIDER_OPEN, UNAVAILABLE]}
+        available_actions:
+          type: array
+          items: {type: string, enum: [PLAY_INLINE, OPEN_PROVIDER]}
+    PlaybackResolution:
+      type: object
+      required: [mode]
+      properties:
+        mode: {type: string, enum: [INLINE_LICENSED, USER_LIBRARY, PROVIDER_OPEN, UNAVAILABLE]}
+        audio_url: {type: [string, 'null'], format: uri}
+        provider_deep_link: {type: [string, 'null']}
+        provider_web_url: {type: [string, 'null'], format: uri}
+        expires_at: {type: [string, 'null'], format: date-time}
+        reason: {type: [string, 'null']}
+    Task:
+      type: object
+      required: [id, status, origin_conversation_id]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, enum: [READY, RUNNING, WAITING_APPROVAL, COMPLETED, FAILED, CANCELLED]}
+        origin_conversation_id: {type: string, format: uuid}
+        latest_run_id: {type: [string, 'null'], format: uuid}
+    AutomationInput:
+      type: object
+      required: [instruction, timezone, origin_conversation_id]
+      properties:
+        instruction: {type: string}
+        timezone: {type: string, example: Asia/Shanghai}
+        rrule: {type: [string, 'null']}
+        origin_conversation_id: {type: string, format: uuid}
+    Automation:
+      allOf:
+        - {$ref: '#/components/schemas/AutomationInput'}
+        - type: object
+          required: [id, status]
+          properties:
+            id: {type: string, format: uuid}
+            status: {type: string, enum: [ACTIVE, PAUSED, CANCELLED]}
+            next_fire_at: {type: [string, 'null'], format: date-time}
+    Notification:
+      type: object
+      required: [id, title, read, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        body: {type: [string, 'null']}
+        read: {type: boolean}
+        created_at: {type: string, format: date-time}
+        conversation_id: {type: [string, 'null'], format: uuid}
+    FileMetadata:
+      type: object
+      required: [id, purpose, mime_type, size_bytes, sha256, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        purpose: {type: string, enum: [UPLOAD, IMAGE, VIDEO, AUDIO, DOCUMENT, ARTIFACT, CHECKPOINT, RUNNER_EVIDENCE]}
+        original_filename: {type: [string, 'null']}
+        mime_type: {type: string}
+        size_bytes: {type: integer, minimum: 0}
+        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        status: {type: string, enum: [PENDING, READY, DELETING, DELETED, FAILED]}
+        created_at: {type: string, format: date-time}
+        content_url: {type: [string, 'null'], description: 'Private API relative link, not public filesystem path'}
+        # storage_backend and storage_key remain server-side; no direct disk path exposure
+    Artifact:
+      type: object
+      required: [id, kind, version]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string, enum: [TRIP, RESEARCH, GAME, DOCUMENT, FILE]}
+        version: {type: integer, minimum: 1}
+        download_url: {type: [string, 'null'], format: uri}

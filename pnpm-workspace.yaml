@@ -1,0 +1,8 @@
+packages:
+  - apps/web
+  - apps/ios
+  - packages/ui-web
+allowBuilds:
+  esbuild: set this to true or false
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,90 @@
+from datetime import datetime
+from typing import Literal
+from zoneinfo import ZoneInfo
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class ScheduleDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(min_length=1, max_length=200)
+    instruction: str = Field(min_length=1, max_length=16000)
+    kind: Literal["ONCE", "DAILY", "INTERVAL"]
+    timezone: str
+    first_fire_at: str
+    local_time: str | None = None
+    interval_seconds: int | None = Field(default=None, ge=60, le=31536000)
+
+    @model_validator(mode="after")
+    def validate_rule(self):
+        try:
+            ZoneInfo(self.timezone)
+        except Exception:
+            raise ValueError("Invalid IANA timezone") from None
+        instant = datetime.fromisoformat(self.first_fire_at.replace("Z", "+00:00"))
+        if instant.tzinfo is None:
+            raise ValueError("Timezone offset required")
+        if self.kind == "DAILY":
+            from datetime import time
+
+            if not self.local_time:
+                raise ValueError("Daily time required")
+            time.fromisoformat(self.local_time)
+        if self.kind == "INTERVAL" and self.interval_seconds is None:
+            raise ValueError("Interval required")
+        return self
+
+
+def daily_chat_draft(text):
+    """Bounded Chinese daily time parser; ambiguous rules require clarification."""
+    import re
+
+    if not re.search(r"每天|每日|每晚|每早", text):
+        return None
+    match = re.search(
+        r"(?:每天|每日|每晚|每早)\s*(上午|早上|早晨|晚上|下午)?\s*([零一二三四五六七八九十两\d]{1,3})(?:点|:|：)([零一二三四五六七八九十\d]{1,3}分?|半)?",
+        text,
+    )
+    if not match:
+        return None
+
+    def number(value):
+        if value.isdigit():
+            return int(value)
+        digits = {
+            "零": 0,
+            "一": 1,
+            "二": 2,
+            "两": 2,
+            "三": 3,
+            "四": 4,
+            "五": 5,
+            "六": 6,
+            "七": 7,
+            "八": 8,
+            "九": 9,
+        }
+        if "十" in value:
+            a, b = value.split("十", 1)
+            return (digits.get(a, 1) * 10) + digits.get(b, 0)
+        return digits.get(value, -1)
+
+    hour = number(match[2])
+    minute = 30 if match[3] == "半" else number(match[3].removesuffix("分")) if match[3] else 0
+    if (match[1] in ("晚上", "下午") or "每晚" in text) and 1 <= hour < 12:
+        hour += 12
+    if not 0 <= hour <= 23 or not 0 <= minute <= 59:
+        return None
+    instruction = text[match.end() :].lstrip("，, ：:").removeprefix("帮我").strip()
+    if not instruction:
+        return None
+    instruction = re.sub(
+        r"^(?:帮我)?(?:创建|设置|安排|新建)(?:一个)?定时任务[，, ：:]*", "", instruction
+    ).strip()
+    instruction = re.sub(r"spacx", "SpaceX", instruction, flags=re.I)
+    return {
+        "title": instruction[:80],
+        "instruction": instruction,
+        "kind": "DAILY",
+        "timezone": "Asia/Shanghai",
+        "local_time": f"{hour:02d}:{minute:02d}",
+    }

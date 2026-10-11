@@ -1,0 +1,17 @@
+services:
+  edge:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      ADEX_PUBLIC_DOMAIN: ${ADEX_PUBLIC_DOMAIN:?set actual public DNS domain}
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [web]
+    mem_limit: 256m
+    security_opt: ["no-new-privileges:true"]
+volumes:
+  caddy-data: {}
+  caddy-config: {}

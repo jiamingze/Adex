@@ -1,0 +1,4 @@
+CAPACITOR_DEBUG = true
+
+// Optional private signing configuration, never committed.
+#include? "Signing.local.xcconfig"

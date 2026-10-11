@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+.local-data
+**/.venv
+**/node_modules
+**/target
+**/__pycache__
+apps/web/dist
+.DS_Store
