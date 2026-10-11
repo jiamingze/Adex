@@ -45,3 +45,7 @@ Read `README_CODEX_START_HERE.md`, then `docs/Adex_Product_Technical_Design_v4.1
 4. Call out `BLOCKED_EXTERNAL` where third-party keys/license are missing, rather than faking success.
 5. Provide concise commit summary, exact commands run, observed test output, and known limitations.
 6. If docs conflict, follow v4.1 approved decisions and propose ADR for unresolved choices; do not silently rewrite service/DB architecture.
+
+## Repository sync preference
+
+After completing and verifying each user-requested change, commit the relevant code/docs and push to the configured GitHub remote. Never include secrets or private data; report any push failure.

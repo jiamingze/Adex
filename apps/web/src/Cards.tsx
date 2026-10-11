@@ -3,7 +3,17 @@ import {workspaceApi,api} from './api';
 import type {MusicTrack} from './api';
 export type Card={schema_version:number;type:string;card_id:string;conversation_id:string;message_id:string;actions:string[];data?:Record<string,unknown>};
 function go(page:string){window.dispatchEvent(new CustomEvent('adex:navigate',{detail:page}));}
-function sourceList(card:Card){const items=Array.isArray(card.data?.items)?card.data.items as {title?:string;url?:string;snippet?:string}[]:[];return <section className="workspace-card"><strong>来源与证据</strong>{items.slice(0,8).map((item,index)=><p key={index}>{item.url&&/^https?:\/\//.test(item.url)&&<a href={item.url} target="_blank" rel="noopener noreferrer">{item.title||item.url}</a>}<small>{item.snippet?.slice(0,350)}</small></p>)}<small>抓取时间：{String(card.data?.fetched_at||'见来源内容')}</small></section>;}
+function sourceList(card:Card){
+ const items=Array.isArray(card.data?.items)?card.data.items as {title?:string;url?:string;snippet?:string}[]:[];
+ return <details className="source-card">
+  <summary><span>来源与证据</span><span className="source-count">{items.length} 个来源</span></summary>
+  <ol className="source-items">{items.map((item,index)=><li key={index}>
+   {item.url&&/^https?:\/\//.test(item.url)?<a href={item.url} target="_blank" rel="noopener noreferrer">{item.title||item.url}</a>:<span>{item.title||`来源 ${index+1}`}</span>}
+   {item.snippet&&<p>{item.snippet.slice(0,160)}</p>}
+  </li>)}</ol>
+  <small className="source-time">抓取时间：{String(card.data?.fetched_at||'见来源内容')}</small>
+ </details>;
+}
 function workspaceCard(card:Card){return <section className="workspace-card"><strong>{String(card.data?.title||'作品已保存')}</strong><small>{String(card.data?.kind||'')}</small><button className="button" onClick={()=>go('workspace')}>查看作品与版本</button></section>;}
 function GeneratedAudio({card}:{card:Card}){const [url,setUrl]=useState(''),[error,setError]=useState('');useEffect(()=>{let live=true;const id=String(card.data?.file_id||'');if(id)workspaceApi.playback(id).then(value=>{if(live)setUrl(value);}).catch(()=>{if(live)setError('音频暂不可用，请到作品空间重试');});return()=>{live=false;};},[card.card_id]);return <section className="workspace-card"><strong>{card.data?.mock?'测试音频样例':'原创音乐'}</strong><small>{String(card.data?.model_id||'')} {card.data?.mock?'· 非真实歌曲生成':''}</small>{url?<><audio controls preload="metadata" src={url} onError={()=>setError('播放连接已失效，请重新加载音频')}/><p><a href={url} download="original-music.mp3">下载音频</a></p></>:<p>{error||'正在加载音频…'}</p>}{error&&url&&<p role="alert">{error} <button className="text-button" onClick={async()=>{try{setUrl(await workspaceApi.playback(String(card.data?.file_id)));setError('');}catch{setError('音频加载失败，请检查连接后重试');}}}>重新加载</button></p>}<button className="button" onClick={()=>go('workspace')}>查看作品与版本</button></section>;}
 function GeneratedVideo({card}:{card:Card}){

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Collapse chat source/evidence cards by default, with source counts, concise excerpts and a bounded detail list on Web and iOS.
+
 Initial public repository packaging. The code predates the first Git commit; dates in implementation evidence describe development checks, not tagged releases.
 
 - Shared React Web and Capacitor iOS client, guest access and account registration.
