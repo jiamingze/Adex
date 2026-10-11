@@ -167,6 +167,8 @@ class MockProvider:
 
     async def stream(self, messages):
         latest = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+        if latest == "fixture:slow-stream":
+            await asyncio.sleep(30)
         text = "【测试模型，非真实 AI】已收到：" + latest[:200]
         for index in range(0, len(text), 8):
             await asyncio.sleep(0.02)

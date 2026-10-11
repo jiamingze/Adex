@@ -25,7 +25,7 @@ def search_intent(text):
     if re.search(r"(不要|不用|无需|别).{0,6}(联网|搜索|搜)", text):
         return False
     return travel_intent(text) or bool(re.search(
-        r"(搜一下|搜下|搜索|帮我搜|查一下|查询)|"
+        r"(搜一下|搜下|搜索|帮我搜|查一下|查下|查询|浏览器|github|https?://)|"
         r"(近期|最近|最新|今天|明天|今年|现在|目前|实时|本周|本月).*(演唱会|新闻|天气|价格|发布|比赛|活动|消息|信息|动态|进展|航班|汇率|股价)|"
         r"(新闻|天气|汇率|股价|票价|航班|现任|开放时间)|"
         r"\b(latest|recent|current|today|tomorrow|news|weather|stock price|exchange rate)\b", text, re.I))
@@ -37,3 +37,7 @@ def original_music_intent(text):
 
 def schedule_intent(text):
     return bool(re.search(r"(创建|设置|安排|新建).*(定时任务|定时|提醒)|(每天|每日|每晚|每早|明天|每隔).*(帮我|整理|搜索|搜集|提醒|汇总|推送|发送|监控)|(?:定时|定期).*(整理|搜索|提醒|汇总|发送)", text)) and not bool(re.search(r"(不要|不用|别).{0,6}(创建|设置|定时|定期|每天|提醒)", text))
+
+
+def image_intent(text):
+    return bool(re.search(r"(画|绘制|生成|制作|设计).*(图片|头像|插画|海报|壁纸|图像|照片)|(图片|头像|插画|海报|壁纸).*(画|生成|制作|设计)", text)) and not bool(re.search(r"架构图|流程图|时序图",text))

@@ -23,3 +23,11 @@ The model selector currently offers Qwen and MiniMax. Its configured model names
 SMTP and approved CalDAV integration are optional; consult `.env.example` and the provider integration checklist. Service signing keys and database passwords must be distinct. Configure budgets and storage quotas for your deployment. The initializer's random owner account differs from any developer's local private account.
 
 Restart affected backend services after changing their environment. Rebuild iOS after changing the public API URL. Endpoint changes can affect reconciliation of existing provider jobs: do not switch providers mid-run without reviewing outstanding effects.
+
+### Chat usage and browser reads
+
+Set `ADEX_DAILY_MODEL_CALL_LIMIT=0` to remove the daily reply count limit while preserving usage accounting. Positive values enable a daily cap (the example defaults to 50). Search and creative media budgets remain independent.
+
+Image requests use `ADEX_IMAGE_PROVIDER=dashscope` and `DASHSCOPE_IMAGE_MODEL=qwen-image-3.0`; use a Model Studio key and endpoint from the same region. Results are imported into private local file storage and displayed in the originating chat.
+
+The read-only Chromium runner reads public GitHub pages in an ephemeral, credential-free subprocess. Install it with `uv run --project services/adex-tools playwright install chromium` (`--with-deps` on Linux). `ADEX_BROWSER_ALLOWED_HOSTS` configures exact trusted HTTPS hostnames; private destinations, forms and downloads are blocked. Up to two browser reads run concurrently, with a 45-second process deadline. The child inherits no service credentials.

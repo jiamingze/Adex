@@ -23,3 +23,11 @@
 SMTP 和需审批的 CalDAV 为可选能力，见 `.env.example` 和供应商接入清单。各服务签名 Key 和数据库密码必须独立，部署时配置预算与配额。初始化账户随机生成，不使用开发者的本机账户。
 
 修改环境后重启相关后端；修改外网 API 地址后重新打包 iOS。切换供应商前检查尚未完成的 Job 和 UNKNOWN 效果，避免失去对账能力。
+
+### 聊天用量与浏览器读取
+
+设置 `ADEX_DAILY_MODEL_CALL_LIMIT=0` 可取消每日回复次数上限，用量仍会记录。正数表示每日上限（示例默认 50）。搜索和媒体生成额度独立配置。
+
+图片生成使用 `ADEX_IMAGE_PROVIDER=dashscope` 与 `DASHSCOPE_IMAGE_MODEL=qwen-image-3.0`，需配置同一地域的百炼 Key 和接口。生成结果会导入私有本地文件存储，并在原会话中展示。
+
+只读 Chromium 在不含服务凭据的临时子进程中读取公开 GitHub 页面。运行 `uv run --project services/adex-tools playwright install chromium` 安装浏览器，Linux 可增加 `--with-deps`。`ADEX_BROWSER_ALLOWED_HOSTS` 配置可信 HTTPS 域名；禁止私网目标、提交表单和下载。最多同时读取两页任务，子进程最长运行 45 秒。

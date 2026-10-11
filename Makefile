@@ -11,6 +11,7 @@ setup:
 	uv sync --python 3.12
 	uv sync --project services/adex-agent --python 3.12
 	uv sync --project services/adex-tools --python 3.12
+	uv run --project services/adex-tools playwright install chromium
 	pnpm install
 	pnpm generate:contracts
 build:

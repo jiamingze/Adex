@@ -92,6 +92,35 @@ def client():
         yield c
 
 
+def test_unlimited_chat_still_records_usage(client, db):
+    conv = client.post("/api/v1/conversations", json={"title": "unlimited budget fixture"}).json()["id"]
+    owner = db.execute("SELECT owner_id FROM app.conversations WHERE id=%s", (conv,)).fetchone()["owner_id"]
+    db.execute("INSERT INTO agent.daily_budgets(owner_id,day,reserved_calls) VALUES(%s,(clock_timestamp() AT TIME ZONE 'UTC')::date,1000) ON CONFLICT(owner_id,day) DO UPDATE SET reserved_calls=1000", (owner,))
+    response = client.post(f"/api/v1/conversations/{conv}/messages", json={"content": "unlimited accounting fixture", "client_message_id": str(uuid4())})
+    response.raise_for_status()
+    turn = response.json()["message_id"]
+    wait(lambda: db.execute("SELECT status FROM app.turns WHERE id=%s", (turn,)).fetchone()["status"] == "COMPLETED")
+    assert db.execute("SELECT reserved_calls FROM agent.daily_budgets WHERE owner_id=%s AND day=(clock_timestamp() AT TIME ZONE 'UTC')::date", (owner,)).fetchone()["reserved_calls"] >= 1001
+
+
+def test_stop_releases_blocked_stream_slots(client, db):
+    turns = []
+    for _ in range(4):
+        conv = client.post("/api/v1/conversations", json={"title": "stop fixture"}).json()["id"]
+        reply = client.post(f"/api/v1/conversations/{conv}/messages", json={"content": "fixture:slow-stream", "client_message_id": str(uuid4())})
+        reply.raise_for_status()
+        turns.append((conv, reply.json()["message_id"]))
+    for conv, turn in turns:
+        wait(lambda: db.execute("SELECT status FROM app.turns WHERE id=%s", (turn,)).fetchone()["status"] == "RUNNING")
+    time.sleep(1)
+    for conv, turn in turns:
+        client.post(f"/api/v1/conversations/{conv}/stop").raise_for_status()
+        assert db.execute("SELECT status FROM app.turns WHERE id=%s", (turn,)).fetchone()["status"] == "CANCELLED"
+    conv = client.post("/api/v1/conversations", json={"title": "after stop"}).json()["id"]
+    turn = client.post(f"/api/v1/conversations/{conv}/messages", json={"content": "hello after stop", "client_message_id": str(uuid4())}).json()["message_id"]
+    wait(lambda: db.execute("SELECT status FROM app.turns WHERE id=%s", (turn,)).fetchone()["status"] == "COMPLETED", timeout=8)
+
+
 def occurrence(client, db):
     conv = client.post("/api/v1/conversations", json={"title": "fault fixture"}).json()[
         "id"

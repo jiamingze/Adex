@@ -436,3 +436,18 @@ async def tool_usage(request: Request):
         "media_states": media,
         "billing_note": "Reserved units bound tool work; provider invoices remain authoritative",
     }
+
+
+class BrowserRead(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: str = Field(min_length=1,max_length=2000)
+    query: str = Field(default="",max_length=300)
+
+
+@app.post("/internal/browser/read")
+async def browser_read(request: Request, body: BrowserRead):
+    from .browser import read_page
+    claims=core.require(request,"agent","search:read")
+    UUID(claims["owner"])
+    await reserve_search(claims["owner"])
+    return await read_page(body.url,body.query)

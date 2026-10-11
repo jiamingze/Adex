@@ -48,3 +48,13 @@ sequenceDiagram
 
 ### Alibaba media production adapters (2026-10-11)
 Qwen Audio `qwen-audio-3.1-tts-next` uses the Beijing workspace HTTPS SpeechSynthesizer API for original music, 1–120 seconds per request. Longer requests (up to 600 seconds) use independently durable original sections and two-second crossfades; each section remains at most 120 seconds. Persist the composition coordinator ID before child submission, reuse completed child files on recovery, and never repeat UNKNOWN child submissions. Wan video uses the same workspace with durable remote task ID and query-only reconciliation. Both produce privately owned App files and playable conversation cards; no provider URL is exposed to the client. Music duration is recorded from the provider response.
+
+## Read-only server browser (2026-10-11)
+
+`POST /internal/browser/read` requires Agent `search:read` scoped to the owner, consumes search budget, accepts `{url, query}` and returns timestamped `BROWSER_RENDERED_PAGE` source items. Only configured public HTTPS hosts may be read. The runner receives no service/model credentials, opens an ephemeral headless Chromium context, pins public DNS addresses, intercepts each request, blocks writes/downloads/WebSockets/service workers and has a bounded lifetime. Browser page text is untrusted evidence, never execution authority. Ordinary search can automatically select the browser for GitHub lookups and explicit supported URLs.
+
+Image chat requests route to an Automation IMAGE task. DashScope Qwen-Image receives the original prompt, returns a provider result that is imported via App File API, and publishes an authenticated image card. Provider permission failures remain explicit; mocks never count as real generation.
+
+Stopping a chat commits CANCELLED and fencing epoch first. Each App replica polls active ownership and interrupts/closes stale streams, with an overall response deadline. A completed background media task has its own task cancellation control.
+
+Chat model budgets: `ADEX_DAILY_MODEL_CALL_LIMIT=0` disables the daily reply count cap while retaining durable usage accounting. Positive limits remain configurable for hosted deployments. Media and search budgets are separate.

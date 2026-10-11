@@ -16,7 +16,7 @@ def normalized_request(body):
 async def generate(core, owner, body, *, composition_part=False):
     if body["kind"] not in KINDS:
         raise HTTPException(400, "UNSUPPORTED_CAPABILITY")
-    if body.get("provider") == "dashscope" and body["kind"] not in ("AUDIO", "VIDEO"):
+    if body.get("provider") == "dashscope" and body["kind"] not in ("IMAGE", "AUDIO", "VIDEO"):
         raise HTTPException(400, "UNSUPPORTED_CAPABILITY")
     if body.get("provider") not in ("mock", "minimax", "acestep", "dashscope") or (body.get("provider") in ("minimax", "acestep") and body["kind"] != "AUDIO"):
         raise HTTPException(503, "BLOCKED_EXTERNAL")
@@ -153,7 +153,7 @@ async def generate(core, owner, body, *, composition_part=False):
                 response.raise_for_status()
                 poster_id = response.json()["id"]
         result = {
-            "content": "测试模式作品已生成；真实模型接入状态：BLOCKED_EXTERNAL。" if body["provider"] == "mock" else ("原创音乐已生成，可以播放或下载。目标时长是创作提示，实际时长以播放器为准。" if body["kind"] == "AUDIO" else "视频已生成，可以播放或下载。"),
+            "content": "测试模式作品已生成；真实模型接入状态：BLOCKED_EXTERNAL。" if body["provider"] == "mock" else ("原创音乐已生成，可以播放或下载。目标时长是创作提示，实际时长以播放器为准。" if body["kind"] == "AUDIO" else "图片已生成，可以查看或下载。" if body["kind"] == "IMAGE" else "视频已生成，可以播放或下载。"),
             "artifact": {
                 "kind": body["kind"],
                 "file_id": stored["id"],

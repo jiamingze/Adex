@@ -372,8 +372,8 @@ public class AppApi {
           }
           UUID resultMessage=chat.append(conv, "assistant", content, "run:" + b.get("run_id"));
           if(Set.of("RESEARCH","TRAVEL","GAME","DIAGRAM","IMAGE","AUDIO","VIDEO").contains(kind)){
-            var data=new LinkedHashMap<String,Object>();data.put("kind",kind);data.put("run_id",b.get("run_id"));data.put("title","任务作品已保存");if(Set.of("AUDIO","VIDEO").contains(kind)&&b.get("artifact") instanceof Map<?,?> audio){data.put("file_id",audio.get("file_id"));data.put("mock",audio.get("mock"));data.put("model_id",audio.get("model_id"));data.put("duration_ms",audio.get("duration_ms"));data.put("poster_file_id",audio.get("poster_file_id"));}
-            var card=Map.of("schema_version",1,"card_id",Kernel.id(),"conversation_id",conv,"message_id",resultMessage,"type",kind.equals("AUDIO")?"generated_audio_player":kind.equals("VIDEO")?"generated_video_player":"artifact_preview","data",data,"actions",List.of("open_workspace"));
+            var data=new LinkedHashMap<String,Object>();data.put("kind",kind);data.put("run_id",b.get("run_id"));data.put("title","任务作品已保存");if(Set.of("IMAGE","AUDIO","VIDEO").contains(kind)&&b.get("artifact") instanceof Map<?,?> audio){data.put("file_id",audio.get("file_id"));data.put("mock",audio.get("mock"));data.put("model_id",audio.get("model_id"));data.put("duration_ms",audio.get("duration_ms"));data.put("poster_file_id",audio.get("poster_file_id"));}
+            var card=Map.of("schema_version",1,"card_id",Kernel.id(),"conversation_id",conv,"message_id",resultMessage,"type",kind.equals("AUDIO")?"generated_audio_player":kind.equals("VIDEO")?"generated_video_player":kind.equals("IMAGE")?"image_gallery":"artifact_preview","data",data,"actions",List.of("open_workspace"));
             k.db.update("UPDATE messages SET cards=?::jsonb WHERE id=?",k.encode(List.of(card)),resultMessage);chat.event(conv,"message.cards",Map.of("message_id",resultMessage));
           }
           k.db.update(

@@ -29,6 +29,7 @@ admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
 e["ADEX_PG_DB"] = name
 e["ADEX_FILE_STORAGE_ROOT"] = str(ROOT / ".local-data" / name / "files")
 e["ADEX_MODEL_PROVIDER"] = "mock"
+e["ADEX_DAILY_MODEL_CALL_LIMIT"] = "0"
 # This isolated stack uses loopback HTTP; do not inherit public HTTPS cookie settings.
 e["ADEX_COOKIE_SECURE"] = "false"
 e["ADEX_CODE_RUNNER_MODE"] = "disabled"
@@ -37,6 +38,7 @@ e["ADEX_MUSIC_API_KEY"] = ""
 e["DASHSCOPE_API_KEY"] = ""
 e["ADEX_MUSIC_PROVIDER"] = "mock"
 e["ADEX_VIDEO_PROVIDER"] = "mock"
+e["ADEX_IMAGE_PROVIDER"] = "mock"
 e["ADEX_CALDAV_URL"] = ""
 e["ADEX_SMTP_HOST"] = ""
 e["ADEX_BACKGROUND_WORKER"] = "false"

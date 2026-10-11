@@ -101,6 +101,12 @@ async def turn(request: Request, body: Turn):
                 else:
                     yield json.dumps({"type":"completed", "content":"可以为你设置定时任务。请补充明确的执行时间，例如：每天上午8点汇总 SpaceX 最新消息。"},ensure_ascii=False)+"\n"
                 return
+            from .router import image_intent
+            if image_intent(latest):
+                yield json.dumps({"type":"task.requested", "kind":"IMAGE", "instruction":latest,
+                    "request":{"provider":os.getenv("ADEX_IMAGE_PROVIDER", "dashscope"),
+                               "rights_confirmed":True,"params":{"width":1024,"height":1024}}},ensure_ascii=False)+"\n"
+                return
             if re.search(r"(生成|制作|创作|做).*(视频|短片)", latest):
                 duration_match = re.search(r"(\d+)\s*秒", latest)
                 duration = int(duration_match[1]) if duration_match else 5

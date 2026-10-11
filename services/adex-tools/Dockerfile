@@ -6,6 +6,7 @@ WORKDIR /workspace
 COPY packages/python-kernel packages/python-kernel
 COPY services/adex-tools services/adex-tools
 RUN uv sync --project services/adex-tools --frozen --no-dev && useradd --uid 10001 --create-home adex
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/opt/adex-browsers
+RUN uv run --project services/adex-tools playwright install --with-deps chromium
 USER 10001:10001
 ENTRYPOINT ["/workspace/services/adex-tools/.venv/bin/uvicorn","adex_tools.main:app","--host","0.0.0.0","--port","8107","--no-access-log"]

@@ -17,6 +17,33 @@ public class ChatWorker {
   final Semaphore slots = new Semaphore(4);
   final ConcurrentHashMap<UUID, Map<String, Object>> active = new ConcurrentHashMap<>();
 
+  final ConcurrentHashMap<UUID, Thread> threads = new ConcurrentHashMap<>();
+  final ConcurrentHashMap<UUID, InputStream> streams = new ConcurrentHashMap<>();
+  final ConcurrentHashMap<UUID, Long> deadlines = new ConcurrentHashMap<>();
+
+  // Durable cancellation remains authoritative across replicas. Interrupt/close releases local slots.
+  @Scheduled(fixedDelay = 250)
+  public void stopInactive() {
+    for (var entry : threads.entrySet()) {
+      var t = active.get(entry.getKey());
+      if (t == null) continue;
+      try {
+        if (System.nanoTime() > deadlines.getOrDefault(entry.getKey(), Long.MAX_VALUE)) {
+          k.tx.executeWithoutResult(tx -> {
+            if (k.db.update("UPDATE turns SET status='FAILED',error_code='CHAT_TIMEOUT',lease_until=NULL WHERE id=? AND epoch=? AND attempt_id=? AND status='RUNNING'", t.get("id"),t.get("epoch"),t.get("attempt_id")) == 1)
+              chat.event((UUID)t.get("conversation_id"),"turn.failed",Map.of("turn_id",t.get("id"),"code","CHAT_TIMEOUT"));
+          });
+        }
+        int live = k.db.queryForObject("SELECT count(*) FROM turns WHERE id=? AND epoch=? AND attempt_id=? AND status='RUNNING' AND lease_until>clock_timestamp()",Integer.class,t.get("id"),t.get("epoch"),t.get("attempt_id"));
+        if (live == 0 && threads.remove(entry.getKey(),entry.getValue())) {
+          entry.getValue().interrupt();
+          var input = streams.remove(entry.getKey());
+          if(input != null) Thread.startVirtualThread(() -> {try{input.close();}catch(IOException ignored){}});
+        }
+      } catch (Exception ignored) {}
+    }
+  }
+
   public ChatWorker(Kernel k, ChatStore chat) {
     this.k = k;
     this.chat = chat;
@@ -56,8 +83,13 @@ public class ChatWorker {
         Thread.startVirtualThread(
             () -> {
               try {
+                deadlines.put(id,System.nanoTime()+Duration.ofSeconds(180).toNanos());
+                threads.put(id,Thread.currentThread());
                 execute(t);
               } finally {
+                threads.remove(id);
+                streams.remove(id);
+                deadlines.remove(id);
                 active.remove(id);
                 slots.release();
               }
@@ -90,8 +122,7 @@ public class ChatWorker {
       long upto = k.db.queryForObject("SELECT seq FROM messages WHERE id=?", Long.class, id);
       var ctx = chat.context(owner, conv, upto);
       t.put("memory_revision", ctx.get("memory_revision"));
-      k.tx.executeWithoutResult(
-          s -> chat.event(conv, "turn.started", Map.of("turn_id", id, "epoch", t.get("epoch"))));
+      emit(t, "", "turn.started");
       var body =
           Map.of(
               "invocation_key",
@@ -119,6 +150,7 @@ public class ChatWorker {
         res.body().close();
         throw Kernel.error(503, "AGENT_UNAVAILABLE");
       }
+      streams.put(id,res.body());
       String finalContent = null;
       Object cards=List.of();
       StringBuilder delta = new StringBuilder();
@@ -128,6 +160,7 @@ public class ChatWorker {
               new InputStreamReader(res.body(), java.nio.charset.StandardCharsets.UTF_8))) {
         String line;
         while ((line = reader.readLine()) != null) {
+          if (Thread.currentThread().isInterrupted()) throw Kernel.error(409,"STALE_EXECUTION");
           if (line.isBlank()) continue;
           var e = k.decode(line);
           String type = String.valueOf(e.get("type"));
@@ -142,6 +175,7 @@ public class ChatWorker {
             }
           }
           if (type.equals("schedule.requested")) {
+            emit(t,"正在创建定时任务","turn.progress");
             if (Boolean.TRUE.equals(k.row("SELECT is_guest FROM users WHERE id=?",owner).get("is_guest"))) {
               finalContent="Adex 支持定时任务。请先注册或登录，再发送这条请求，即可设置每天上午8点（北京时间）整理 SpaceX 最新消息。当前尚未创建任务。";
             } else {
@@ -162,11 +196,13 @@ public class ChatWorker {
             }
           }
           if (type.equals("task.requested")) {
+            emit(t,"正在创建任务","turn.progress");
             if(Boolean.TRUE.equals(k.row("SELECT is_guest FROM users WHERE id=?",owner).get("is_guest")))throw Kernel.error(403,"SIGN_IN_REQUIRED");
             var request=new LinkedHashMap<String,Object>();request.put("kind",e.get("kind"));request.put("instruction",e.get("instruction"));request.put("origin_conversation_id",conv);request.put("idempotency_key","chat-task:"+id);if(e.get("request") instanceof Map<?,?> extra){for(String field:List.of("provider","rights_confirmed","params"))if(extra.containsKey(field))request.put(field,extra.get(field));}
             var task=k.call("automation","task:write",owner,null,"POST","/internal/tasks",request);
             cards=List.of(Map.of("type","task_status","data",Map.of("run_id",task.get("id"),"kind",e.get("kind"),"status",task.get("status")),"actions",List.of("open_tasks")));
             finalContent="已开始处理（"+e.get("kind")+"），关闭页面后会继续处理。结果将回到当前对话，并保存到作品空间。任务 ID："+task.get("id");
+            if("IMAGE".equals(e.get("kind")))finalContent="正在生成图片，完成后会直接显示在当前对话，并保存到作品空间。";
             if("AUDIO".equals(e.get("kind")))finalContent="正在创作原创音乐，完成后会在当前对话提供播放器和下载。你可以离开页面，稍后回来查看。";
           }
           if (type.equals("completed")){ finalContent = String.valueOf(e.get("content"));cards=e.getOrDefault("cards",List.of());}

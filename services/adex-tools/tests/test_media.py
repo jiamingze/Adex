@@ -252,3 +252,36 @@ async def test_unknown_composition_section_stops_without_later_submission(monkey
     with pytest.raises(HTTPException,match='PROVIDER_UNKNOWN'):
         await provider.get_result(provider_job_id=provider.job_id)
     assert calls==['stable:section:0']
+
+
+async def test_dashscope_image_payload_private_download_and_no_resubmit(monkeypatch):
+    import httpx
+    import json
+    from adex_tools.dashscope_media import DashScopeMediaProvider
+    monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-key')
+    requests=[]
+    def handle(request):
+        requests.append(request)
+        if request.method=='POST':
+            body=json.loads(request.content)
+            assert body['model']=='qwen-image-3.0'
+            assert body['parameters']['size']=='1024*1024'
+            assert body['input']['messages'][0]['content'][0]['text']=='original assistant avatar'
+            return httpx.Response(200,json={'request_id':'image-fixture','output':{'choices':[{'message':{'content':[{'image':'https://fixture.oss-cn-beijing.aliyuncs.com/image.png'}]}}]}})
+        assert 'Authorization' not in request.headers
+        return httpx.Response(200,content=image_fixture())
+    original=httpx.AsyncClient
+    monkeypatch.setattr(httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(handle)))
+    provider=DashScopeMediaProvider('IMAGE')
+    job=await provider.submit(kind='IMAGE',prompt='original assistant avatar',input_refs=[],params={},request_key='stable')
+    data,name,mime=await provider.get_result(provider_job_id=job['provider_job_id'])
+    assert data==image_fixture() and mime=='image/png'
+    assert (await provider.reconcile(request_key='stable',provider_job_id=job['provider_job_id']))['status']=='UNKNOWN'
+    assert len([r for r in requests if r.method=='POST'])==1
+
+
+def test_browser_restricts_urls_to_public_allowlisted_https():
+    from adex_tools.browser import allowed_url
+    assert allowed_url('https://github.com/jiamingze/Adex')
+    for url in ['http://github.com/jiamingze/Adex','https://github.com.evil.test','https://127.0.0.1','https://user:pass@github.com','https://github.com:8443','https://github.com/#fragment']:
+        assert not allowed_url(url)
