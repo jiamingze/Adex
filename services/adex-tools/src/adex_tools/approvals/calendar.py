@@ -61,7 +61,7 @@ async def act(core, owner, approval_id, action, execution=None):
     async with core.pool.connection() as conn:
         async with conn.transaction():
             cur = await conn.execute(
-                "SELECT *,expires_at>clock_timestamp() AS valid FROM approvals WHERE id=%s AND owner_id=%s FOR UPDATE",
+                "SELECT *,expires_at>clock_timestamp() AS valid FROM approvals WHERE id=%s AND owner_id=%s AND kind='calendar.create' FOR UPDATE",
                 (approval_id, owner),
             )
             row = await cur.fetchone()
@@ -130,7 +130,9 @@ async def act(core, owner, approval_id, action, execution=None):
 
 async def reconcile(core, owner, approval_id):
     row = await core.query(
-        "SELECT * FROM approvals WHERE id=%s AND owner_id=%s", (approval_id, owner), one=True
+        "SELECT * FROM approvals WHERE id=%s AND owner_id=%s AND kind='calendar.create'",
+        (approval_id, owner),
+        one=True,
     )
     if not row:
         raise HTTPException(404, "APPROVAL_NOT_FOUND")

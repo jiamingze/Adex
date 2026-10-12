@@ -1,0 +1,7 @@
+# Opt-in only: provider key is mounted read-only, never baked into the image.
+services:
+  adex-app:
+    environment:
+      ADEX_APNS_KEY_FILE: /run/secrets/apns.p8
+    volumes:
+      - ${ADEX_APNS_KEY_HOST_FILE:?set private APNs key path}:/run/secrets/apns.p8:ro

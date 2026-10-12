@@ -212,7 +212,11 @@ public class Kernel {
       String base = env("ADEX_" + aud.toUpperCase() + "_URL");
       var b =
           HttpRequest.newBuilder(URI.create(base + path))
-              .timeout(Duration.ofSeconds(scope.equals("schedule:draft") ? 150 : 15))
+              .timeout(
+                  Duration.ofSeconds(
+                      scope.equals("schedule:draft")
+                          ? 150
+                          : scope.equals("connector:read") ? 60 : 15))
               .header("Authorization", "Bearer " + token(aud, scope, owner, resource))
               .header("Content-Type", "application/json");
       var response =

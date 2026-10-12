@@ -40,3 +40,13 @@ Workspace preview/Range streaming and some file/artifact endpoints still combine
 ## Skill boundaries
 
 See [Skill architecture](skills.md) and [ADR 003](../adr/003-skills-and-transaction-boundaries.md). Skills are versioned, trusted execution policies, never permission grants. Booking adapters remain disabled until concrete quotes, user approval and durable effect reconciliation are implemented.
+
+## Connectors and proactive assistance
+
+See [the implementation and external acceptance boundaries](proactive-assistant.md).
+App capability modules now include `connector`, `proactive`, `productivity` and
+notification push adapters. Tools adds `connectors` (contracts/vault/registry/Google)
+and common `approvals/actions`. New Run kinds and connector polling templates extend
+existing Automation; no new scheduler or state owner is introduced. Credential
+material remains in its owning service, and all writes require human approval plus
+provider receipts rather than model output.

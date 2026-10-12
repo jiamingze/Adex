@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "adex-kernel",
+    "cryptography>=46.0.3",
     "uvicorn==0.34.2",
     "beautifulsoup4==4.13.4",
     "pypdf>=6.20.0",

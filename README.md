@@ -30,6 +30,8 @@ Adex is an open-source, self-hosted AI application for multiple users, with Web 
 | **Private, versioned workspace** | App-authorized files and immutable artifact versions, private media playback, editable diagram sources and isolated generated-code execution. |
 | **An engineering reference** | Capability modules, application services, persistence/provider ports, architecture checks, formatting gates, and integration/failure tests—not just a chat UI. |
 
+**External service status:** Google/APNs integration tests use explicitly labelled local fixtures. They do not establish real account changes or device delivery. Missing OAuth/APNs credentials return `BLOCKED_EXTERNAL`; iOS OAuth consent currently starts on Web, then connections are shared with the same registered account on iOS.
+
 **Deployment scope:** distributed service boundaries and multi-instance coordination are implemented; the included Compose setup is a single-host starting point. Phase 1 stores files on an App-owned persistent local disk. Multi-host App deployment needs explicit file routing or an approved storage design; a collection of separate local disks does not provide shared storage or automatic high availability. See [architecture](docs/en/architecture.md) and the [storage contract](docs/LOCAL_FILE_STORAGE.md).
 
 **Status:** actively developed, early-stage software. This repository contains implemented services and tests, not a claim of production readiness. Real model capabilities require your own provider credentials. See [implementation status](docs/IMPLEMENTATION_STATUS.md) and [acceptance evidence](docs/ACCEPTANCE_EVIDENCE.md) for the limits of verification.
@@ -42,6 +44,11 @@ Adex is an open-source, self-hosted AI application for multiple users, with Web 
 | Search | Automatically retrieve current information through Tavily and show sources |
 | Memory | Working, conversation, and long-term memory; inspect, correct, and delete saved facts |
 | Automation | Create daily schedules from chat; manage schedules, background tasks, and results returned to the original conversation |
+| Connectors | Google Calendar/Gmail OAuth adapters, encrypted credentials, incremental scopes, query and revocation; real connection requires your OAuth configuration |
+| Action approval | Review exact calendar changes or email content, approve before dispatch, verify provider receipts and reconcile uncertain results |
+| Proactive assistant | Calendar conflicts and important email observations, deduplication, correlation, importance and notification preferences; recurring checks reuse Automation |
+| Task matrix | Organize tasks by importance/urgency, move quadrants, complete/delete tasks and link existing Runs |
+| Offline notifications | APNs HTTP/2 transport, private device registration and conversation/Run/action restoration; actual push requires an eligible Apple team and credentials |
 | Create | Research reports, travel plans, sandboxed HTML games, editable diagrams, and provider-backed media |
 | Music & video | Generate original audio/video with configured providers; save private artifacts and play/download results |
 | Attachments | Upload images and documents, ask questions about supported files; native photo and voice adapters on iOS |
@@ -144,6 +151,7 @@ Integration tests create isolated `adex_test_*` databases and mock external prov
 
 ## Documentation
 
+- [Connectors, approvals, proactive signals and APNs setup](docs/architecture/proactive-assistant.md)
 - [Skills and travel-to-booking roadmap](docs/architecture/skills.md)
 - [Installation & iOS](docs/en/installation.md) / [安装与 iOS](docs/zh-CN/installation.md)
 - [Architecture](docs/en/architecture.md) / [技术架构](docs/zh-CN/architecture.md)

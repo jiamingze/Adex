@@ -70,13 +70,21 @@ public class RunExecutionService {
             Kernel.number(b, "epoch"),
             Kernel.uuid(b.get("attempt_id")),
             id);
-    if (run.get("kind").equals("CALENDAR")) {
+    if (Set.of("CALENDAR", "CONNECTOR_ACTION").contains(run.get("kind"))) {
       live =
           live
               && k.db.queryForObject(
                   "SELECT request->>'approval_id'=? FROM runs WHERE id=?",
                   Boolean.class,
                   String.valueOf(b.get("approval_id")),
+                  id);
+    } else if (run.get("kind").equals("CONNECTOR_SYNC")) {
+      live =
+          live
+              && k.db.queryForObject(
+                  "SELECT request->>'connection_id'=? FROM runs WHERE id=?",
+                  Boolean.class,
+                  String.valueOf(b.get("connection_id")),
                   id);
     } else
       live =

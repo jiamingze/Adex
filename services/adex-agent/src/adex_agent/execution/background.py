@@ -51,6 +51,45 @@ class BackgroundWorker:
                     saved = cp["state"]
             if saved and saved.get("phase") == "result":
                 result = saved
+            elif run.get("kind") in ("CONNECTOR_SYNC", "CONNECTOR_ACTION"):
+                request = run["request"]
+                action = run["kind"] == "CONNECTOR_ACTION"
+                resource = request["approval_id"] if action else request["connection_id"]
+                query = dict(request.get("query", {}))
+                if not action and "window_days" in query:
+                    from datetime import datetime, timedelta, timezone
+
+                    now = datetime.now(timezone.utc)
+                    query = {"start": now.isoformat(), "end": (now + timedelta(days=7)).isoformat()}
+
+                result_data = await self.core.call(
+                    "tools",
+                    "action:execute" if action else "connector:sync",
+                    "POST",
+                    "/internal/actions/execute" if action else "/internal/connectors/sync",
+                    {
+                        "approval_id" if action else "connection_id": resource,
+                        "run_id": str(run["id"]),
+                        "epoch": run["epoch"],
+                        "attempt_id": str(run["attempt_id"]),
+                        **({} if action else {"query": query}),
+                    },
+                    owner=run["owner_id"],
+                    resource=resource,
+                )
+                result = {
+                    "schema_version": 1,
+                    "phase": "result",
+                    "content": ("操作已取得供应商回执：" + str(result_data["provider_receipt"]))
+                    if action
+                    else "已检查已授权服务，发现的重要变化将显示为主动建议。",
+                    "artifact": {"action": result_data}
+                    if action
+                    else {"signals": result_data["signals"], "partial": result_data.get("partial", False)},
+                    "completed_steps": ["connector"],
+                    "pending_effects": [],
+                    "usage": {},
+                }
             elif run.get("kind") == "CALENDAR":
                 approval = run["request"]["approval_id"]
                 action = await self.core.call(

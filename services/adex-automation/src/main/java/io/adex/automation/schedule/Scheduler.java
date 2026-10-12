@@ -47,13 +47,15 @@ public class Scheduler {
                       overlap ? "SKIPPED_OVERLAP" : "CREATED");
               if (inserted == 1 && !overlap) {
                 k.db.update(
-                    "INSERT INTO runs(id,schedule_id,owner_id,origin_conversation_id,instruction)"
-                        + " VALUES(?,?,?,?,?)",
+                    "INSERT INTO runs(id,schedule_id,owner_id,origin_conversation_id,instruction,kind,request)"
+                        + " VALUES(?,?,?,?,?,?,?::jsonb)",
                     run,
                     sid,
                     schedule.get("owner_id"),
                     schedule.get("origin_conversation_id"),
-                    schedule.get("instruction"));
+                    schedule.get("instruction"),
+                    schedule.get("task_kind"),
+                    k.encode(schedule.get("task_request")));
                 k.db.update(
                     "UPDATE occurrences SET run_id=? WHERE schedule_id=? AND scheduled_at=?",
                     run,

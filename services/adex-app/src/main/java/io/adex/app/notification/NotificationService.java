@@ -20,6 +20,30 @@ public class NotificationService {
             owner));
   }
 
+  public Object resume(UUID owner, UUID id) {
+    var item = k.row("SELECT * FROM notifications WHERE id=? AND owner_id=?", id, owner);
+    k.row(
+        "SELECT id FROM conversations WHERE id=? AND owner_id=? AND deleted_at IS NULL",
+        item.get("conversation_id"),
+        owner);
+    var result = new LinkedHashMap<String, Object>();
+    result.put("conversation_id", item.get("conversation_id"));
+    result.put("action_id", item.get("action_id"));
+    if (item.get("run_id") != null)
+      result.put(
+          "run",
+          k.call(
+              "automation",
+              "run:read",
+              owner,
+              Kernel.uuid(item.get("run_id")),
+              "GET",
+              "/internal/runs/" + item.get("run_id"),
+              null));
+    k.db.update("UPDATE notifications SET read=true WHERE id=? AND owner_id=?", id, owner);
+    return result;
+  }
+
   public Object read(UUID owner, UUID id) {
     if (k.db.update("UPDATE notifications SET read=true WHERE id=? AND owner_id=?", id, owner) != 1)
       throw Kernel.error(404, "NOT_FOUND");

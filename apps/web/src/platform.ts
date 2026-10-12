@@ -28,3 +28,14 @@ export async function stopSpeech(){if(native)await speech.stop();else browserSpe
 
 
 if(native){window.addEventListener("keyboardWillShow",()=>document.documentElement.classList.add("keyboard-open"));window.addEventListener("keyboardWillHide",()=>document.documentElement.classList.remove("keyboard-open"));}
+
+const push = registerPlugin<{request():Promise<{token:string}>;pending():Promise<{notification_id:string}>;acknowledge():Promise<void>;addListener(name:string,callback:(event:{notification_id:string})=>void):Promise<{remove():Promise<void>}>}>('AdexPush');
+export async function requestPush(){if(!native)throw new Error('请在 iOS 客户端授权通知');return (await push.request()).token;}
+export function listenPush(handler:(id:string)=>Promise<void>){
+ if(!native)return ()=>{};
+ let disposed=false,subscription:{remove():Promise<void>}|undefined;
+ const process=async(event:{notification_id:string})=>{if(disposed||!event.notification_id)return;await handler(event.notification_id);await push.acknowledge();};
+ push.addListener('tap',event=>{process(event).catch(()=>{});}).then(value=>{if(disposed)value.remove();else subscription=value;}).catch(()=>{});
+ push.pending().then(process).catch(()=>{});
+ return ()=>{disposed=true;subscription?.remove();};
+}

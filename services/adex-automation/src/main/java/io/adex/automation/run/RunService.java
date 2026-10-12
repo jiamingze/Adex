@@ -20,7 +20,17 @@ public class RunService {
     String kind = Kernel.text(b, "kind", 40),
         instruction = Kernel.text(b, "instruction", 16000),
         key = Kernel.text(b, "idempotency_key", 128);
-    if (!Set.of("RESEARCH", "TRAVEL", "GAME", "DIAGRAM", "IMAGE", "AUDIO", "VIDEO", "CALENDAR")
+    if (!Set.of(
+            "RESEARCH",
+            "TRAVEL",
+            "GAME",
+            "DIAGRAM",
+            "IMAGE",
+            "AUDIO",
+            "VIDEO",
+            "CALENDAR",
+            "CONNECTOR_SYNC",
+            "CONNECTOR_ACTION")
         .contains(kind)) throw Kernel.error(400, "INVALID_TASK_KIND");
     String hash = Kernel.hash(k.encode(new TreeMap<>(b)));
     return k.tx.execute(
@@ -60,6 +70,11 @@ public class RunService {
         k.db.queryForList(
             "SELECT * FROM runs WHERE owner_id=? ORDER BY created_at DESC LIMIT 100",
             Kernel.uuid(claims.get("owner"))));
+  }
+
+  public Object run(Map<String, Object> claims, UUID id) {
+    return k.row(
+        "SELECT * FROM runs WHERE id=? AND owner_id=?", id, Kernel.uuid(claims.get("owner")));
   }
 
   public Object cancel(Map<String, Object> claims, UUID id) {

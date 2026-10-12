@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### 2026-10-13 — Proactive assistant foundation
+
+- Add Google Calendar/Gmail connector adapters, session-bound PKCE OAuth, AES-GCM credentials, incremental scopes, refresh and revocation.
+- Extend the existing approvals/effects for calendar update and Gmail send, immutable confirmation hashes, ETag/readback checks and UNKNOWN reconciliation.
+- Add Connector sync/action Run kinds and recurring connector templates on the existing scheduler, leases/checkpoints/outbox.
+- Add proactive signal dedupe/correlation/importance, quiet hours, notification preferences and a four-quadrant task board.
+- Add APNs HTTP/2 provider transport, encrypted device tokens, delivery ledger and authenticated notification-to-conversation/Run/action restoration.
+- Add Web/iOS assistant interfaces and native notification bridge. Google consent starts on Web in this version.
+- External validation remains BLOCKED_EXTERNAL without real Google/APNs configuration; fixture tests are explicitly labelled, not real delivery evidence.
+
+
 - Allow vertical chat scrolling from iOS Markdown tables while retaining horizontal table scrolling.
 - Welcome contributors with bilingual participation steps and project entry points.
 

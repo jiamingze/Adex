@@ -21,6 +21,8 @@ public class AutomationGateway {
   }
 
   public Object schedule(UUID owner, Map<String, Object> b, String key) {
+    if (b.containsKey("task_kind") || b.containsKey("task_request"))
+      throw Kernel.error(400, "USE_CONNECTOR_WATCH_ENDPOINT");
     UUID conv = Kernel.uuid(b.get("origin_conversation_id"));
     chat.own(owner, conv);
     if (key.isBlank() || key.length() > 128) throw Kernel.error(400, "INVALID_IDEMPOTENCY_KEY");

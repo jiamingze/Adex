@@ -1,4 +1,5 @@
 import Capacitor
+import UIKit
 import Security
 import Speech
 import AVFoundation
@@ -12,6 +13,7 @@ public class AdexBridge: CAPBridgeViewController {
         webView?.allowsBackForwardNavigationGestures = false
         bridge?.registerPluginInstance(SecureSessionPlugin())
         bridge?.registerPluginInstance(AdexSpeechPlugin())
+        bridge?.registerPluginInstance(AdexPushPlugin())
     }
 }
 
@@ -114,4 +116,56 @@ public class AdexSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { if self.pending === original { self.finish() } }
         call.resolve()
     }
+}
+
+// Push navigation carries only a notification identifier. The authenticated server
+// resolves its owner-scoped conversation/run/action; payload URLs are never opened.
+import UserNotifications
+
+public class AdexNotificationCoordinator: NSObject, UNUserNotificationCenterDelegate {
+    public static let shared = AdexNotificationCoordinator()
+    public var onToken: ((String) -> Void)?
+    public var onError: (() -> Void)?
+    public var onTap: ((String) -> Void)?
+    public func configure() { UNUserNotificationCenter.current().delegate = self }
+    public func registered(_ data: Data) { onToken?(data.map { String(format: "%02x", $0) }.joined()) }
+    public func failed() { onError?() }
+    public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let id = response.notification.request.content.userInfo["notification_id"] as? String, UUID(uuidString: id) != nil {
+            UserDefaults.standard.set(id, forKey: "adex.pendingNotification")
+            DispatchQueue.main.async { self.onTap?(id) }
+        }
+        completionHandler()
+    }
+    public func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { completionHandler([]) }
+}
+
+@objc(AdexPushPlugin)
+public class AdexPushPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "AdexPushPlugin"
+    public let jsName = "AdexPush"
+    public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "request", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "pending", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "acknowledge", returnType: CAPPluginReturnPromise)]
+    private var registration: CAPPluginCall?
+    public override func load() {
+        let coordinator = AdexNotificationCoordinator.shared
+        coordinator.configure()
+        coordinator.onToken = { [weak self] token in self?.registration?.resolve(["token": token]); self?.registration = nil }
+        coordinator.onError = { [weak self] in self?.registration?.reject("APNS_REGISTRATION_UNAVAILABLE"); self?.registration = nil }
+        coordinator.onTap = { [weak self] id in self?.notifyListeners("tap", data: ["notification_id": id]) }
+    }
+    @objc func request(_ call: CAPPluginCall) {
+        if registration != nil { call.reject("PUSH_REGISTRATION_BUSY"); return }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] granted, error in
+            DispatchQueue.main.async {
+                guard granted, error == nil else { call.reject("PUSH_PERMISSION_DENIED"); return }
+                self?.registration = call
+                UIApplication.shared.registerForRemoteNotifications()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+                    if self?.registration === call { call.reject("APNS_REGISTRATION_UNAVAILABLE"); self?.registration = nil }
+                }
+            }
+        }
+    }
+    @objc func pending(_ call: CAPPluginCall) { call.resolve(["notification_id": UserDefaults.standard.string(forKey: "adex.pendingNotification") ?? ""]) }
+    @objc func acknowledge(_ call: CAPPluginCall) { UserDefaults.standard.removeObject(forKey: "adex.pendingNotification"); call.resolve() }
 }

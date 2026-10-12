@@ -170,3 +170,25 @@ Verification for this change: Agent 33 unit tests, Tools 25 unit tests, 31 isola
 integration tests, OpenAPI 55 operations, architecture/lint/style gates passed.
 Agent wheel built and verified to contain `skills/builtin/travel.toml`. Tests use
 mock suppliers; no actual reservation, order or payment was submitted.
+
+## 2026-10-13 — Connectors, action approvals, proactive signals and task matrix
+
+Implemented Google Calendar/Gmail connector adapters, session-bound PKCE OAuth,
+AES-GCM credential vault, scopes/refresh/revocation, common action snapshots and
+provider receipts on existing approvals/effects. Connector sync/action Runs and
+recurring templates reuse Automation leases/fencing/checkpoints/Outbox. App adds
+signal dedupe/correlation/importance, notification preferences, APNs adapter/device
+ledger and authenticated conversation/Run/action resume. Web/iOS gain assistant and
+four-quadrant task interfaces; native notification bridge is wired.
+
+Validation: `make build test check-style`, lint/secret checks and contract validation;
+Java 7 + Agent 33 + Tools 32 unit tests; OpenAPI 77 operations; isolated integration
+39 passed. Latest iOS unsigned simulator build passed. External providers in these
+E2Es are labelled TEST_FIXTURE, not real Google writes/mail or APNs phone delivery.
+Real Google/APNs remain BLOCKED_EXTERNAL pending configuration/consent/signing/device
+acceptance. Physical reinstall attempt failed: revoked development certificate and
+no usable Xcode account; repair and actual installation remain outstanding.
+
+Details and remaining native OAuth/delta-sync/reconciled-Run limits:
+`docs/architecture/proactive-assistant.md`. Migrations: app/016.sql,
+automation/005.sql, tools/006.sql. Personal runtime data and credentials excluded.

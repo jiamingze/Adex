@@ -11,6 +11,9 @@ patterns = [
     re.compile(r"sk-[A-Za-z0-9_-]{28,}"),
     re.compile(r"sk-api-[A-Za-z0-9_-]{25,}"),
     re.compile(r"tvly-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"GOCSPX-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"ya29\.[A-Za-z0-9._-]{30,}"),
+    re.compile(r"-----BEGIN (?:EC |RSA )?PRIVATE KEY-----\s+[A-Za-z0-9+/=\r\n]{40,}"),
 ]
 bad = []
 for name in files:

@@ -8,6 +8,7 @@ Shared Web/iOS UI; four service domains; chat/search/memory; durable automation;
 
 ## Next priorities
 
+- Real Google OAuth consent/verification and APNs device delivery acceptance; native OAuth handoff, richer mailbox/calendar delta subscriptions and reconciled Run presentation.
 - Physical iOS regression coverage: photo upload, speech recognition, keyboard and weak-network recovery.
 - Stable hosting and external access with documented operating costs and provider region compatibility.
 - Broader schedule language, improved accessibility and mobile interaction quality.

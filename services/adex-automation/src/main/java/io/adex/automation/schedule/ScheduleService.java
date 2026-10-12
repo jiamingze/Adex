@@ -40,6 +40,13 @@ public class ScheduleService {
       throw Kernel.error(400, "INVALID_INTERVAL");
     LocalTime time =
         kind.equals("DAILY") ? LocalTime.parse(Kernel.text(b, "local_time", 20)) : null;
+    String taskKind = String.valueOf(b.getOrDefault("task_kind", "CHAT"));
+    if (!Set.of("CHAT", "CONNECTOR_SYNC").contains(taskKind))
+      throw Kernel.error(400, "INVALID_TASK_KIND");
+    Object taskRequest = b.getOrDefault("task_request", Map.of());
+    if (taskKind.equals("CONNECTOR_SYNC")
+        && (!(taskRequest instanceof Map<?, ?> request) || request.get("connection_id") == null))
+      throw Kernel.error(400, "INVALID_CONNECTOR_SCHEDULE");
     String hash = Kernel.hash(k.encode(new TreeMap<>(b)));
     return k.tx.execute(
         s -> {
@@ -85,6 +92,11 @@ public class ScheduleService {
               Timestamp.from(next),
               key,
               hash);
+          k.db.update(
+              "UPDATE schedules SET task_kind=?,task_request=?::jsonb WHERE id=?",
+              taskKind,
+              k.encode(taskRequest),
+              id);
           return k.row("SELECT * FROM schedules WHERE id=?", id);
         });
   }

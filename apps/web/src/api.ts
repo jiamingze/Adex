@@ -13,7 +13,7 @@ let token = '';
 const apiBase=import.meta.env.VITE_ADEX_API_BASE||'';
 if(apiBase&&!apiBase.startsWith('https://'))throw new Error('Native API endpoint must use HTTPS');
 export class ApiError extends Error { constructor(public code: string, public status: number) { super(code); } }
-async function request<T>(path: string, method = 'GET', body?: unknown, key?: string): Promise<T> {
+export async function request<T>(path: string, method = 'GET', body?: unknown, key?: string): Promise<T> {
  const r = await fetch(apiBase+'/api/v1'+path,{method,credentials:'include',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{}),...(key?{'Idempotency-Key':key}:{})},body:body===undefined?undefined:JSON.stringify(body)});
  if(!r.ok){let code='REQUEST_FAILED';try{code=(await r.json()).code||code;}catch{}if(r.status===401)window.dispatchEvent(new Event('adex:unauthorized'));throw new ApiError(code,r.status);}return r.json();
 }

@@ -139,6 +139,16 @@ public class Auth extends OncePerRequestFilter {
         }
         req.setAttribute("owner", rows.getFirst().get("owner_id"));
         if (Boolean.TRUE.equals(rows.getFirst().get("is_guest"))
+            && req.getRequestURI()
+                .matches(
+                    "/api/v1/(connectors|actions|signals|matrix|push|notification-preferences).*")) {
+          res.setStatus(403);
+          res.setContentType("application/json");
+          res.getWriter().write("{\"code\":\"SIGN_IN_REQUIRED\"}");
+          return;
+        }
+
+        if (Boolean.TRUE.equals(rows.getFirst().get("is_guest"))
             && !Set.of("GET", "HEAD").contains(req.getMethod())
             && !req.getRequestURI()
                 .matches(

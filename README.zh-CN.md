@@ -29,6 +29,8 @@ Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客�
 | **私有、可追溯的作品空间** | 文件访问权限、不可变作品版本、私有媒体播放、可编辑图形源文件，以及隔离的生成代码执行。 |
 | **可学习的完整后端工程** | 按能力划分模块，分离应用服务、持久化接口与供应商适配器，并用架构检查、格式门禁和集成／故障测试约束实现。 |
 
+**外部服务状态：** Google／APNs 集成测试使用明确标注的本地测试夹具，不代表真实账户已修改或手机已收到推送。缺少 OAuth／APNs 凭证时返回 `BLOCKED_EXTERNAL`。当前 Google 授权从 Web 发起，iOS 登录同一注册账户后可使用这些连接。
+
 **分布式部署边界：** 已实现服务拆分与多实例协调，仓库附带的 Compose 是单机部署起点。一期文件仍存放在 App 管理的持久本地磁盘；跨主机部署多个 App 实例时，需要明确的文件路由或经架构决策批准的存储方案，多个独立本地磁盘不等于共享存储或自动高可用。详见 [技术架构](docs/zh-CN/architecture.md) 与 [文件存储约定](docs/LOCAL_FILE_STORAGE.md)。
 
 **项目阶段：早期开发，持续迭代。** 已有可运行服务和测试，但不代表全部功能已达到生产验收标准。真实模型能力需要配置自己的供应商凭证；具体证据与限制见 [实现状态](docs/IMPLEMENTATION_STATUS.md) 和 [验收记录](docs/ACCEPTANCE_EVIDENCE.md)。
@@ -41,6 +43,11 @@ Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客�
 | 联网搜索 | 根据问题自行搜索最新资料，通过 Tavily 返回来源 |
 | 记忆 | 工作态、会话和长期记忆；查看、纠正与删除 |
 | 定时执行 | 从聊天创建每日任务，管理任务和运行记录，结果回到原会话 |
+| 连接服务 | Google Calendar / Gmail OAuth、增量授权、凭证加密、查询与撤销；真实连接需自行配置 OAuth |
+| 操作审批 | 查看具体日历变更或邮件内容，明确批准后执行，以供应商回执确认结果，未知结果先对账 |
+| 主动助手 | 日历冲突、重要邮件变化、事件去重与关联、重要性评估和通知偏好；持续检查复用 Automation |
+| 任务四象限 | 按重要／紧急整理待办，移动象限、完成与删除任务，可关联已有 Run |
+| 离线通知 | APNs HTTP/2 适配、私有设备登记和原会话／Run／操作恢复；真实推送需具备相应 Apple 签名和凭证 |
 | 创作 | 研究报告、旅游行程、沙箱 HTML 游戏、可编辑图形与媒体作品 |
 | 原创音乐与视频 | 配置真实模型后生成，保存私有作品、播放和下载 |
 | 附件 | 图片、文档上传与问答；iOS 原生相册和语音桥接 |
@@ -139,6 +146,7 @@ uv run python scripts/check_secrets.py
 
 ## 更多文档
 
+- [Connector、统一审批、主动建议与 APNs 接入](docs/architecture/proactive-assistant.md)
 - [Skill 架构与行程／预约／下单演进](docs/architecture/skills.md)
 - [安装](docs/zh-CN/installation.md)、[配置](docs/zh-CN/configuration.md)、[开发](docs/zh-CN/development.md)
 - [运维与恢复](docs/RUNBOOK.md)、[文件存储](docs/LOCAL_FILE_STORAGE.md)

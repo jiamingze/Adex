@@ -103,7 +103,7 @@ class Core:
     ):
         async with httpx.AsyncClient(
             timeout=960 if scope == "creative:write" else 90
-            if scope in ("search:read", "travel:read", "vision:read")
+            if scope in ("search:read", "travel:read", "vision:read", "connector:sync", "action:execute")
             else 30
             if scope in ("creative:write", "artifact:write", "code:check")
             else 15,

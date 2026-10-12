@@ -48,6 +48,16 @@ e["ADEX_ES_URL"] = "http://127.0.0.1:59499"
 e["ADEX_VISION_PROVIDER"] = "disabled"
 e["ADEX_VISION_API_KEY"] = ""
 e["ADEX_MEDIA_WEBHOOK_SECRET"] = "adex-integration-webhook-fixture"
+# External fixtures only run against a random adex_test_* database.
+import base64
+from secrets import token_bytes
+e["ADEX_CONNECTOR_TEST_FIXTURE"] = "true"
+e["ADEX_APNS_TEST_FIXTURE"] = "true"
+e["ADEX_CONNECTOR_ENCRYPTION_KEY"] = base64.b64encode(token_bytes(32)).decode()
+e["ADEX_APNS_DEVICE_ENCRYPTION_KEY"] = base64.b64encode(token_bytes(32)).decode()
+e["ADEX_GOOGLE_CLIENT_ID"] = "test-client"
+e["ADEX_GOOGLE_CLIENT_SECRET"] = "test-secret"
+e["ADEX_GOOGLE_REDIRECT_URI"] = "http://127.0.0.1:18080/api/v1/connectors/google/callback"
 for service, port in [
     ("APP", 18080),
     ("AUTOMATION", 18081),
@@ -84,6 +94,9 @@ try:
     children.append(redisproc)
     e["ADEX_TEST_REDIS_PID"] = str(redisproc.pid)
     os.environ.update(e)
+    fixture_log = (ROOT / ".local-data/test-connector-fixture.log").open("w")
+    logs.append(fixture_log)
+    children.append(subprocess.Popen(["uv", "run", "python", "tests/fixtures/connector_server.py"], cwd=ROOT, env=e, stdout=fixture_log, stderr=fixture_log, start_new_session=True))
     for service, port in [
         ("app", 18080),
         ("automation", 18081),

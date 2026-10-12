@@ -1,6 +1,7 @@
 package io.adex.app.notification;
 
 import io.adex.app.conversation.ConversationStore;
+import io.adex.app.proactive.ProactiveService;
 import io.adex.kernel.Kernel;
 import java.util.*;
 import org.springframework.stereotype.Service;
@@ -13,10 +14,12 @@ import org.springframework.stereotype.Service;
 public class ResultAttachmentService {
   private final Kernel k;
   private final ConversationStore chat;
+  private final ProactiveService proactive;
 
-  public ResultAttachmentService(Kernel k, ConversationStore chat) {
+  public ResultAttachmentService(Kernel k, ConversationStore chat, ProactiveService proactive) {
     this.k = k;
     this.chat = chat;
+    this.proactive = proactive;
   }
 
   public Object monitorAttach(Map<String, Object> claims, Map<String, Object> b) {
@@ -81,6 +84,13 @@ public class ResultAttachmentService {
                   conv,
                   "run:" + b.get("run_id"))
               .isEmpty()) return Map.of("ok", true, "deduplicated", true);
+          if ("CONNECTOR_SYNC".equals(b.get("kind"))
+              && b.get("artifact") instanceof Map<?, ?> artifact
+              && artifact.get("signals") instanceof List<?> signals) {
+            int count = proactive.ingest(owner, conv, Kernel.uuid(b.get("run_id")), signals);
+            if (count > 0) chat.append(conv, "assistant", content, "run:" + b.get("run_id"));
+            return Map.of("ok", true, "signals_created", count);
+          }
           String kind = String.valueOf(b.getOrDefault("kind", "CHAT"));
           if (Set.of("RESEARCH", "TRAVEL", "GAME", "DIAGRAM", "IMAGE", "AUDIO", "VIDEO")
               .contains(kind)) {
@@ -171,12 +181,18 @@ public class ResultAttachmentService {
             chat.event(conv, "message.cards", Map.of("message_id", resultMessage));
           }
           k.db.update(
-              "INSERT INTO notifications(id,event_id,owner_id,conversation_id,title,body)"
-                  + " VALUES(?,?,?,?,?,?)",
+              "INSERT INTO notifications(id,event_id,owner_id,conversation_id,run_id,action_id,title,body)"
+                  + " VALUES(?,?,?,?,?,?,?,?)",
               Kernel.id(),
               event,
               owner,
               conv,
+              Kernel.uuid(b.get("run_id")),
+              "CONNECTOR_ACTION".equals(kind)
+                      && b.get("artifact") instanceof Map<?, ?> art
+                      && art.get("action") instanceof Map<?, ?> action
+                  ? Kernel.uuid(action.get("action_id"))
+                  : null,
               "任务已完成",
               content);
           return Map.of("ok", true);

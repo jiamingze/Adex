@@ -58,6 +58,11 @@ def service_env(name):
             e.pop(key, None)
         if name != "app" and key == "ADEX_OWNER_PASSWORD":
             e.pop(key, None)
+    for key in list(e):
+        if name != "tools" and (key.startswith("ADEX_GOOGLE_") or key.startswith("ADEX_CONNECTOR_")):
+            e.pop(key, None)
+        if name != "app" and key.startswith("ADEX_APNS_"):
+            e.pop(key, None)
     return e
 
 

@@ -3,6 +3,7 @@ package io.adex.app.config;
 import io.adex.app.conversation.ConversationStore;
 import io.adex.app.identity.Auth;
 import io.adex.app.memory.MemoryService;
+import io.adex.app.notification.ApnsTransport;
 import io.adex.kernel.Kernel;
 import java.util.*;
 import java.util.concurrent.*;
@@ -43,8 +44,10 @@ public class PlatformController {
         "search_provider",
         "tavily",
         "offline_notifications",
-        Kernel.env("ADEX_SMTP_HOST", "").isBlank() ? "BLOCKED_EXTERNAL" : "SMTP",
+        ApnsTransport.configured()
+            ? "APNS_CONFIGURED_UNVERIFIED"
+            : Kernel.env("ADEX_SMTP_HOST", "").isBlank() ? "BLOCKED_EXTERNAL" : "SMTP",
         "other_features",
-        "FEATURE_NOT_ENABLED");
+        "TASK_MATRIX_PROACTIVE_ACTIONS");
   }
 }

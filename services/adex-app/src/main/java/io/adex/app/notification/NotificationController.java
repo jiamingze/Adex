@@ -11,15 +11,33 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
   private final Auth auth;
   private final NotificationService service;
+  private final NotificationPreferences preferences;
 
-  public NotificationController(Auth auth, NotificationService service) {
+  public NotificationController(
+      Auth auth, NotificationService service, NotificationPreferences preferences) {
     this.auth = auth;
     this.service = service;
+    this.preferences = preferences;
   }
 
   @GetMapping("/api/v1/notifications")
   public Object notifications(HttpServletRequest r) {
     return service.notifications(auth.owner(r));
+  }
+
+  @GetMapping("/api/v1/notifications/{id}/resume")
+  public Object resume(HttpServletRequest r, @PathVariable UUID id) {
+    return service.resume(auth.owner(r), id);
+  }
+
+  @GetMapping("/api/v1/notification-preferences")
+  public Object preferences(HttpServletRequest r) {
+    return preferences.get(auth.owner(r));
+  }
+
+  @PutMapping("/api/v1/notification-preferences")
+  public Object savePreferences(HttpServletRequest r, @RequestBody Map<String, Object> b) {
+    return preferences.save(auth.owner(r), b);
   }
 
   @PostMapping("/api/v1/notifications/{id}/read")

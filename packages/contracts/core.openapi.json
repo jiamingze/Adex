@@ -1968,7 +1968,7 @@
             }
           }
         },
-        "description": "Create an account; upgrades the current private guest owner in-place. Username 3–32 ASCII characters; password 12–128 characters."
+        "description": "Create an account; upgrades the current private guest owner in-place. Username 3\u201332 ASCII characters; password 12\u2013128 characters."
       }
     },
     "/auth/guest": {
@@ -2000,6 +2000,807 @@
         },
         "security": [],
         "description": "Resume same-device session or create an isolated guest. HttpOnly SameSite cookie on Web; opaque bearer in native Keychain. Guest chat quota 8/day; paid creative/background actions require registration."
+      }
+    },
+    "/api/v1/connectors": {
+      "get": {
+        "operationId": "get_api_v1_connectors",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/google/authorize": {
+      "post": {
+        "operationId": "post_api_v1_connectors_google_authorize",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorAuthorize"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/connectors/google/callback": {
+      "get": {
+        "operationId": "get_api_v1_connectors_google_callback",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 180
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/{id}/revoke": {
+      "post": {
+        "operationId": "post_api_v1_connectors_id_revoke",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See docs/architecture/proactive-assistant-plan.md and validated transport schemas"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/connectors/{id}/query": {
+      "post": {
+        "operationId": "post_api_v1_connectors_id_query",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorQuery"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/connectors/{id}/sync": {
+      "post": {
+        "operationId": "post_api_v1_connectors_id_sync",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorSyncInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/actions": {
+      "get": {
+        "operationId": "get_api_v1_actions",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_api_v1_actions",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/actions/{id}/approve": {
+      "post": {
+        "operationId": "post_api_v1_actions_id_approve",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionConsent"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/actions/{id}/revoke": {
+      "post": {
+        "operationId": "post_api_v1_actions_id_revoke",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See docs/architecture/proactive-assistant-plan.md and validated transport schemas"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/actions/{id}/reconcile": {
+      "post": {
+        "operationId": "post_api_v1_actions_id_reconcile",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See docs/architecture/proactive-assistant-plan.md and validated transport schemas"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signals": {
+      "get": {
+        "operationId": "get_api_v1_signals",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notification-preferences": {
+      "get": {
+        "operationId": "get_api_v1_notification-preferences",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_api_v1_notification-preferences",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferences"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/push/devices": {
+      "post": {
+        "operationId": "post_api_v1_push_devices",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushDeviceInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/push/devices/{id}": {
+      "delete": {
+        "operationId": "delete_api_v1_push_devices_id",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/{id}/resume": {
+      "get": {
+        "operationId": "get_api_v1_notifications_id_resume",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResume"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/matrix": {
+      "get": {
+        "operationId": "get_api_v1_matrix",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_api_v1_matrix",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matrix/{id}": {
+      "patch": {
+        "operationId": "patch_api_v1_matrix_id",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_api_v1_matrix_id",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/{id}/watch": {
+      "post": {
+        "operationId": "post_api_v1_connectors_id_watch",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped receipt; provider success is explicit, never inferred from model text"
+          },
+          "403": {
+            "description": "Permission or ownership denied"
+          },
+          "503": {
+            "description": "BLOCKED_EXTERNAL or dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorWatchInput"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -2244,6 +3045,373 @@
             "additionalProperties": true
           }
         }
+      },
+      "ConnectorAuthorize": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string",
+            "enum": [
+              "calendar",
+              "gmail"
+            ]
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "send"
+            ]
+          }
+        },
+        "required": [
+          "service",
+          "access"
+        ],
+        "additionalProperties": false
+      },
+      "ConnectorQuery": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "ConnectorSyncInput": {
+        "type": "object",
+        "properties": {
+          "origin_conversation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "query": {
+            "$ref": "#/components/schemas/ConnectorQuery"
+          }
+        },
+        "required": [
+          "origin_conversation_id",
+          "idempotency_key",
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "ConnectorWatchInput": {
+        "type": "object",
+        "properties": {
+          "origin_conversation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "origin_conversation_id",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "CalendarUpdatePayload": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "event_id",
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "GmailSendPayload": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 320
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 16000
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "ActionInput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "connection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "origin_conversation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "const": "calendar.update"
+              },
+              "payload": {
+                "$ref": "#/components/schemas/CalendarUpdatePayload"
+              }
+            },
+            "required": [
+              "connection_id",
+              "origin_conversation_id",
+              "kind",
+              "payload"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "connection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "origin_conversation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "const": "gmail.send"
+              },
+              "payload": {
+                "$ref": "#/components/schemas/GmailSendPayload"
+              }
+            },
+            "required": [
+              "connection_id",
+              "origin_conversation_id",
+              "kind",
+              "payload"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ActionConsent": {
+        "type": "object",
+        "properties": {
+          "request_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "request_hash"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "push_enabled": {
+            "type": "boolean"
+          },
+          "min_importance": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "quiet_start": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quiet_end": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "enabled",
+          "push_enabled",
+          "min_importance",
+          "timezone"
+        ],
+        "additionalProperties": true
+      },
+      "PushDeviceInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{32,512}$"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "sandbox",
+              "production"
+            ]
+          }
+        },
+        "required": [
+          "token",
+          "environment"
+        ],
+        "additionalProperties": false
+      },
+      "MatrixInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "important": {
+            "type": "boolean"
+          },
+          "urgent": {
+            "type": "boolean"
+          },
+          "due_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "TODO",
+              "DONE"
+            ]
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "title",
+          "important",
+          "urgent"
+        ],
+        "additionalProperties": true
+      },
+      "ActionReceipt": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "SUCCEEDED",
+              "UNKNOWN"
+            ]
+          },
+          "action_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider_receipt": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "additionalProperties": true
+      },
+      "NotificationResume": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "run": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ],
+        "additionalProperties": true
       }
     }
   }

@@ -66,6 +66,12 @@ services:
       ADEX_DB_JDBC_URL: "jdbc:postgresql://postgres:5432/${ADEX_PG_DB:-adex_dev}?currentSchema=app"
       ADEX_DB_USER: "adex_app"
       ADEX_DB_PASSWORD: "${ADEX_APP_DB_PASSWORD:?set DB password}"
+      ADEX_APNS_KEY_FILE: "${ADEX_APNS_KEY_FILE:-}"
+      ADEX_APNS_KEY_ID: "${ADEX_APNS_KEY_ID:-}"
+      ADEX_APNS_TEAM_ID: "${ADEX_APNS_TEAM_ID:-}"
+      ADEX_APNS_TOPIC: "${ADEX_APNS_TOPIC:-io.adex.personal}"
+      ADEX_APNS_DEVICE_ENCRYPTION_KEY: "${ADEX_APNS_DEVICE_ENCRYPTION_KEY:-}"
+      ADEX_PUBLIC_WEB_URL: "${ADEX_PUBLIC_WEB_URL:-}"
       ADEX_SMTP_HOST: "${ADEX_SMTP_HOST:-}"
       ADEX_SMTP_PORT: "${ADEX_SMTP_PORT:-587}"
       ADEX_SMTP_USERNAME: "${ADEX_SMTP_USERNAME:-}"
@@ -154,6 +160,10 @@ services:
       DASHSCOPE_IMAGE_MODEL: "${DASHSCOPE_IMAGE_MODEL:-qwen-image-3.0}"
       ADEX_BROWSER_ALLOWED_HOSTS: "${ADEX_BROWSER_ALLOWED_HOSTS:-github.com,raw.githubusercontent.com,github.githubassets.com,avatars.githubusercontent.com}"
       ADEX_TOOLS_KEY: "${ADEX_TOOLS_KEY:?set issuer key}"
+      ADEX_GOOGLE_CLIENT_ID: "${ADEX_GOOGLE_CLIENT_ID:-}"
+      ADEX_GOOGLE_CLIENT_SECRET: "${ADEX_GOOGLE_CLIENT_SECRET:-}"
+      ADEX_GOOGLE_REDIRECT_URI: "${ADEX_GOOGLE_REDIRECT_URI:-}"
+      ADEX_CONNECTOR_ENCRYPTION_KEY: "${ADEX_CONNECTOR_ENCRYPTION_KEY:-}"
       ADEX_DB_URL: "postgresql://adex_tools:${ADEX_TOOLS_DB_PASSWORD:?set DB password}@postgres:5432/${ADEX_PG_DB:-adex_dev}"
   web:
     <<: *runtime

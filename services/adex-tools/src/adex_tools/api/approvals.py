@@ -13,7 +13,7 @@ router = APIRouter()
 async def approvals(request: Request):
     claims = core.require(request, "app", "approval:read")
     rows = await core.query(
-        "SELECT * FROM approvals WHERE owner_id=%s ORDER BY created_at DESC LIMIT 100",
+        "SELECT * FROM approvals WHERE owner_id=%s AND kind='calendar.create' ORDER BY created_at DESC LIMIT 100",
         (UUID(claims["owner"]),),
     )
 

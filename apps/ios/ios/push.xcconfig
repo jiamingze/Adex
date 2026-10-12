@@ -1,0 +1,4 @@
+// Opt-in only for an APNs-capable team/profile. Personal Team builds retain the
+// default configuration; don't claim remote push from a non-entitled build.
+CODE_SIGN_ENTITLEMENTS = App/App.push.entitlements
+APNS_ENVIRONMENT = development
