@@ -40,6 +40,7 @@ Adex is an open-source, self-hosted AI application for multiple users, with Web 
 
 | Capability | Experience |
 | --- | --- |
+| Today | A daily overview of priority tasks, next automations, approvals, proactive suggestions, running work and recent artifacts; prepare an editable daily-planning chat draft |
 | Chat | Stream responses, switch Qwen / MiniMax, browse and delete history, render Markdown, retry and stop replies |
 | Search | Automatically retrieve current information through Tavily and show sources |
 | Memory | Working, conversation, and long-term memory; inspect, correct, and delete saved facts |
@@ -57,6 +58,18 @@ Adex is an open-source, self-hosted AI application for multiple users, with Web 
 Image generation availability depends on the selected adapter. Deterministic mock media is explicitly labeled and does not count as real generation. Music catalog search links to authorized platforms; search results do not grant streaming rights. iOS photo upload, microphone recognition, and keyboard behavior require device-level validation; the latest device test boundaries are recorded in the status document.
 
 ## See it in action
+
+The refreshed personal-assistant experience is inspired by public Today AI and
+Meta Muse walkthroughs. See [the gap analysis and implementation boundaries](docs/product/personal-assistant-experience.md).
+
+<details>
+<summary>Daily overview · mobile light and dark</summary>
+
+<img src="docs/images/today-mobile-fixture.jpg" alt="Adex Today in a mobile browser viewport" width="280" />
+<img src="docs/images/today-mobile-dark-fixture.jpg" alt="Adex Today in dark mode" width="280" />
+
+These screenshots use isolated, synthetic TEST_FIXTURE data in a 375px browser viewport, not personal accounts or verified external execution.
+</details>
 
 <img src="docs/screenshots/web-chat.png" alt="Adex web conversation" width="520" />
 

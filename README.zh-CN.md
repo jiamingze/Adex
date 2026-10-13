@@ -39,6 +39,7 @@ Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客�
 
 | 模块 | 使用体验 |
 | --- | --- |
+| 今日概览 | 汇集重点待办、接下来的自动任务、待确认操作、主动建议、后台工作和近期成果；生成可编辑的今日计划聊天草稿 |
 | 聊天 | 流式回复、Qwen / MiniMax 切换、Markdown、历史删除、停止与重试 |
 | 联网搜索 | 根据问题自行搜索最新资料，通过 Tavily 返回来源 |
 | 记忆 | 工作态、会话和长期记忆；查看、纠正与删除 |
@@ -56,6 +57,17 @@ Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客�
 图片生成是否可用取决于适配器配置。Mock 媒体明确标注为测试样例，不会冒充真实生成结果。商业音乐目录只能跳转授权平台，检索结果不等于站内播放授权。iOS 相册上传、麦克风识别和键盘交互仍需按实际设备验证，最新边界记录在实现状态文档中。
 
 ## 示例界面
+
+新版个人助手体验参考 Today AI 和 Meta Muse 的公开介绍，具体差距与边界见[体验改造说明](docs/product/personal-assistant-experience.md)。
+
+<details>
+<summary>今日概览 · 手机浅色与深色</summary>
+
+<img src="docs/images/today-mobile-fixture.jpg" alt="Adex 今日概览手机宽度示例" width="280" />
+<img src="docs/images/today-mobile-dark-fixture.jpg" alt="Adex 今日概览深色示例" width="280" />
+
+截图采用 375px 浏览器视口与隔离的 TEST_FIXTURE 合成数据，不包含个人账户内容，也不代表真实外部操作验收。
+</details>
 
 <img src="docs/screenshots/web-chat.png" alt="Adex Web 对话示例" width="520" />
 

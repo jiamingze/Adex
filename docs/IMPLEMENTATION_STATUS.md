@@ -208,3 +208,21 @@ A new temporary endpoint returned homepage 200 and protected API 401; iOS assets
 were rebuilt for that endpoint. No private signing material or tunnel address is
 committed. Real Google/APNs and full phone interaction validation remain separate
 external acceptance gates.
+
+### 2026-10-13 — Personal assistant experience
+
+Added Today daily overview and a bounded, editable planning draft over existing
+owner-scoped tasks/schedules. Grouped sidebar, mobile page tabs, consistent light/dark
+surfaces, account onboarding and settings shortcuts; fixed matrix/assistant page
+reload/history. Assistant now separates suggestions, approvals, connections and
+notification preferences and creates an origin conversation on demand. Read failures
+stay unknown; external actions still require approved snapshots and provider receipts.
+
+Validation: client 6 + Java 7 + Agent 33 + Tools 32 tests, isolated integration 39,
+OpenAPI 77 operations; Web build/style/architecture/secrets passed. Responsive
+browser checks include completion, approval routing, HTTP 503 partial failure,
+deep links/history and theme. Signed iPhone package installed/launched; full physical
+keyboard/microphone/push checks remain separate. Synthetic screenshots and scope/gap
+analysis: `docs/product/personal-assistant-experience.md`. Google/APNs remain
+BLOCKED_EXTERNAL as previously documented; goals/projects, health, cross-device
+control and real booking are not advertised as implemented.

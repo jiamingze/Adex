@@ -18,3 +18,14 @@ Shared Web/iOS UI; four service domains; chat/search/memory; durable automation;
 ## Beyond the current scope
 
 App Store distribution, enterprise collaboration, payment/booking, generalized desktop agents and multi-region availability require separate design and acceptance work.
+
+## Personal assistant experience follow-up
+
+Daily overview, focused navigation, approval attention and grounded planning drafts
+are implemented. Product comparison and prioritized gaps:
+[personal assistant experience](docs/product/personal-assistant-experience.md).
+Next design work: persistent goals/projects linked to tasks and artifact versions;
+calendar agenda and grounded briefs after real connector acceptance; richer memory
+provenance; additional notes/file connectors. Real booking, health context,
+third-party community skills and cross-device control need dedicated consent,
+provider/sandbox contracts and acceptance before becoming advertised capabilities.

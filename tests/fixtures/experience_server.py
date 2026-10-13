@@ -1,0 +1,227 @@
+"""TEST_FIXTURE only: isolated UI data, no database/provider access or external writes.
+
+Run after pnpm --dir apps/web build. Bind loopback; never deploy this server.
+"""
+
+import json
+from datetime import datetime, timedelta, timezone
+from functools import partial
+from http.cookies import SimpleCookie
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+ROOT = Path(__file__).resolve().parents[2] / "apps/web/dist"
+CONVERSATION = "00000000-0000-4000-8000-000000000001"
+now = datetime.now(timezone.utc)
+
+
+def iso(delta=0):
+    return (now + timedelta(hours=delta)).isoformat()
+
+
+tasks = [
+    {
+        "id": "focus",
+        "title": "准备周五的产品评审",
+        "important": True,
+        "urgent": True,
+        "status": "TODO",
+        "revision": 1,
+        "due_at": iso(1),
+        "run_id": None,
+        "conversation_id": None,
+    },
+    {
+        "id": "plan",
+        "title": "安排周末的短途旅行",
+        "important": True,
+        "urgent": False,
+        "status": "TODO",
+        "revision": 1,
+        "due_at": iso(48),
+        "run_id": None,
+        "conversation_id": None,
+    },
+    {
+        "id": "reply",
+        "title": "回复活动邀请",
+        "important": False,
+        "urgent": True,
+        "status": "TODO",
+        "revision": 1,
+        "due_at": None,
+        "run_id": None,
+        "conversation_id": None,
+    },
+]
+DATA = {
+    "/me": {"username": "体验测试", "is_guest": False},
+    "/capabilities": {
+        "chat_model": "TEST_FIXTURE",
+        "music_provider": "mock",
+        "video_provider": "mock",
+        "music_model": "",
+        "music_max_seconds": 600,
+    },
+    "/conversations": {"items": []},
+    "/notifications": {"items": []},
+    "/matrix": {"items": tasks},
+    "/automations": {
+        "items": [
+            {
+                "id": "brief",
+                "title": "每日科技简报",
+                "instruction": "整理科技动态",
+                "kind": "DAILY",
+                "status": "ACTIVE",
+                "timezone": "Asia/Shanghai",
+                "next_fire_at": iso(8),
+                "revision": 1,
+                "origin_conversation_id": CONVERSATION,
+            }
+        ]
+    },
+    "/tasks": {
+        "items": [
+            {
+                "id": "research",
+                "instruction": "整理一份个人助手产品调研报告",
+                "status": "RUNNING",
+                "error_code": None,
+                "created_at": iso(-1),
+                "checkpoint_ref": None,
+                "origin_conversation_id": CONVERSATION,
+            }
+        ]
+    },
+    "/actions": {
+        "items": [
+            {
+                "id": "review",
+                "kind": "gmail.send",
+                "connection_id": "mail",
+                "state": "PENDING",
+                "request_hash": "TEST_FIXTURE",
+                "expires_at": iso(24),
+                "request": {
+                    "origin_conversation_id": CONVERSATION,
+                    "payload": {
+                        "to": "review@example.test",
+                        "subject": "确认周五评审时间",
+                        "text": "请确认周五下午的评审安排。",
+                    },
+                },
+                "result": None,
+            }
+        ]
+    },
+    "/signals": {
+        "items": [
+            {
+                "id": "signal",
+                "kind": "CALENDAR_CONFLICT",
+                "importance": 95,
+                "suggestion": "周五两项安排时间重叠，可以提前调整其中一项。",
+                "reasons": ["PROVIDER_EVENTS_OVERLAP"],
+                "correlation_key": "TEST_FIXTURE",
+                "conversation_id": CONVERSATION,
+                "run_id": "research",
+                "evidence": {"source": "TEST_FIXTURE"},
+            }
+        ]
+    },
+    "/artifacts": {
+        "items": [
+            {
+                "id": "report",
+                "title": "个人助手产品调研",
+                "kind": "RESEARCH",
+                "revision": 1,
+            },
+            {"id": "trip", "title": "周末旅行计划", "kind": "TRAVEL", "revision": 2},
+        ]
+    },
+    "/connectors": {"items": [], "availability": "BLOCKED_EXTERNAL"},
+    "/notification-preferences": {
+        "enabled": True,
+        "push_enabled": False,
+        "min_importance": 70,
+        "quiet_start": "22:00",
+        "quiet_end": "08:00",
+        "timezone": "Asia/Shanghai",
+    },
+    "/settings": {
+        "settings": {"memory_enabled": True, "email_notifications": False, "email": ""}
+    },
+    "/usage": {
+        "model": {"daily_call_limit": 0, "states": []},
+        "storage": {"used_bytes": 0, "quota_bytes": 104857600},
+    },
+    "/monitors": {"items": []},
+    "/memories": {
+        "items": [{"id": "pref", "content": "喜欢简洁的中文回答", "revision": 1}]
+    },
+}
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def reply(self, data, status=200):
+        raw = json.dumps(data, ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/v1"):
+            path = parsed.path.removeprefix("/api/v1")
+            cookie = SimpleCookie(self.headers.get("Cookie", ""))
+            fault = cookie.get("fixture_fault")
+            if fault and fault.value == "actions" and path == "/actions":
+                return self.reply({"code": "TEST_FIXTURE_UNAVAILABLE"}, 503)
+            return self.reply(DATA.get(path, {"items": []}))
+        if parsed.path.startswith("/assets/"):
+            return super().do_GET()
+        raw = (ROOT / "index.html").read_bytes()
+        self.send_response(200)
+        fault = parse_qs(parsed.query).get("fault", [""])[0]
+        if fault:
+            self.send_header(
+                "Set-Cookie", f"fixture_fault={fault}; Path=/; SameSite=Strict"
+            )
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def do_POST(self):
+        if self.path == "/api/v1/auth/guest":
+            return self.reply(
+                {"token": "TEST_FIXTURE", "username": "体验测试", "is_guest": False}
+            )
+        return self.reply({"code": "TEST_FIXTURE_WRITE_DISABLED"}, 403)
+
+    def do_PATCH(self):
+        identifier = self.path.removeprefix("/api/v1/matrix/")
+        task = next((t for t in tasks if t["id"] == identifier), None)
+        if task is None:
+            return self.reply({"code": "TEST_FIXTURE_WRITE_DISABLED"}, 403)
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+        if body.get("revision") != task["revision"]:
+            return self.reply({"code": "REVISION_CONFLICT"}, 409)
+        task.update(body)
+        task["revision"] += 1
+        return self.reply(task)
+
+
+if __name__ == "__main__":
+    print(
+        "TEST_FIXTURE UI only at http://127.0.0.1:18117 — no real providers/data",
+        flush=True,
+    )
+    ThreadingHTTPServer(
+        ("127.0.0.1", 18117), partial(Handler, directory=str(ROOT))
+    ).serve_forever()

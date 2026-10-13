@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   assistantApi,
   type Connection,
@@ -7,7 +7,34 @@ import {
   type NotificationPreferences,
 } from "./assistantApi";
 import { native, requestPush } from "./platform";
-export function AssistantHub({ conversation }: { conversation: string }) {
+import { api, type Conversation } from "./api";
+import {
+  Sparkles,
+  ShieldCheck,
+  Link2,
+  Bell,
+  RefreshCw,
+  ArrowRight,
+} from "lucide-react";
+export type AssistantTab =
+  | "suggestions"
+  | "actions"
+  | "connections"
+  | "preferences";
+export function AssistantHub({
+  conversation,
+  onConversationCreated,
+  initialTab = "suggestions",
+}: {
+  conversation: string;
+  onConversationCreated: (conversation: Conversation) => void;
+  initialTab?: AssistantTab;
+}) {
+  const [tab, setTab] = useState<AssistantTab>(initialTab);
+  const [loading, setLoading] = useState(true);
+  const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
+  const conversationCreation = useRef<Promise<string> | null>(null);
+  useEffect(() => setTab(initialTab), [initialTab]);
   const [connections, setConnections] = useState<Connection[]>([]),
     [actions, setActions] = useState<Action[]>([]),
     [signals, setSignals] = useState<Signal[]>([]),
@@ -27,34 +54,57 @@ export function AssistantHub({ conversation }: { conversation: string }) {
     [text, setText] = useState(""),
     [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   async function refresh() {
-    const [c, a, s, p] = await Promise.all([
+    const results = await Promise.allSettled([
       assistantApi.connections(),
       assistantApi.actions(),
       assistantApi.signals(),
       assistantApi.preferences(),
     ]);
-    setConnections(c.items);
-    setAvailability(c.availability);
-    setActions(a.items);
-    setSignals(s.items);
-    setPrefs(p);
+    const [c, a, s, p] = results;
+    if (c.status === "fulfilled") {
+      setConnections(c.value.items);
+      setAvailability(c.value.availability);
+    }
+    if (a.status === "fulfilled") setActions(a.value.items);
+    if (s.status === "fulfilled") setSignals(s.value.items);
+    if (p.status === "fulfilled") setPrefs(p.value);
+    setLoadWarnings(
+      results.flatMap((r, i) =>
+        r.status === "rejected"
+          ? [["连接服务", "操作审批", "主动建议", "通知偏好"][i]]
+          : [],
+      ),
+    );
   }
   useEffect(() => {
-    refresh().catch((e) => setError(String(e)));
+    refresh().finally(() => setLoading(false));
   }, []);
   async function act(work: () => Promise<void>) {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
       await work();
       await refresh();
     } catch (e) {
-      setError(String(e));
+      setError(
+        e instanceof Error && !/^[A-Z_]+$/.test(e.message)
+          ? e.message
+          : "操作未完成，请检查连接与授权后重试。",
+      );
     } finally {
       setBusy(false);
     }
   }
-  const connection = connections.find((c) => c.id === selected);
+  const connection = connections.find(
+    (c) => c.id === selected && c.status === "ACTIVE",
+  );
+  const canWrite =
+    connection?.scopes.includes(
+      connection.service === "calendar"
+        ? "https://www.googleapis.com/auth/calendar.events.owned"
+        : "https://www.googleapis.com/auth/gmail.send",
+    ) ?? false;
   const events = (Array.isArray(query?.events) ? query!.events : []) as {
     id: string;
     summary?: string;
@@ -83,15 +133,27 @@ export function AssistantHub({ conversation }: { conversation: string }) {
     const from = target ? targetStart : start,
       to = target ? targetEnd : end;
     if (!from || !to) throw new Error("请填写开始和结束时间");
+    if (Date.parse(to) <= Date.parse(from))
+      throw new Error("结束时间需要晚于开始时间");
     return {
       start: new Date(from).toISOString(),
       end: new Date(to).toISOString(),
     };
   }
   async function ensureConversation() {
-    if (!conversation)
-      throw new Error("请先打开或新建一个聊天，再将建议与操作关联到该会话");
-    return conversation;
+    if (conversation) return conversation;
+    // One on-demand App-owned conversation, never a parallel workflow state.
+    conversationCreation.current ??= api
+      .createConversation("主动助手")
+      .then((c) => {
+        onConversationCreated(c);
+        return c.id;
+      })
+      .catch((e) => {
+        conversationCreation.current = null;
+        throw e;
+      });
+    return conversationCreation.current;
   }
   return (
     <div className="content-page assistant-hub">
@@ -100,22 +162,72 @@ export function AssistantHub({ conversation }: { conversation: string }) {
           <h1>主动助手</h1>
           <p>连接日历与邮件，发现重要事项；对外操作始终由你确认。</p>
         </div>
-        <button disabled={busy} onClick={() => act(refresh)}>
-          刷新
+        <button
+          className="experience-icon"
+          aria-label="刷新主动助手"
+          disabled={busy || loading}
+          onClick={() => act(refresh)}
+        >
+          <RefreshCw size={18} />
         </button>
       </div>
+      <div className="assistant-intro">
+        <Sparkles size={22} />
+        <div>
+          <strong>把跟进交给助手，把决定留给你</strong>
+          <p>
+            先连接你需要的服务；重要变化会形成建议，对外操作会等待你的确认。
+          </p>
+        </div>
+      </div>
+      <nav className="assistant-tabs" aria-label="主动助手栏目">
+        {(
+          [
+            { id: "suggestions", label: "建议", icon: Sparkles },
+            { id: "actions", label: "待确认", icon: ShieldCheck },
+            { id: "connections", label: "连接服务", icon: Link2 },
+            { id: "preferences", label: "通知", icon: Bell },
+          ] as const
+        ).map((item) => (
+          <button
+            key={item.id}
+            aria-pressed={tab === item.id}
+            onClick={() => {
+              setTab(item.id);
+              setError("");
+              setNotice("");
+            }}
+          >
+            <item.icon size={16} />
+            {item.label}
+            {item.id === "actions" &&
+              actions.some(
+                (a) => a.state === "PENDING" || a.state === "UNKNOWN",
+              ) && <i />}
+          </button>
+        ))}
+      </nav>
+      {loading && (
+        <p className="experience-empty" role="status">
+          正在整理助手状态…
+        </p>
+      )}
+      {loadWarnings.length > 0 && (
+        <p className="experience-inline-error" role="status">
+          暂时无法读取：{loadWarnings.join("、")}。请刷新重试。
+        </p>
+      )}
       {error && (
         <p role="alert" className="form-error">
           {error}
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      <section className="assistant-section">
+      <section className="assistant-section" hidden={tab !== "connections"}>
         <h2>连接服务</h2>
         {availability === "BLOCKED_EXTERNAL" && (
           <p className="muted-text">
-            BLOCKED_EXTERNAL：Google OAuth
-            服务尚未配置，不能读取或修改真实账户。
+            日历与邮件连接服务尚未配置。配置完成并经你授权后，才能读取或修改账户内容。
           </p>
         )}
         {native && (
@@ -132,7 +244,7 @@ export function AssistantHub({ conversation }: { conversation: string }) {
           ].map(([service, access, label]) => (
             <button
               key={label}
-              disabled={busy || native}
+              disabled={busy || native || availability === "BLOCKED_EXTERNAL"}
               onClick={() =>
                 act(async () => {
                   const result = await assistantApi.authorize(service, access);
@@ -151,7 +263,11 @@ export function AssistantHub({ conversation }: { conversation: string }) {
                 {c.service === "calendar" ? "Google Calendar" : "Gmail"}
               </strong>
               <small>
-                {c.status} · {c.id.slice(0, 8)}
+                {{
+                  ACTIVE: "已连接",
+                  REVOKED: "已撤销",
+                  REVOKE_PENDING: "撤销中",
+                }[c.status] || "需要重新授权"}
               </small>
               <details>
                 <summary>授权范围</summary>
@@ -180,7 +296,7 @@ export function AssistantHub({ conversation }: { conversation: string }) {
           </div>
         ))}
       </section>
-      <section className="assistant-section">
+      <section className="assistant-section" hidden={tab !== "connections"}>
         <h2>查询与操作草稿</h2>
         <select
           aria-label="选择连接"
@@ -247,14 +363,16 @@ export function AssistantHub({ conversation }: { conversation: string }) {
                 disabled={busy}
                 onClick={() =>
                   act(async () => {
-                    const run = await assistantApi.sync(
+                    await assistantApi.sync(
                       selected,
                       await ensureConversation(),
                       connection.service === "calendar"
                         ? interval()
                         : { query: "in:inbox" },
                     );
-                    setNotice("检查任务已创建：" + run.id);
+                    setNotice(
+                      "已开始检查，结果会回到关联对话。可在自动任务中查看进度。",
+                    );
                   })
                 }
               >
@@ -341,6 +459,7 @@ export function AssistantHub({ conversation }: { conversation: string }) {
                         : { to: recipient, subject, text },
                   });
                   setNotice("已生成待确认草稿，尚未执行。");
+                  setTab("actions");
                 });
               }}
             >
@@ -409,16 +528,31 @@ export function AssistantHub({ conversation }: { conversation: string }) {
                   </label>
                 </div>
               )}
-              <button disabled={busy} type="submit">
+              {!canWrite && (
+                <p className="muted-text">
+                  当前连接仅可查询。要创建操作草稿，请先授权对应的修改或发送权限。
+                </p>
+              )}
+              <button disabled={busy || !canWrite} type="submit">
                 生成操作草稿
               </button>
             </form>
           </>
         )}
       </section>
-      <section className="assistant-section">
+      <section className="assistant-section" hidden={tab !== "actions"}>
         <h2>待确认操作</h2>
-        {!actions.length && <p className="muted-text">没有操作草稿</p>}
+        {!actions.length && !loading && !loadWarnings.includes("操作审批") && (
+          <div className="assistant-empty">
+            <ShieldCheck size={30} />
+            <h3>没有需要你确认的操作</h3>
+            <p>邮件发送或日历修改会先展示具体内容，等你确认后再执行。</p>
+            <button onClick={() => setTab("connections")}>
+              查看连接服务
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        )}
         {actions.map((a) => (
           <article className="approval-card" key={a.id}>
             <strong>
@@ -427,6 +561,8 @@ export function AssistantHub({ conversation }: { conversation: string }) {
                 PENDING: "待确认",
                 APPROVED: "已批准",
                 SUCCEEDED: "已核实完成",
+                FAILED: "执行失败",
+                EXPIRED: "已过期",
                 UNKNOWN: "结果待核对",
                 REVOKED: "已撤销",
               }[a.state] || a.state}
@@ -509,13 +645,13 @@ export function AssistantHub({ conversation }: { conversation: string }) {
           </article>
         ))}
       </section>
-      <section className="assistant-section">
+      <section className="assistant-section" hidden={tab !== "suggestions"}>
         <h2>主动建议</h2>
         {signals.map((s) => (
           <article key={s.id} className="signal-card">
             <strong>
               {s.kind === "CALENDAR_CONFLICT" ? "日历冲突" : "重要邮件"} ·
-              重要性 {s.importance}
+              {s.importance >= 90 ? "优先关注" : "值得关注"}
             </strong>
             <p>{s.suggestion}</p>
             <button
@@ -560,12 +696,20 @@ export function AssistantHub({ conversation }: { conversation: string }) {
             </details>
           </article>
         ))}
-        {!signals.length && (
-          <p className="muted-text">检查连接服务后，重要变化会显示在这里。</p>
+        {!signals.length && !loading && !loadWarnings.includes("主动建议") && (
+          <div className="assistant-empty">
+            <Sparkles size={30} />
+            <h3>让助手帮你留意重要变化</h3>
+            <p>连接日历或邮件后，时间冲突与重要邮件会汇集在这里。</p>
+            <button onClick={() => setTab("connections")}>
+              连接我的服务
+              <ArrowRight size={14} />
+            </button>
+          </div>
         )}
       </section>
       {prefs && (
-        <section className="assistant-section">
+        <section className="assistant-section" hidden={tab !== "preferences"}>
           <h2>通知偏好</h2>
           <form
             onSubmit={(e) => {

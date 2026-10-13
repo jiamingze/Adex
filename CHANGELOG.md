@@ -41,3 +41,18 @@ Initial public repository packaging. The code predates the first Git commit; dat
   deadlines and moving tasks; deletion now has explicit confirmation.
 - Mobile quadrant focus and local-time deadlines; existing persistence and
   revision contracts preserved.
+
+### Personal assistant experience — 2026-10-13
+
+- Added Today: owner-scoped daily focus, upcoming automations, approval attention,
+  proactive observations, background Runs and recent artifacts, with independent
+  failure states. Daily planning prepares a visible editable chat draft using
+  bounded task/schedule snapshots; it never automatically calls a model or executes.
+- Grouped navigation and mobile non-chat tabs, fixed page deep links/history,
+  consistent light/dark surfaces and account-aware onboarding.
+- Split assistant settings into suggestions, approvals, connectors and preferences;
+  create the origin conversation on demand and preserve explicit action approval.
+- Settings links now reach memory, service connections and quiet hours directly.
+  Guest local appearance settings do not make authenticated account requests.
+- Added six client regressions and a loopback-only synthetic UI fixture.
+  Google/APNs/booking/health/device-control external boundaries are unchanged.

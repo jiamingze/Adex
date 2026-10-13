@@ -3,7 +3,7 @@ MAVEN_OPTS ?= -Djava.net.preferIPv4Stack=true
 export MAVEN_OPTS
 export JAVA_HOME
 export PATH := $(JAVA_HOME)/bin:$(PATH)
-.PHONY: doctor setup build test test-contract up-dev down-dev status test-integration format check-style
+.PHONY: doctor setup build test test-contract up-dev down-dev status test-integration format check-style test-client
 
 doctor:
 	python3 scripts/doctor.py
@@ -17,7 +17,11 @@ setup:
 build:
 	mvn -B package
 	pnpm --dir apps/web build
+test-client:
+	node scripts/test_client.mjs
+
 test:
+	$(MAKE) test-client
 	uv run python scripts/check_architecture.py
 	mvn -B test
 	uv run --project services/adex-agent pytest services/adex-agent/tests -q
