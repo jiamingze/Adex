@@ -88,8 +88,10 @@ The three required E2Es cover conflict→approval→change→verification; impor
 Additional tests cover OAuth replay/wrong session/ownership, scope refusal, immutable
 confirmation hashes, stale calendar writes, Gmail UNKNOWN reconciliation, legacy-route
 bypass rejection and existing scheduler templates. iOS simulator build succeeded.
-Physical reinstall currently requires repair of a revoked development certificate;
-no new installation or real APNs delivery is claimed.
+Physical iPhone reinstall succeeded on 2026-10-13 after generating a valid development
+certificate and repairing the public tunnel. Signed bundle integrity and bundled HTTPS
+endpoint were verified; devicectl confirmed installation and application launch. This
+does not establish real APNs delivery or full on-device feature acceptance.
 
 See [implementation plan/contracts](proactive-assistant-plan.md),
 [engineering conventions](engineering.md), and [implementation status](../IMPLEMENTATION_STATUS.md).

@@ -192,3 +192,19 @@ no usable Xcode account; repair and actual installation remain outstanding.
 Details and remaining native OAuth/delta-sync/reconciled-Run limits:
 `docs/architecture/proactive-assistant.md`. Migrations: app/016.sql,
 automation/005.sql, tools/006.sql. Personal runtime data and credentials excluded.
+
+### 2026-10-13 — Signed iPhone reinstall and public access repair
+
+Xcode account/team view refreshed and a new valid Apple Development certificate
+created using existing authorization; user completed the macOS keychain prompt.
+Signed device build passed, codesign deep/strict verification passed, and the bundle
+was checked for the current HTTPS endpoint. devicectl confirmed installation and
+launch of io.adex.personal on the connected iPhone 16 Pro Max. Local migrations
+app/016, automation/005 and tools/006 applied; all four services returned ready 200.
+
+The prior temporary tunnel had lost connectivity/DNS availability. Public bootstrap
+now defaults to HTTP/2 over IPv4 (protocol configurable with ADEX_TUNNEL_PROTOCOL).
+A new temporary endpoint returned homepage 200 and protected API 401; iOS assets
+were rebuilt for that endpoint. No private signing material or tunnel address is
+committed. Real Google/APNs and full phone interaction validation remain separate
+external acceptance gates.

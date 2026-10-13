@@ -39,7 +39,7 @@ elif mode == 'status' or (alive('public-tunnel') and alive('public-web')):
 else:
     if not (root / 'apps/web/dist/index.html').exists(): raise SystemExit('Build Web first: make build')
     stop('public-tunnel'); stop('public-web')
-    launch('public-tunnel', ['cloudflared', 'tunnel', '--url', 'http://127.0.0.1:4173', '--no-autoupdate'])
+    launch('public-tunnel', ['cloudflared', 'tunnel', '--protocol', os.getenv('ADEX_TUNNEL_PROTOCOL', 'http2'), '--edge-ip-version', '4', '--url', 'http://127.0.0.1:4173', '--no-autoupdate'])
     url = None
     for _ in range(120):
         matches = re.findall(r'https://[a-z-]+\.trycloudflare\.com', (state / 'public-tunnel.log').read_text())

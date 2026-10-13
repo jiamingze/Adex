@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Repair temporary public access with configurable HTTP/2/IPv4 tunnel transport; rebuild and verify the iOS bundled endpoint.
+- Verify signed iPhone build, installation and launch after development certificate repair (real APNs still requires separate acceptance).
+
 ### 2026-10-13 — Proactive assistant foundation
 
 - Add Google Calendar/Gmail connector adapters, session-bound PKCE OAuth, AES-GCM credentials, incremental scopes, refresh and revocation.
