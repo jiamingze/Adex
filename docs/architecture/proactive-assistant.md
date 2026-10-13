@@ -101,3 +101,26 @@ Primary references: [Google OAuth](https://developers.google.com/identity/protoc
 [Calendar scopes](https://developers.google.com/workspace/calendar/api/auth),
 [Gmail scopes](https://developers.google.com/workspace/gmail/api/auth/scopes),
 [APNs connection](https://developer.apple.com/documentation/usernotifications/establishing-a-connection-to-apns).
+
+### Task matrix interaction update (2026-10-13)
+
+The shared Web/iOS matrix uses quiet color accents, compact task rows, counts,
+state filters, title search and earliest-deadline sorting (undated tasks last).
+Mobile users can focus one quadrant without horizontal scrolling. Each quadrant
+has quick add; selecting a task opens a keyboard-accessible native HTML dialog to
+edit its title, quadrant and local-time deadline. Completion is reversible and
+deletion requires a separate confirmation. Changes retain the existing App-owned
+matrix API and revision checks; no migration, scheduler or connector permission
+change is needed. "Delegate" is prioritization only, not automatic delegation.
+Design references: TickTick Eisenhower Matrix and Todoist Quick Add (official
+product/help pages). Physical iPhone keyboard behavior remains a separate device
+check from browser responsive verification.
+
+Observed checks for this UI change: `pnpm --dir apps/web build` (TypeScript and
+Vite pass), `make check-style` (Spotless/Ruff/architecture pass), Prettier check,
+secrets scan and `git diff --check`. Browser at 375×812 reports document width
+375 and editor width 343; focus selects one panel, Escape restores the invoking
+control, task title receives initial focus. At 1280×900 the board has four panels
+in two columns. Existing authenticated task CRUD contracts are unchanged; this
+browser smoke used a guest session without creating or deleting user data.
+`pnpm --dir apps/ios prepare` and signed generic-iOS Xcode build also passed.

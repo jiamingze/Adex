@@ -32,3 +32,12 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - Media provider adapters, playback, sandboxed games and editable diagrams.
 - Inline chat failures, bounded upload retries and first-message history titles.
 - English/Chinese project, architecture, configuration, installation and development guides.
+
+### Task matrix refresh — 2026-10-13
+
+- Redesigned shared Web/iOS matrix with subdued quadrant colors, compact rows,
+  progress counts, search, completion filters and due-date sorting.
+- Added per-quadrant quick add and an accessible task editor for titles,
+  deadlines and moving tasks; deletion now has explicit confirmation.
+- Mobile quadrant focus and local-time deadlines; existing persistence and
+  revision contracts preserved.

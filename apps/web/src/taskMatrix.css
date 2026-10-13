@@ -1,0 +1,528 @@
+/* Shared Web/iOS surface. The outer content page owns vertical scrolling. */
+.task-matrix-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+}
+.matrix-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.matrix-eyebrow {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+.matrix-heading h1 {
+  font-size: 30px;
+  letter-spacing: -1px;
+  margin: 8px 0;
+}
+.matrix-heading p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+}
+.task-matrix-page button {
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.task-matrix-page button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.task-matrix-page button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.task-matrix-page .matrix-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--bg);
+  padding: 12px 17px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.matrix-overview {
+  display: flex;
+  gap: 30px;
+  padding: 0 0 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 22px;
+}
+.matrix-overview > span {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.matrix-overview strong {
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--text);
+}
+.matrix-toolbar {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.matrix-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  min-width: 0;
+  color: var(--muted);
+  flex: 1;
+}
+.matrix-search input {
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  width: 100%;
+  min-width: 0;
+  font-size: 14px;
+}
+.matrix-search button,
+.matrix-dialog header button {
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  min-height: 40px;
+}
+.matrix-filters {
+  display: flex;
+  background: var(--panel);
+  padding: 4px;
+  border-radius: 11px;
+}
+.matrix-filters button {
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.matrix-filters button[aria-pressed="true"] {
+  background: var(--bg);
+  box-shadow: 0 1px 5px #0000000c;
+}
+.matrix-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 20px;
+}
+.matrix-tabs button {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 20px;
+  padding: 8px 11px;
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 40px;
+}
+.matrix-tabs button[aria-pressed="true"] {
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+.matrix-tabs span {
+  margin-left: 6px;
+  opacity: 0.7;
+}
+.matrix-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.matrix-board.focused {
+  grid-template-columns: 1fr;
+}
+.matrix-tone-0 {
+  --tone: #ce6661;
+}
+.matrix-tone-1 {
+  --tone: #438978;
+}
+.matrix-tone-2 {
+  --tone: #aa803b;
+}
+.matrix-tone-3 {
+  --tone: #75829a;
+}
+.matrix-panel {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--bg);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.matrix-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 16px;
+  background: color-mix(in srgb, var(--tone) 6%, var(--bg));
+}
+.matrix-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+.matrix-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+.matrix-count {
+  font-size: 11px;
+  color: var(--tone);
+  padding: 2px 7px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--tone) 10%, var(--bg));
+}
+.matrix-panel header p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 7px 0 0 17px;
+}
+.matrix-add {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--tone) !important;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+.matrix-add:hover {
+  background: color-mix(in srgb, var(--tone) 10%, var(--bg));
+}
+.matrix-items {
+  padding: 0 16px;
+  flex: 1;
+}
+.matrix-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.matrix-item:last-child {
+  border-bottom: 0;
+}
+.matrix-check {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--tone) !important;
+}
+.matrix-item-body {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+  font-size: 14px !important;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.matrix-item-body small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 6px;
+}
+.matrix-item-body small.overdue {
+  color: #bc5955;
+}
+.is-done .matrix-item-body > span {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.matrix-edit-hint {
+  margin-top: 9px;
+  color: var(--muted);
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+.matrix-empty {
+  padding: 30px 6px;
+  text-align: center;
+  color: var(--muted);
+}
+.matrix-empty-symbol {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  background: color-mix(in srgb, var(--tone) 7%, var(--bg));
+  color: var(--tone);
+  border-radius: 14px;
+}
+.matrix-empty p {
+  font-size: 13px;
+  margin: 12px 0 6px;
+}
+.matrix-empty small {
+  font-size: 11px;
+}
+.matrix-inline-add {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  padding: 14px 20px;
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  text-align: left;
+  min-height: 44px;
+}
+.matrix-inline-add:hover {
+  background: var(--panel);
+}
+.matrix-loading {
+  padding: 60px;
+  text-align: center;
+  color: var(--muted);
+}
+.matrix-dialog {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 0;
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  max-height: 85dvh;
+  background: var(--bg);
+  color: var(--text);
+  overflow-y: auto;
+  box-shadow: 0 24px 100px #0003;
+}
+.matrix-dialog::backdrop {
+  background: #0005;
+}
+.matrix-dialog form {
+  padding: 24px;
+}
+.matrix-dialog header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.matrix-dialog h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.matrix-field {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.matrix-field > span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.matrix-field input {
+  display: block;
+  margin-top: 9px;
+  width: 100%;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 13px;
+  border-radius: 12px;
+  color: inherit;
+  font-size: 16px;
+}
+.matrix-dialog fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 20px;
+  min-width: 0;
+}
+.matrix-dialog legend {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.matrix-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.matrix-choice button {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+}
+.matrix-choice button .matrix-dot {
+  margin-right: 7px;
+}
+.matrix-choice small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin: 7px 0 0 15px;
+}
+.matrix-choice button[aria-pressed="true"] {
+  border-color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 7%, var(--bg));
+}
+.matrix-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.matrix-delete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  font-size: 12px !important;
+  color: var(--muted) !important;
+  margin-right: auto;
+  padding: 10px;
+}
+.matrix-delete-confirm {
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+.matrix-delete-confirm button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px;
+  margin-right: 8px;
+  background: var(--panel);
+}
+@media (max-width: 700px) {
+  .matrix-heading {
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .matrix-heading h1 {
+    font-size: 25px;
+  }
+  .matrix-heading p {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .matrix-eyebrow {
+    font-size: 10px;
+  }
+  .matrix-heading .matrix-primary {
+    font-size: 12px;
+    padding: 10px 12px;
+    margin-top: 20px;
+  }
+  .matrix-overview {
+    gap: 22px;
+    padding-bottom: 18px;
+    margin-bottom: 14px;
+  }
+  .matrix-overview > span {
+    gap: 6px;
+    font-size: 11px;
+  }
+  .matrix-overview strong {
+    font-size: 21px;
+  }
+  .matrix-toolbar {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .matrix-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .matrix-filters {
+    width: 100%;
+  }
+  .matrix-filters button {
+    flex: 1;
+    min-height: 36px;
+  }
+  .matrix-tabs {
+    gap: 2px;
+  }
+  .matrix-tabs button {
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+  .matrix-tabs span {
+    display: none;
+  }
+  .matrix-board {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .matrix-panel > header {
+    padding: 16px 16px 12px;
+  }
+  .matrix-empty {
+    padding: 22px 6px;
+  }
+  .matrix-check {
+    width: 38px;
+    min-height: 40px;
+  }
+  .matrix-item-body {
+    padding-top: 7px;
+  }
+  .matrix-dialog {
+    margin: auto auto max(12px, env(safe-area-inset-bottom));
+    max-height: 80dvh;
+    border-radius: 24px;
+  }
+  .matrix-dialog form {
+    padding: 20px;
+  }
+  .matrix-dialog footer {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
