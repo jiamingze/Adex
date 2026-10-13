@@ -1,4 +1,5 @@
 import { request } from "./api";
+import { matrixResource } from "./matrixResource";
 export type Connection = {
   id: string;
   service: "calendar" | "gmail";
@@ -108,8 +109,15 @@ export const assistantApi = {
         conversation_id: body.conversation_id,
         ...(body.revision ? { revision: body.revision } : {}),
       },
-    ),
-  deleteTask: (id: string) => request(`/matrix/${id}`, "DELETE"),
+    ).then((task) => {
+      matrixResource.invalidate(true);
+      return task;
+    }),
+  deleteTask: (id: string) =>
+    request(`/matrix/${id}`, "DELETE").then((result) => {
+      matrixResource.invalidate(true);
+      return result;
+    }),
   registerPush: (token: string) =>
     request<{ id: string; availability: string }>("/push/devices", "POST", {
       token,

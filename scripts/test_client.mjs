@@ -10,6 +10,7 @@ for (const [command, args] of [
       "tsc",
       "apps/web/src/navigation.ts",
       "apps/web/src/todayModel.ts",
+      "apps/web/src/readResource.ts",
       "--outDir",
       ".local-data/client-tests",
       "--target",

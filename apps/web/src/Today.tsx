@@ -32,6 +32,7 @@ import {
   awaitingAction,
   planningPrompt,
 } from "./todayModel";
+import { matrixResource } from "./matrixResource";
 import type { AssistantTab } from "./AssistantHub";
 import type { Page } from "./navigation";
 
@@ -97,7 +98,7 @@ export function Today({
     setLoading(true);
     // Read projections independently: an unavailable connector must not hide durable tasks.
     Promise.allSettled([
-      assistantApi.tasks(),
+      matrixResource.load(),
       api.schedules(),
       api.runs(),
       assistantApi.actions(),

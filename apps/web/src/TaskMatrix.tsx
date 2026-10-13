@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Check,
   Plus,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { assistantApi, type MatrixTask } from "./assistantApi";
 import "./taskMatrix.css";
+import { matrixResource } from "./matrixResource";
 
 const quadrants = [
   {
@@ -48,6 +49,8 @@ const quadrantOf = (t: MatrixTask) =>
   );
 function errorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("READ_TIMEOUT"))
+    return "读取任务超时，请重试。已保存的任务不会丢失。";
   if (message.includes("SIGN_IN_REQUIRED"))
     return "登录后即可保存任务，并在手机与网页之间同步。";
   if (message.includes("REVISION") || message.includes("CONFLICT"))
@@ -69,9 +72,15 @@ function dueLabel(iso: string) {
 }
 
 export function TaskMatrix() {
-  const [tasks, setTasks] = useState<MatrixTask[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const snapshot = useSyncExternalStore(
+    matrixResource.subscribe,
+    matrixResource.getSnapshot,
+  );
+  const tasks = snapshot.data?.items ?? [];
+  const [actionError, setError] = useState("");
+  const error =
+    actionError || (snapshot.error ? errorMessage(snapshot.error) : "");
+  const loading = snapshot.data === null && !snapshot.error;
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("TODO");
@@ -86,7 +95,7 @@ export function TaskMatrix() {
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   async function refresh() {
-    setTasks((await assistantApi.tasks()).items);
+    return matrixResource.load(true);
   }
   async function act(work: () => Promise<unknown>) {
     if (pending) return;
@@ -102,9 +111,7 @@ export function TaskMatrix() {
     }
   }
   useEffect(() => {
-    refresh()
-      .catch((e) => setError(errorMessage(e)))
-      .finally(() => setLoading(false));
+    void matrixResource.load().catch(() => {}); // Resource publishes its bounded error state.
   }, []);
   useEffect(() => {
     if (editor) {
@@ -155,18 +162,25 @@ export function TaskMatrix() {
           添加任务
         </button>
       </header>
+      {snapshot.loading && snapshot.data && (
+        <p className="matrix-sync-status" role="status">
+          正在更新，已有任务可继续查看
+        </p>
+      )}
       <div className="matrix-overview">
         <span>
-          <strong>{active.length}</strong>待办
+          <strong>{snapshot.data ? active.length : "—"}</strong>待办
         </span>
         <span>
           <strong>
-            {active.filter((t) => t.important && t.urgent).length}
+            {snapshot.data
+              ? active.filter((t) => t.important && t.urgent).length
+              : "—"}
           </strong>
           优先处理
         </span>
         <span>
-          <strong>{completed}</strong>已完成
+          <strong>{snapshot.data ? completed : "—"}</strong>已完成
         </span>
       </div>
       <div className="matrix-toolbar">
@@ -202,7 +216,16 @@ export function TaskMatrix() {
       </div>
       {!editor && error && (
         <p role="alert" className="form-error">
-          {error} <button onClick={() => act(refresh)}>重试</button>
+          {error}{" "}
+          <button
+            disabled={snapshot.loading}
+            onClick={() => {
+              setError("");
+              void matrixResource.load(true).catch(() => {});
+            }}
+          >
+            重试
+          </button>
         </p>
       )}
       <nav className="matrix-tabs" aria-label="聚焦象限">
@@ -222,9 +245,22 @@ export function TaskMatrix() {
         ))}
       </nav>
       {loading ? (
-        <div className="matrix-loading" role="status">
-          正在整理任务…
+        <div
+          className="matrix-skeleton"
+          role="status"
+          aria-label="正在读取待办"
+        >
+          {quadrants.map((q) => (
+            <section key={q.name}>
+              <h2>{q.name}</h2>
+              <i />
+              <i />
+              <i />
+            </section>
+          ))}
         </div>
+      ) : snapshot.data === null ? (
+        <div className="matrix-loading">暂时无法读取待办，请点击上方重试。</div>
       ) : (
         <div className={`matrix-board ${focus >= 0 ? "focused" : ""}`}>
           {quadrants.map((q, i) => {

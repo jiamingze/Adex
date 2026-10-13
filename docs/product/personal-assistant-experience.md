@@ -103,3 +103,28 @@ width is 375, and the task area starts at y≈364. Chat→Today→Chat retains t
 TEST_FIXTURE keyboard events hide/restore the bottom bar; this event-contract
 check is not a physical software-keyboard measurement. Light/dark public fixture
 screenshots refreshed. Signed app reinstalled on the connected phone.
+
+## Matrix read reliability — 2026-10-14
+
+The matrix previously remounted with an empty list and an unbounded fetch on each
+navigation. Added a shared, session-local read projection for Today/Matrix, an
+8-second read deadline (also bounds transports that ignore AbortSignal), in-flight
+deduplication and a 15-second freshness window. Revalidation keeps the prior list
+visible; initial loading uses a lightweight skeleton. A failed first read shows
+unknown counts and an explicit retry instead of an invented empty task list.
+
+Login/logout/session expiry clears the in-memory projection and invalidates old
+read attempts; late responses cannot repopulate another session's cache. An old
+session's late HTTP 401 cannot reset a newer login. Confirmed matrix writes clear
+freshness through the shared API adapter, including task additions from suggestions.
+Reads after mutations still come from the owner-scoped App API. No localStorage,
+DB migration, new endpoint, scheduler, write retry or durable task state is added.
+
+Observed checks: `make test-client check-style` (10 client tests, Spotless/Ruff and
+architecture pass), Web TypeScript/Vite build and signed iOS build pass, secret
+scan and diff checks pass. Explicit UI fixture delays GET /matrix by 12 seconds:
+the client exits waiting and offers retry at its deadline. A normal matrix→chat→
+matrix switch shows three fixture task rows with zero loading placeholders, even
+when background revalidation is running. Tests cover a permanently hung read,
+concurrent deduplication, snapshot reuse, session reset/late response and retry.
+These fixture checks do not establish actual iPhone network latency.

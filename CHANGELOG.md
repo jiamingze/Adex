@@ -66,3 +66,13 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - Reduce Today's hero/summary height so actionable work appears earlier.
 - Refresh synthetic preview screenshots; keyboard event-contract smoke is distinct
   from physical-device keyboard acceptance.
+
+### Matrix loading reliability — 2026-10-14
+
+- Bound task reads to eight seconds, show a recoverable timeout and lightweight
+  initial placeholder instead of waiting indefinitely.
+- Share a short-lived session-only task snapshot between Today and Matrix;
+  revalidation preserves visible tasks and concurrent reads are deduplicated.
+- Clear private snapshots on authentication changes, reject late old-session data,
+  and invalidate reads after confirmed matrix mutations from every UI entry point.
+- Add four client regressions; no changes to durable state or write retry behavior.

@@ -95,3 +95,70 @@ test("planning draft distinguishes unavailable data, bounds context and never ca
   assert.match(draft, /不是日历事件/);
   assert.match(draft, /再让我确认/);
 });
+
+test("task read deadline bounds a transport that never responds", async () => {
+  const { createReadResource } = await import(
+    "../../.local-data/client-tests/readResource.js"
+  );
+  const resource = createReadResource(() => new Promise(() => {}), {
+    timeoutMs: 15,
+  });
+  await assert.rejects(resource.load(), /READ_TIMEOUT/);
+  assert.equal(resource.getSnapshot().loading, false);
+  assert.equal(resource.getSnapshot().data, null);
+});
+test("navigation shares fresh snapshots and one concurrent read", async () => {
+  const { createReadResource } = await import(
+    "../../.local-data/client-tests/readResource.js"
+  );
+  let calls = 0;
+  const resource = createReadResource(async () => {
+    calls++;
+    return { items: ["owned task"] };
+  });
+  const one = resource.load(),
+    two = resource.load();
+  assert.equal(one, two);
+  await one;
+  await resource.load();
+  assert.equal(calls, 1);
+  assert.deepEqual(resource.getSnapshot().data, { items: ["owned task"] });
+});
+test("session reset cancels an old read and cannot resurrect another account's data", async () => {
+  const { createReadResource } = await import(
+    "../../.local-data/client-tests/readResource.js"
+  );
+  let finish;
+  let calls = 0;
+  const resource = createReadResource(() =>
+    ++calls === 1
+      ? new Promise((resolve) => (finish = resolve))
+      : Promise.resolve("new owner"),
+  );
+  const old = resource.load();
+  await Promise.resolve();
+  resource.reset();
+  await assert.rejects(old, /READ_CANCELLED/);
+  await resource.load();
+  finish("previous owner");
+  await Promise.resolve();
+  assert.equal(resource.getSnapshot().data, "new owner");
+});
+test("revalidation retains visible tasks; failed reads can be retried", async () => {
+  const { createReadResource } = await import(
+    "../../.local-data/client-tests/readResource.js"
+  );
+  let fail = false;
+  const resource = createReadResource(async () => {
+    if (fail) throw new Error("NETWORK");
+    return ["task"];
+  });
+  await resource.load();
+  fail = true;
+  const retry = resource.load(true);
+  assert.deepEqual(resource.getSnapshot().data, ["task"]);
+  await assert.rejects(retry, /NETWORK/);
+  assert.equal(resource.getSnapshot().loading, false);
+  fail = false;
+  assert.deepEqual(await resource.load(true), ["task"]);
+});

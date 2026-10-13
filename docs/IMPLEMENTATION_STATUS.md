@@ -234,3 +234,18 @@ Web and signed iOS builds passed. Browser smoke confirms 375px without horizonta
 overflow, white RGB255 canvas, draft preservation across Chat/Today and keyboard
 event hide/restore using explicit TEST_FIXTURE controls. This does not establish
 physical iPhone keyboard geometry; packaging and installation remain verified.
+
+### 2026-10-14 — Bounded, session-local matrix reads
+
+Today and Matrix share an in-memory, owner-session read projection. Reads have an
+8-second deadline, concurrent deduplication and 15-second freshness; revalidation
+keeps task rows visible. Authentication changes clear snapshots and invalidate old
+attempts; confirmed writes invalidate freshness. This is not durable state, an
+Automation scheduler or a write retry system. Unknown first-read counts stay unknown.
+
+Ten client regressions, style/architecture/secret checks, Web TypeScript/Vite and
+signed iOS builds passed. UI fixture verifies delayed reads exit waiting and Matrix
+→Chat→Matrix keeps three rows without loading placeholders. No personal data or
+real external operations used. Latest phone reinstall could not proceed: CoreDevice
+reported no matching reachable device (paired entry alone did not enable install).
+The signed app is prepared; actual installation requires reconnecting the phone.

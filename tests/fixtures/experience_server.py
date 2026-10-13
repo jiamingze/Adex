@@ -4,6 +4,7 @@ Run after pnpm --dir apps/web build. Bind loopback; never deploy this server.
 """
 
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from http.cookies import SimpleCookie
@@ -180,6 +181,8 @@ class Handler(SimpleHTTPRequestHandler):
             path = parsed.path.removeprefix("/api/v1")
             cookie = SimpleCookie(self.headers.get("Cookie", ""))
             fault = cookie.get("fixture_fault")
+            if fault and fault.value == "matrix-timeout" and path == "/matrix":
+                time.sleep(12)  # TEST_FIXTURE: exceed the client's read deadline.
             if fault and fault.value == "actions" and path == "/actions":
                 return self.reply({"code": "TEST_FIXTURE_UNAVAILABLE"}, 503)
             return self.reply(DATA.get(path, {"items": []}))
