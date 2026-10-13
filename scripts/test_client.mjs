@@ -11,6 +11,7 @@ for (const [command, args] of [
       "apps/web/src/navigation.ts",
       "apps/web/src/todayModel.ts",
       "apps/web/src/readResource.ts",
+      "apps/web/src/calendarAgenda.ts",
       "--outDir",
       ".local-data/client-tests",
       "--target",

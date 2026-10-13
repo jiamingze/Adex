@@ -162,3 +162,67 @@ test("revalidation retains visible tasks; failed reads can be retried", async ()
   fail = false;
   assert.deepEqual(await resource.load(true), ["task"]);
 });
+
+test("agenda excludes ended/cancelled events, retains ongoing meetings and sorts by start", async () => {
+  const { upcomingAgenda } = await import(
+    "../../.local-data/client-tests/calendarAgenda.js"
+  );
+  const event = (id, start, end, status) => ({
+    id,
+    summary: id,
+    status,
+    start: { dateTime: start },
+    end: { dateTime: end },
+  });
+  const result = upcomingAgenda(
+    [
+      event("next", "2026-10-14T03:00:00Z", "2026-10-14T04:00:00Z"),
+      event("ongoing", "2026-10-14T01:00:00Z", "2026-10-14T02:30:00Z"),
+      event("ended", "2026-10-14T00:00:00Z", "2026-10-14T02:00:00Z"),
+      event(
+        "cancelled",
+        "2026-10-14T03:00:00Z",
+        "2026-10-14T04:00:00Z",
+        "cancelled",
+      ),
+    ],
+    new Date("2026-10-14T02:00:00Z"),
+  );
+  assert.deepEqual(
+    result.items.map((e) => e.id),
+    ["ongoing", "next"],
+  );
+  assert.equal(result.items[0].ongoing, true);
+});
+test("agenda handles exclusive all-day end and flags malformed or unzoned dates", async () => {
+  const { upcomingAgenda } = await import(
+    "../../.local-data/client-tests/calendarAgenda.js"
+  );
+  const result = upcomingAgenda(
+    [
+      {
+        id: "today",
+        start: { date: "2026-10-14" },
+        end: { date: "2026-10-15" },
+      },
+      {
+        id: "past",
+        start: { date: "2026-10-13" },
+        end: { date: "2026-10-14" },
+      },
+      { id: "bad", start: { date: "2026-02-30" }, end: { date: "2026-03-01" } },
+      {
+        id: "naive",
+        start: { dateTime: "2026-10-14T10:00:00" },
+        end: { dateTime: "2026-10-14T11:00:00" },
+      },
+    ],
+    new Date(2026, 9, 14, 10),
+  );
+  assert.deepEqual(
+    result.items.map((e) => e.id),
+    ["today"],
+  );
+  assert.equal(result.items[0].allDay, true);
+  assert.equal(result.invalid, 2);
+});

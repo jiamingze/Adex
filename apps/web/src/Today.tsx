@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   ArrowRight,
   RefreshCw,
@@ -32,6 +32,8 @@ import {
   awaitingAction,
   planningPrompt,
 } from "./todayModel";
+import { calendarResource } from "./calendarResource";
+import { upcomingAgenda, agendaTime } from "./calendarAgenda";
 import { matrixResource } from "./matrixResource";
 import type { AssistantTab } from "./AssistantHub";
 import type { Page } from "./navigation";
@@ -81,10 +83,19 @@ export function Today({
   onSignIn,
   onAssistant,
 }: Props) {
+  const calendar = useSyncExternalStore(
+    calendarResource.subscribe,
+    calendarResource.getSnapshot,
+  );
+  const agenda = upcomingAgenda(calendar.data?.events ?? []);
   const [data, setData] = useState<Data>(empty);
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(!guest);
   const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (guest) return;
+    void calendarResource.load(revision > 0).catch(() => {});
+  }, [guest, revision]);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [pending, setPending] = useState("");
   const [taskError, setTaskError] = useState("");
@@ -397,6 +408,49 @@ export function Today({
                 <h2>
                   <CalendarDays size={17} />
                   接下来
+                </h2>
+                <button onClick={() => onAssistant("connections")}>
+                  日历
+                  <ArrowRight size={14} />
+                </button>
+              </header>
+              {agenda.items.slice(0, 5).map((item) => (
+                <div className="today-work" key={item.id}>
+                  <strong>{item.title}</strong>
+                  <small>{agendaTime(item)}</small>
+                </div>
+              ))}
+              {calendar.loading && !calendar.data && (
+                <p className="experience-empty">正在读取日历…</p>
+              )}
+              {!!calendar.error && (
+                <p className="experience-empty">
+                  日历读取失败，请刷新重试；必要时重新授权连接。
+                </p>
+              )}
+              {calendar.data && !calendar.data.connected && (
+                <p className="experience-empty">
+                  {calendar.data.blocked
+                    ? "日历服务尚未配置（BLOCKED_EXTERNAL）。"
+                    : "连接 Google Calendar 后，会议会显示在这里。"}
+                </p>
+              )}
+              {calendar.data?.connected &&
+                !agenda.items.length &&
+                !calendar.error && (
+                  <p className="experience-empty">未来七天没有会议安排。</p>
+                )}
+              {(calendar.data?.partial || agenda.invalid > 0) && (
+                <p className="experience-empty">
+                  日历结果不完整，请到原日历核对。
+                </p>
+              )}
+            </section>
+            <section className="experience-card">
+              <header>
+                <h2>
+                  <Clock3 size={17} />
+                  自动安排
                 </h2>
                 <button onClick={() => onNavigate("tasks")}>
                   自动任务

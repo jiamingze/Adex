@@ -128,3 +128,22 @@ matrix switch shows three fixture task rows with zero loading placeholders, even
 when background revalidation is running. Tests cover a permanently hung read,
 concurrent deduplication, snapshot reuse, session reset/late response and retry.
 These fixture checks do not establish actual iPhone network latency.
+
+## Upcoming calendar agenda contract — 2026-10-14
+
+Requested: show real calendar meetings in Today / Upcoming; automatic schedules
+must remain labelled separately. Calendar source is being clarified (existing
+Google connector vs iPhone EventKit). The common display uses explicit-offset
+instants, nominal all-day dates with exclusive end, ongoing/upcoming filtering,
+sorting, cancelled-event exclusion and invalid-data reporting. No guessed dates
+or meeting inventory. Calendar reads do not confer external write approval.
+
+For the existing Google source, reuse authenticated POST /connectors/{id}/query
+with a now→seven-day interval and the primary calendar. It expands recurring
+instances; paginated/truncated results must be labelled partial, not exhaustive.
+No database migration or second scheduler is needed for a read-only display.
+Missing configuration/consent remains BLOCKED_EXTERNAL. Native EventKit, if selected,
+requires an explicit in-app permission action and real device acceptance; a fixture
+can only verify presentation and cannot stand in for personal calendar access.
+
+Implemented: Today reads the first ACTIVE Google Calendar connection through the existing owner-scoped App Connector query API. The seven-day agenda is independent of task loading, bounded to eight seconds, and cached in memory for thirty seconds with session-change reset. Refresh retries failed reads. Upcoming meetings (maximum five), ongoing and all-day events are separate from automatic schedules. Missing configuration is shown as BLOCKED_EXTERNAL; a connection entry opens existing OAuth management. Partial results and malformed dates are labelled. No migrations or API changes are required. iPhone system-calendar access is not implemented by this change; it requires a separate explicit EventKit permission flow. Real personal-calendar acceptance remains BLOCKED_EXTERNAL until a working authorized Google connection is available.

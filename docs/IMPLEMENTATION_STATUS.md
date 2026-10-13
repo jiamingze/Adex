@@ -249,3 +249,10 @@ signed iOS builds passed. UI fixture verifies delayed reads exit waiting and Mat
 real external operations used. Latest phone reinstall could not proceed: CoreDevice
 reported no matching reachable device (paired entry alone did not enable install).
 The signed app is prepared; actual installation requires reconnecting the phone.
+
+### 2026-10-14 · Today calendar agenda
+
+- “接下来” now reads upcoming meetings from the first active Google Calendar connection through the existing authenticated Connector query endpoint; automatic schedules are displayed separately.
+- Session-local cache, eight-second deadline, retry via refresh, cancelled/ended event exclusion, all-day and ongoing labels, partial-result warning. No database migrations or new scheduler.
+- Local Google OAuth client, redirect and credential-encryption settings are missing: real personal-calendar reading is **BLOCKED_EXTERNAL**, not validated by fixtures. Native iPhone EventKit calendars are not connected by this change.
+- Verification: `make test-client` (12 passed), `make check-style` (Spotless/Ruff/architecture passed), Web TypeScript/Vite build and secret scan. Calendar date tests are synthetic projection tests, not evidence of real Google execution.
