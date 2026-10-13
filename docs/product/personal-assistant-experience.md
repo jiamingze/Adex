@@ -16,7 +16,7 @@ approval. Adex should surface the same useful journey using its existing state.
 | Gap in Adex | This change | Further work / external boundary |
 | --- | --- | --- |
 | Chat-only landing, no day overview | Today page: priority/due tasks, next schedules, pending approvals, suggestions, active Runs and recent artifacts | Rich daily brief over real calendar/mail requires configured OAuth |
-| Eight flat navigation items, inconsistent active states | Grouped sidebar, non-chat mobile tab bar; preserve a compact chat composer | No new navigation framework or business domain |
+| Eight flat navigation items, inconsistent active states | Grouped sidebar, persistent mobile tab bar; preserve a compact chat composer | No new navigation framework or business domain |
 | Deep links reset to chat; browser back ignores matrix/assistant | Shared route parser and page path contract, tested history restoration | Native notification restore still server-authorized |
 | Assistant is one long configuration form | Separate suggestions, approvals, connected services and preferences; compact status/empty states | Google and APNs remain BLOCKED_EXTERNAL until real configuration/acceptance |
 | Manual configuration needs a pre-existing conversation | App creates a scoped conversation on demand for approved workflows | No writes to external services without explicit approval |
@@ -54,7 +54,7 @@ previously authorized connected phone is available; push only verified source/do
 
 ## Delivered and observed verification
 
-The daily overview and contextual planning draft, grouped navigation, non-chat
+The daily overview and contextual planning draft, grouped navigation, persistent
 mobile tabs, assistant sections and settings shortcuts are implemented. Planning
 copies only bounded task/schedule data into a visible editable composer; it does
 not send to an LLM until the user sends. Partial reads show unknown/error, not zero.
@@ -75,7 +75,7 @@ Commands observed on 2026-10-13:
   tab; unconfigured connectors disabled; planning fills composer without an API
   write/model call; page reload/history restored; injected approval HTTP 503
   leaves other sections usable and the counter unknown.
-- 375×812 browser: document width 375, non-chat tab bar 61px; light/dark screenshots
+- 375×812 browser: document width 375, tab bar 61px; light/dark screenshots
   contain synthetic TEST_FIXTURE data only. 1280 desktop layout inspected. The
   fixture server was stopped after testing; it binds loopback and has no real data.
 - `pnpm --dir apps/ios prepare`, signed `xcodebuild ... build` and strict/deep
@@ -86,3 +86,20 @@ Commands observed on 2026-10-13:
 No new external capability, schema, provider credential or scheduling system was
 introduced. Goal/project persistence and the additional integrations listed above
 remain explicit follow-up work, not hidden claims of Muse/Today parity.
+
+## White style and persistent navigation follow-up
+
+User feedback restored the light canvas to pure white with neutral gray accents.
+Today now uses a smaller date/title, a compact planning strip and inline counts,
+putting actionable tasks nearer the top. Mobile navigation stays available on chat
+and all page views; native keyboard events hide it while typing and restore it
+after dismissal. Mobile Web detects editable-field viewport shrinkage instead of
+hiding on focus alone, preserving hardware-keyboard navigation. The header Today
+shortcut remains available while the bottom bar is hidden.
+
+Observed: six client regressions pass; `make check-style`, Web/TypeScript and signed
+iOS builds pass. In the 375×812 fixture browser, canvas RGB is 255/255/255, document
+width is 375, and the task area starts at y≈364. Chat→Today→Chat retains the draft.
+TEST_FIXTURE keyboard events hide/restore the bottom bar; this event-contract
+check is not a physical software-keyboard measurement. Light/dark public fixture
+screenshots refreshed. Signed app reinstalled on the connected phone.

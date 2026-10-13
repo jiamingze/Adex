@@ -198,11 +198,11 @@ export function Today({
             <Sun size={14} />
             {date}
           </span>
-          <h1>
+          <h1>今天</h1>
+          <p>
             {greeting}
-            {guest ? "，欢迎来到 Adex" : `，${username}`}
-          </h1>
-          <p>重要的事，放在眼前。其余的，交给助手。</p>
+            {guest ? "，欢迎来到 Adex" : `，${username}`}。
+          </p>
         </div>
         <button
           className="experience-icon"
@@ -222,8 +222,8 @@ export function Today({
             <Sparkles size={24} />
           </span>
           <div>
-            <h2>今天，从哪件事开始？</h2>
-            <p>聊一个想法，安排一项任务，或把复杂的事情交给 Adex。</p>
+            <h2>{guest ? "有件事想交给助手？" : "一起梳理今天的重点"}</h2>
+            <p>{guest ? "从一句话开始。" : "依据已有待办，整理行动顺序。"}</p>
           </div>
         </div>
         <button
@@ -300,12 +300,10 @@ export function Today({
                   ? focus.filter((t) => isDueToday(t.due_at, now)).length
                   : "—"}
               </strong>
-              <small>在四象限中安排</small>
             </button>
             <button onClick={() => onAssistant("actions")}>
               <span>需要你决定</span>
               <strong>{data.actions ? attention.length : "—"}</strong>
-              <small>确认后才执行</small>
             </button>
             <button onClick={() => onNavigate("tasks")}>
               <span>后台处理中</span>
@@ -314,7 +312,6 @@ export function Today({
                   ? activeRuns.filter((r) => r.status !== "UNKNOWN").length
                   : "—"}
               </strong>
-              <small>关闭页面也会继续</small>
             </button>
           </div>
           <div className="today-grid">

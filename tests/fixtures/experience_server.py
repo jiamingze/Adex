@@ -186,6 +186,14 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path.startswith("/assets/"):
             return super().do_GET()
         raw = (ROOT / "index.html").read_bytes()
+        if parse_qs(parsed.query).get("keyboard_controls") == ["1"]:
+            # TEST_FIXTURE controls verify the event contract, not a physical keyboard.
+            raw = raw.replace(
+                b"</body>",
+                """<aside style='position:fixed;top:56px;right:4px;z-index:9999;background:white;border:1px solid #ddd;font-size:10px;padding:4px'>
+            TEST_FIXTURE <button onclick="window.dispatchEvent(new Event('keyboardWillShow'))">模拟键盘显示</button>
+            <button onclick="window.dispatchEvent(new Event('keyboardWillHide'))">模拟键盘收起</button></aside></body>""".encode(),
+            )
         self.send_response(200)
         fault = parse_qs(parsed.query).get("fault", [""])[0]
         if fault:

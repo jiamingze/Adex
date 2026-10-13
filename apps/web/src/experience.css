@@ -1,9 +1,9 @@
 /* Shared personal-assistant surfaces. No generated HTML or remote UI assets. */
 :root {
-  --canvas: #faf9f7;
-  --panel: #f5f4f1;
-  --border: #e8e6e2;
-  --hover: #efeeeb;
+  --canvas: #fff;
+  --panel: #f7f7f8;
+  --border: #e5e5e5;
+  --hover: #ececec;
   --helper: #4b8074;
   --card-radius: 20px;
 }
@@ -1155,4 +1155,176 @@
 }
 .settings-section .account-prompt h1 {
   font-size: 22px;
+}
+
+/* Compact Today keeps actionable work above the fold, with a white canvas. */
+.today-heading {
+  margin-bottom: 20px;
+  align-items: flex-start;
+}
+.today-heading h1 {
+  font-size: 30px;
+  margin: 8px 0 6px;
+}
+.today-heading p {
+  font-size: 13px;
+}
+.today-invitation {
+  padding: 16px 18px;
+  border-radius: 16px;
+  gap: 14px;
+  background: var(--panel);
+  border: 0;
+  margin-bottom: 18px;
+}
+.today-invitation > div {
+  gap: 12px;
+}
+.today-invitation .today-orb {
+  width: 36px;
+  height: 36px;
+  background: var(--bg);
+  border-radius: 12px;
+}
+.today-invitation .today-orb svg {
+  width: 19px;
+}
+.today-invitation h2 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.today-invitation p {
+  font-size: 11px;
+}
+.today-invitation .experience-primary {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+.today-summary {
+  gap: 0;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 18px;
+}
+.today-summary > button {
+  border: 0;
+  border-radius: 0;
+  padding: 6px 20px;
+  background: transparent;
+  gap: 5px;
+}
+.today-summary > button:first-child {
+  padding-left: 0;
+}
+.today-summary > button + button {
+  border-left: 1px solid var(--border);
+}
+.today-summary span {
+  font-size: 11px;
+}
+.today-summary strong {
+  font-size: 24px;
+  margin: 0;
+}
+.today-grid .experience-card {
+  padding: 18px 20px;
+}
+.today-grid .experience-card > header {
+  margin-bottom: 10px;
+}
+.today-grid .experience-empty {
+  padding: 12px 0;
+}
+.today-ideas {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.today-ideas header p {
+  margin-bottom: 0;
+}
+.mobile-tabbar.keyboard-hidden {
+  display: none;
+}
+.mobile-tabbar {
+  background: var(--bg);
+}
+@media (max-width: 760px) {
+  .today-heading {
+    margin-bottom: 18px;
+  }
+  .today-heading h1 {
+    font-size: 27px;
+  }
+  .today-invitation {
+    display: flex;
+    align-items: center;
+    padding: 14px;
+    gap: 8px;
+    border-radius: 15px;
+  }
+  .today-invitation > div {
+    gap: 10px;
+  }
+  .today-invitation .today-orb {
+    display: none;
+  }
+  .today-invitation h2 {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .today-invitation p {
+    font-size: 10px;
+  }
+  .today-invitation .experience-primary {
+    margin: 0;
+    width: auto;
+    min-height: 40px;
+    padding: 9px 12px;
+    font-size: 11px;
+    gap: 6px;
+  }
+  .today-invitation .experience-primary svg {
+    width: 13px;
+  }
+  .today-summary {
+    margin-bottom: 18px;
+    padding-bottom: 16px;
+  }
+  .today-summary > button {
+    padding: 5px 12px;
+  }
+  .today-summary span {
+    font-size: 10px;
+  }
+  .today-summary strong {
+    font-size: 23px;
+  }
+  .today-grid .experience-card {
+    padding: 16px;
+  }
+  .today-grid .experience-card h2 {
+    font-size: 14px;
+  }
+  .today-grid .experience-empty {
+    font-size: 12px;
+  }
+  .today-page .today-updated {
+    font-size: 9px;
+  }
+  .main:has(.mobile-tabbar:not(.keyboard-hidden)) .composer-wrap {
+    padding-bottom: 5px;
+  }
+  .mobile-tabbar button {
+    min-height: 44px;
+  }
+  .today-start-grid button {
+    border-radius: 16px;
+  }
+  .today-start-grid {
+    gap: 8px;
+  }
+  .today-signin {
+    padding: 18px 0;
+    margin-top: 8px;
+  }
 }

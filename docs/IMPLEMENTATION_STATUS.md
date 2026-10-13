@@ -226,3 +226,11 @@ keyboard/microphone/push checks remain separate. Synthetic screenshots and scope
 analysis: `docs/product/personal-assistant-experience.md`. Google/APNs remain
 BLOCKED_EXTERNAL as previously documented; goals/projects, health, cross-device
 control and real booking are not advertised as implemented.
+
+White-theme follow-up: light canvas restored to white; Today header/summary made
+compact; mobile bottom navigation now includes chat and responds to keyboard
+show/hide events. Six client regressions, style/architecture/secrets checks,
+Web and signed iOS builds passed. Browser smoke confirms 375px without horizontal
+overflow, white RGB255 canvas, draft preservation across Chat/Today and keyboard
+event hide/restore using explicit TEST_FIXTURE controls. This does not establish
+physical iPhone keyboard geometry; packaging and installation remain verified.

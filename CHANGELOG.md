@@ -56,3 +56,13 @@ Initial public repository packaging. The code predates the first Git commit; dat
   Guest local appearance settings do not make authenticated account requests.
 - Added six client regressions and a loopback-only synthetic UI fixture.
   Google/APNs/booking/health/device-control external boundaries are unchanged.
+
+### White canvas and persistent navigation — 2026-10-13
+
+- Restore the original white light theme and neutral gray surfaces.
+- Keep the mobile bottom navigation on chat as well as Today and other pages;
+  hide it for the software keyboard and restore it on dismissal, with a header
+  Today shortcut still available. Switching pages retains the unsent draft.
+- Reduce Today's hero/summary height so actionable work appears earlier.
+- Refresh synthetic preview screenshots; keyboard event-contract smoke is distinct
+  from physical-device keyboard acceptance.

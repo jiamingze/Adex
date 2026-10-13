@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { pageLabels, type Page } from "./navigation";
+import { useKeyboardVisibility } from "./useKeyboardVisibility";
 const primary = [
   { id: "today", icon: Sun },
   { id: "chat", icon: MessageSquare },
@@ -68,10 +69,12 @@ export function MobileNavigation({
   page: Page;
   onNavigate: (page: Page) => void;
 }) {
-  // Keep the conversation keyboard/composer layout independent from page navigation.
-  if (page === "chat") return null;
+  const keyboardVisible = useKeyboardVisibility();
   return (
-    <nav className="mobile-tabbar" aria-label="快捷导航">
+    <nav
+      className={`mobile-tabbar ${keyboardVisible ? "keyboard-hidden" : ""}`}
+      aria-label="快捷导航"
+    >
       {primary.map((item) => (
         <button
           aria-current={page === item.id ? "page" : undefined}
