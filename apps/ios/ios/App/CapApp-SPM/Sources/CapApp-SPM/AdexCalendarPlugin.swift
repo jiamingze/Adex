@@ -43,8 +43,8 @@ public class AdexCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             // Bound native work independently of model-generated input. EventKit
             // expands recurring instances across all calendars synced to this phone.
-            let start = Date()
-            let end = start.addingTimeInterval(7 * 86400)
+            let start = Calendar.current.startOfDay(for: Date())
+            let end = Calendar.current.date(byAdding: .day, value: 7, to: start)!
             let predicate = self.store.predicateForEvents(withStart: start, end: end, calendars: nil)
             let events = self.store.events(matching: predicate).filter { $0.status != .canceled }.sorted { $0.startDate < $1.startDate }
             let iso = ISO8601DateFormatter()

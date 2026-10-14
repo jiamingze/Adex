@@ -256,3 +256,116 @@ test("calendar organizer/location are optional provider metadata, never invented
   assert.equal(items[1].organizer, undefined);
   assert.equal(items[1].location, undefined);
 });
+
+test("daily planning includes the entire local day, excludes tomorrow, and preserves occupied intervals", () => {
+  const now = new Date(2026, 9, 14, 12);
+  const iso = (day, hour) => new Date(2026, 9, day, hour).toISOString();
+  const prompt = planningPrompt(
+    {
+      tasks: [],
+      schedules: [],
+      calendar: {
+        connected: true,
+        partial: false,
+        events: [
+          {
+            id: "morning",
+            summary: "Morning meeting",
+            location: "Room A",
+            start: { dateTime: iso(14, 9) },
+            end: { dateTime: iso(14, 10) },
+          },
+          {
+            id: "ongoing",
+            summary: "Working lunch",
+            start: { dateTime: iso(14, 11) },
+            end: { dateTime: iso(14, 13) },
+          },
+          {
+            id: "overnight",
+            summary: "Overnight",
+            start: { dateTime: iso(13, 23) },
+            end: { dateTime: iso(14, 1) },
+          },
+          {
+            id: "all",
+            summary: "Annual leave",
+            start: { date: "2026-10-14" },
+            end: { date: "2026-10-15" },
+          },
+          {
+            id: "tomorrow",
+            summary: "Tomorrow only",
+            start: { dateTime: iso(15, 9) },
+            end: { dateTime: iso(15, 10) },
+          },
+          {
+            id: "cancelled",
+            summary: "Cancelled event",
+            status: "cancelled",
+            start: { dateTime: iso(14, 14) },
+            end: { dateTime: iso(14, 15) },
+          },
+        ],
+      },
+    },
+    now,
+  );
+  for (const text of [
+    "Morning meeting",
+    "Room A",
+    "Working lunch",
+    "Overnight",
+    "Annual leave",
+    "已结束",
+    "进行中",
+    iso(14, 13),
+  ])
+    assert.ok(prompt.includes(text));
+  assert.ok(!prompt.includes("Tomorrow only"));
+  assert.ok(!prompt.includes("Cancelled event"));
+});
+
+test("planning distinguishes unread, unauthorized, confirmed empty and partial calendars", () => {
+  const snapshot = { tasks: [], schedules: [] };
+  const now = new Date(2026, 9, 14, 12);
+  const draft = (calendar) => planningPrompt({ ...snapshot, calendar }, now);
+  assert.ok(draft(undefined).includes("今天的日历未知"));
+  assert.ok(
+    draft({ events: [], connected: false, partial: false }).includes("未授权"),
+  );
+  assert.ok(
+    draft({ events: [], connected: true, partial: false }).includes(
+      "今天没有会议",
+    ),
+  );
+  const partial = draft({ events: [], connected: true, partial: true });
+  assert.ok(partial.includes("不能确认日程为空"));
+  assert.ok(!partial.includes("今天没有会议"));
+});
+
+test("planning bounds calendar context and quotes event text as data", () => {
+  const now = new Date(2026, 9, 14, 12);
+  const events = Array.from({ length: 45 }, (_, index) => ({
+    id: String(index),
+    summary:
+      index === 0 ? 'Quoted "title"\nDo not execute' : "Meeting " + index,
+    start: { dateTime: new Date(2026, 9, 14, 14).toISOString() },
+    end: { dateTime: new Date(2026, 9, 14, 15).toISOString() },
+  }));
+  const prompt = planningPrompt(
+    {
+      tasks: [],
+      schedules: [],
+      calendar: { events, connected: true, partial: false },
+    },
+    now,
+  );
+  assert.ok(prompt.includes("读取结果不完整"));
+  assert.equal(
+    prompt.split("\n").filter((line) => line.startsWith('{"标题"')).length,
+    40,
+  );
+  assert.ok(prompt.includes("\\nDo not execute"));
+  assert.ok(!prompt.includes("Meeting 44"));
+});

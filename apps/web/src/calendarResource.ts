@@ -34,6 +34,7 @@ export const calendarResource = createReadResource(
         permission: undefined,
       };
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const result = await request<{
       events: CalendarEvent[];
       partial?: boolean;

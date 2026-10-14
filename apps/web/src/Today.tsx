@@ -113,6 +113,55 @@ export function Today({
     return () => document.removeEventListener("visibilitychange", refresh);
   }, [guest, revision]);
   const [updated, setUpdated] = useState<Date | null>(null);
+  const [planning, setPlanning] = useState(false);
+  async function planToday() {
+    if (guest) {
+      onPrompt("");
+      return;
+    }
+    if (planning) return;
+    setPlanning(true);
+    let cancelled = false;
+    const cancel = () => {
+      cancelled = true;
+    };
+    window.addEventListener("adex:session-changed", cancel);
+    try {
+      const [calendarRead, tasksRead, schedulesRead] = await Promise.allSettled(
+        [
+          calendarResource.load(true),
+          matrixResource.load(),
+          todayReads.schedules.load(),
+        ],
+      );
+      if (cancelled) return;
+      const value =
+        calendarRead.status === "fulfilled" ? calendarRead.value : null;
+      onPrompt(
+        planningPrompt(
+          {
+            tasks:
+              tasksRead.status === "fulfilled" ? tasksRead.value.items : null,
+            schedules:
+              schedulesRead.status === "fulfilled"
+                ? schedulesRead.value.items
+                : null,
+            calendar: value
+              ? {
+                  events: value.events,
+                  connected: value.connected,
+                  partial: value.partial,
+                }
+              : { events: [], connected: false, partial: false, error: true },
+          },
+          new Date(),
+        ),
+      );
+    } finally {
+      window.removeEventListener("adex:session-changed", cancel);
+      setPlanning(false);
+    }
+  }
   const [calendarAuthorizing, setCalendarAuthorizing] = useState(false);
   const [calendarPermissionError, setCalendarPermissionError] = useState("");
   async function authorizeCalendar() {
@@ -262,23 +311,23 @@ export function Today({
           </span>
           <div>
             <h2>{guest ? "有件事想交给助手？" : "一起梳理今天的重点"}</h2>
-            <p>{guest ? "从一句话开始。" : "依据已有待办，整理行动顺序。"}</p>
+            <p>
+              {guest
+                ? "从一句话开始。"
+                : "结合今天的日历和待办生成草稿，确认发送后交给助手。"}
+            </p>
           </div>
         </div>
         <button
-          onClick={() =>
-            onPrompt(
-              guest
-                ? ""
-                : planningPrompt(
-                    { tasks: data.tasks, schedules: data.schedules },
-                    updated ?? now,
-                  ),
-            )
-          }
+          onClick={() => void planToday()}
+          disabled={planning}
           className="experience-primary"
         >
-          {guest ? "和 Adex 聊聊" : "一起安排今天"}
+          {guest
+            ? "和 Adex 聊聊"
+            : planning
+              ? "正在读取今日日程…"
+              : "一起安排今天"}
           <ArrowRight size={16} />
         </button>
       </section>

@@ -202,6 +202,20 @@ class Handler(SimpleHTTPRequestHandler):
             path = parsed.path.removeprefix("/api/v1")
             cookie = SimpleCookie(self.headers.get("Cookie", ""))
             fault = cookie.get("fixture_fault")
+            if fault and fault.value == "calendar-plan" and path == "/connectors":
+                return self.reply(
+                    {
+                        "items": [
+                            {
+                                "id": "fixture-calendar",
+                                "service": "calendar",
+                                "status": "ACTIVE",
+                                "scopes": [],
+                            }
+                        ],
+                        "availability": "TEST_FIXTURE",
+                    }
+                )
             if fault and fault.value == "matrix-timeout" and path == "/matrix":
                 time.sleep(12)  # TEST_FIXTURE: exceed the client's read deadline.
             if fault and fault.value == "actions" and path == "/actions":
@@ -233,6 +247,42 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/v1/auth/guest":
             return self.reply(
                 {"token": "TEST_FIXTURE", "username": "体验测试", "is_guest": False}
+            )
+        if self.path == "/api/v1/connectors/fixture-calendar/query":
+            # Explicit synthetic calendar read: never reads a personal account.
+            today = (
+                datetime.now()
+                .astimezone()
+                .replace(hour=9, minute=0, second=0, microsecond=0)
+            )
+            return self.reply(
+                {
+                    "events": [
+                        {
+                            "id": "fixture-morning",
+                            "summary": "TEST_FIXTURE 今日晨会",
+                            "location": "TEST_FIXTURE 会议室A",
+                            "start": {"dateTime": today.isoformat()},
+                            "end": {
+                                "dateTime": (today + timedelta(hours=1)).isoformat()
+                            },
+                        },
+                        {
+                            "id": "fixture-tomorrow",
+                            "summary": "TEST_FIXTURE 明日会议",
+                            "start": {
+                                "dateTime": (today + timedelta(days=1)).isoformat()
+                            },
+                            "end": {
+                                "dateTime": (
+                                    today + timedelta(days=1, hours=1)
+                                ).isoformat()
+                            },
+                        },
+                    ],
+                    "partial": False,
+                    "provider": "TEST_FIXTURE",
+                }
             )
         return self.reply({"code": "TEST_FIXTURE_WRITE_DISABLED"}, 403)
 
