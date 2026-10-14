@@ -60,26 +60,18 @@ Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客�
 
 ## 示例界面
 
-新版个人助手体验参考 Today AI 和 Meta Muse 的公开介绍，具体差距与边界见[体验改造说明](docs/product/personal-assistant-experience.md)。
+从看清今天的安排，到讨论方案、处理待办、留下笔记，形成连续的个人助手体验。
+以下截图**全部采用虚构演示数据**，由隔离的本地演示服务提供，不读取个人账号、聊天、日历或文件。日历和任务结果仅展示界面，不代表真实外部服务执行成功。这些是 Web 截图，不是 iOS 真机验收截图。
 
-<details>
-<summary>今日概览 · 手机浅色与深色</summary>
+| Today · 一眼看清今天 | 聊天 · 让回答成为积累 |
+| --- | --- |
+| [![今日概览](docs/images/gallery/today.jpg)](docs/images/gallery/today.jpg) | [![聊天](docs/images/gallery/chat.jpg)](docs/images/gallery/chat.jpg) |
+| 集中查看优先待办、待审批事项和接下来的会议。 | 阅读结构化 Markdown，将有价值的回复一键转成私有笔记。 |
+| **待办 · 分清轻重缓急** | **笔记 · 留住想法与方案** |
+| [![待办](docs/images/gallery/tasks.jpg)](docs/images/gallery/tasks.jpg) | [![笔记](docs/images/gallery/notes.jpg)](docs/images/gallery/notes.jpg) |
+| 重要性与紧急程度独立标记，支持搜索、完成状态筛选。 | 支持搜索、置顶、编辑与带版本校验的保存。 |
 
-<img src="docs/images/today-mobile-fixture.jpg" alt="Adex 今日概览手机宽度示例" width="280" />
-<img src="docs/images/today-mobile-dark-fixture.jpg" alt="Adex 今日概览深色示例" width="280" />
-
-截图采用 375px 浏览器视口与隔离的 TEST_FIXTURE 合成数据，不包含个人账户内容，也不代表真实外部操作验收。
-</details>
-
-<img src="docs/screenshots/web-chat.png" alt="Adex Web 对话示例" width="520" />
-
-<details>
-<summary>展开 iOS 界面</summary>
-
-<img src="docs/screenshots/ios-chat.png" alt="Adex iOS 对话、定时任务确认和右侧语音按钮" width="320" />
-
-截图来自开发环境的测试示例，不是在线公共演示服务。截图中的测试任务已在验证后取消。
-</details>
+点击图片查看原图。[安全复现和更新截图](docs/product/screenshot-gallery.md)。
 
 ## 快速开始
 

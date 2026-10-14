@@ -61,27 +61,18 @@ Image generation availability depends on the selected adapter. Deterministic moc
 
 ## See it in action
 
-The refreshed personal-assistant experience is inspired by public Today AI and
-Meta Muse walkthroughs. See [the gap analysis and implementation boundaries](docs/product/personal-assistant-experience.md).
+From a daily overview to a useful conversation, prioritized tasks and lasting notes.
+All screenshots below use **invented demo data** in an isolated local fixture: no personal accounts, messages, meetings or files. Calendar entries and execution results are UI examples, not evidence of real provider execution. These are Web screenshots, not native iOS acceptance tests.
 
-<details>
-<summary>Daily overview · mobile light and dark</summary>
+| Today · your day at a glance | Chat · turn answers into notes |
+| --- | --- |
+| [![Today](docs/images/gallery/today.jpg)](docs/images/gallery/today.jpg) | [![Chat](docs/images/gallery/chat.jpg)](docs/images/gallery/chat.jpg) |
+| Priority tasks, approvals and upcoming meetings in one place. | Read structured Markdown and save useful answers as private notes. |
+| **Todo · decide what matters** | **Notes · keep your ideas** |
+| [![Todo](docs/images/gallery/tasks.jpg)](docs/images/gallery/tasks.jpg) | [![Notes](docs/images/gallery/notes.jpg)](docs/images/gallery/notes.jpg) |
+| Independent importance/urgency tags, search and completion filters. | Search, pin and edit notes with revision-safe saves. |
 
-<img src="docs/images/today-mobile-fixture.jpg" alt="Adex Today in a mobile browser viewport" width="280" />
-<img src="docs/images/today-mobile-dark-fixture.jpg" alt="Adex Today in dark mode" width="280" />
-
-These screenshots use isolated, synthetic TEST_FIXTURE data in a 375px browser viewport, not personal accounts or verified external execution.
-</details>
-
-<img src="docs/screenshots/web-chat.png" alt="Adex web conversation" width="520" />
-
-<details>
-<summary>iOS interface</summary>
-
-<img src="docs/screenshots/ios-chat.png" alt="Adex iOS chat, schedule confirmation and right-side microphone" width="320" />
-
-Screenshots show development examples, not a public hosted demo. The pictured test schedule was cancelled after verification.
-</details>
+Click an image for full size. [Reproduce the gallery safely](docs/product/screenshot-gallery.md).
 
 ## Quick start: local development
 
