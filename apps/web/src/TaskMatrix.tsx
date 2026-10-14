@@ -121,7 +121,7 @@ export function TaskMatrix() {
     <div ref={pageScroll} className="content-page task-matrix-page">
       <header className="matrix-heading">
         <div>
-          <p>{snapshot.data ? active.length : "—"} 件待办</p>
+          <p>分清轻重缓急，让每一步都有进展。</p>
         </div>
         <button className="matrix-primary" onClick={() => open(1)}>
           <Plus size={18} />
