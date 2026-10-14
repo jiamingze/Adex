@@ -64,6 +64,16 @@ Image generation availability depends on the selected adapter. Deterministic moc
 From a daily overview to a useful conversation, prioritized tasks and lasting notes.
 All screenshots below use **invented demo data** in an isolated local fixture: no personal accounts, messages, meetings or files. Calendar entries and execution results are UI examples, not evidence of real provider execution. These are Web screenshots, not native iOS acceptance tests.
 
+### Mobile experience
+
+390 × 844 mobile viewport, light theme. Entirely synthetic demo data; responsive Web UI.
+
+| Today | Chat | Todo | Notes |
+| --- | --- | --- | --- |
+| [<img src="docs/images/gallery/today-mobile.jpg" alt="Today · synthetic mobile demo" width="195" />](docs/images/gallery/today-mobile.jpg) | [<img src="docs/images/gallery/chat-mobile.jpg" alt="Chat · synthetic mobile demo" width="195" />](docs/images/gallery/chat-mobile.jpg) | [<img src="docs/images/gallery/tasks-mobile.jpg" alt="Todo · synthetic mobile demo" width="195" />](docs/images/gallery/tasks-mobile.jpg) | [<img src="docs/images/gallery/notes-mobile.jpg" alt="Notes · synthetic mobile demo" width="195" />](docs/images/gallery/notes-mobile.jpg) |
+
+### Desktop experience
+
 | Today · your day at a glance | Chat · turn answers into notes |
 | --- | --- |
 | [![Today](docs/images/gallery/today.jpg)](docs/images/gallery/today.jpg) | [![Chat](docs/images/gallery/chat.jpg)](docs/images/gallery/chat.jpg) |

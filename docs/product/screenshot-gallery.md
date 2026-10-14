@@ -20,7 +20,10 @@ memory, and has no database/provider client. Fixture edits disappear when it sto
 Stop with Ctrl+C. Do not run alongside the experience fixture on the same port.
 
 Capture Today, Chat, Todo and Notes in light mode. Open the synthetic note to show the
-editor. The gallery uses the normal browser viewport (1280 × 720 at capture time).
+editor. Desktop screenshots use the normal browser viewport (1280 × 720 at capture time).
+Mobile screenshots use an explicit 390 × 844 viewport; reset the override afterwards.
+Use the same fixture and save these as `*-mobile.jpg`. Mobile captures show responsive
+Web UI, not a physical iPhone or its native keyboard.
 To include synthetic calendar examples, visit `/today?fault=calendar-plan`; this cookie
 activates only the fixture calendar query. Never log in with a real account here.
 
@@ -37,7 +40,7 @@ README screenshots; historical files elsewhere are not part of this gallery.
 - Todo: flat list, separate importance/urgency tags and status filters.
 - Notes: synthetic private-note list and editor.
 
-All four images are Web UI illustrations. They establish neither real external action
+Both desktop and mobile images are Web UI illustrations. They establish neither real external action
 success nor native iPhone keyboard, voice, photo or notification acceptance. Missing
 real Google/APNs/provider configuration remains `BLOCKED_EXTERNAL` as documented in
 the implementation status.

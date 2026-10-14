@@ -63,6 +63,16 @@ Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客�
 从看清今天的安排，到讨论方案、处理待办、留下笔记，形成连续的个人助手体验。
 以下截图**全部采用虚构演示数据**，由隔离的本地演示服务提供，不读取个人账号、聊天、日历或文件。日历和任务结果仅展示界面，不代表真实外部服务执行成功。这些是 Web 截图，不是 iOS 真机验收截图。
 
+### 手机端体验
+
+390 × 844 手机视口，浅色主题；全部为虚构演示数据，展示移动端 Web 布局。
+
+| 今日 | 聊天 | 待办 | 笔记 |
+| --- | --- | --- | --- |
+| [<img src="docs/images/gallery/today-mobile.jpg" alt="今日 · synthetic mobile demo" width="195" />](docs/images/gallery/today-mobile.jpg) | [<img src="docs/images/gallery/chat-mobile.jpg" alt="聊天 · synthetic mobile demo" width="195" />](docs/images/gallery/chat-mobile.jpg) | [<img src="docs/images/gallery/tasks-mobile.jpg" alt="待办 · synthetic mobile demo" width="195" />](docs/images/gallery/tasks-mobile.jpg) | [<img src="docs/images/gallery/notes-mobile.jpg" alt="笔记 · synthetic mobile demo" width="195" />](docs/images/gallery/notes-mobile.jpg) |
+
+### 桌面端体验
+
 | Today · 一眼看清今天 | 聊天 · 让回答成为积累 |
 | --- | --- |
 | [![今日概览](docs/images/gallery/today.jpg)](docs/images/gallery/today.jpg) | [![聊天](docs/images/gallery/chat.jpg)](docs/images/gallery/chat.jpg) |
