@@ -1328,3 +1328,64 @@
     margin-top: 8px;
   }
 }
+/* Compact agenda: time rail + primary title; additional metadata on demand. */
+.agenda-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.agenda-time {
+  width: 48px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 1px;
+}
+.agenda-time > span {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.agenda-time small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.agenda-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.agenda-main > strong {
+  font-size: 14px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.agenda-main > small {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agenda-main details {
+  font-size: 11px;
+  color: var(--muted);
+}
+.agenda-main summary {
+  cursor: pointer;
+  width: max-content;
+  padding: 2px 0;
+}
+.agenda-main details p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}

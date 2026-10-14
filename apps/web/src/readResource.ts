@@ -71,6 +71,12 @@ export function createReadResource<T>(
     return pending;
   }
   return {
+    /** Only call with an authoritative response, never an optimistic write. */
+    accept: (data: T) => {
+      invalidate(true);
+      loadedAt = Date.now();
+      publish({ data, loading: false, error: null });
+    },
     getSnapshot: () => snapshot,
     subscribe: (listener: () => void) => {
       listeners.add(listener);

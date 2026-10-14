@@ -1,3 +1,4 @@
+import { usePageScroll } from "./usePageScroll";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   ArrowRight,
@@ -77,6 +78,7 @@ export function Today({
   onSignIn,
   onAssistant,
 }: Props) {
+  const pageScroll = usePageScroll<HTMLDivElement>("today");
   const calendar = useSyncExternalStore(
     calendarResource.subscribe,
     calendarResource.getSnapshot,
@@ -101,7 +103,6 @@ export function Today({
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (guest) return;
-    if (native) calendarResource.invalidate();
     void calendarResource.load(native || revision > 0).catch(() => {});
     const refresh = () => {
       if (native && document.visibilityState === "visible") {
@@ -279,14 +280,13 @@ export function Today({
     }
   }
   return (
-    <div className="content-page today-page">
+    <div ref={pageScroll} className="content-page today-page">
       <header className="today-heading">
         <div>
           <span className="experience-eyebrow">
             <Sun size={14} />
             {date}
           </span>
-          <h1>今天</h1>
           <p>
             {greeting}
             {guest ? "，欢迎来到 Adex" : `，${username}`}。
@@ -502,11 +502,41 @@ export function Today({
                 </button>
               </header>
               {agenda.items.slice(0, 5).map((item) => (
-                <div className="today-work" key={item.id}>
-                  <strong>{item.title}</strong>
-                  <small>{agendaTime(item)}</small>
-                  {item.organizer && <small>邀请人：{item.organizer}</small>}
-                  {item.location && <small>地点：{item.location}</small>}
+                <div className="agenda-row" key={item.id}>
+                  <div className="agenda-time">
+                    <span>
+                      {item.allDay
+                        ? "全天"
+                        : new Date(item.start).toLocaleTimeString("zh-CN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                    </span>
+                    <small>
+                      {new Date(item.start).toLocaleDateString("zh-CN", {
+                        month: "numeric",
+                        day: "numeric",
+                      })}
+                    </small>
+                  </div>
+                  <div className="agenda-main">
+                    <strong>{item.title}</strong>
+                    <small>
+                      {item.ongoing ? "进行中 · " : ""}
+                      {item.allDay
+                        ? "全天事项"
+                        : `至 ${new Date(item.end).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`}
+                      {item.location ? ` · ${item.location}` : ""}
+                    </small>
+                    {(item.organizer || item.location) && (
+                      <details>
+                        <summary>会议详情</summary>
+                        <p>{agendaTime(item)}</p>
+                        {item.organizer && <p>邀请人：{item.organizer}</p>}
+                        {item.location && <p>地点：{item.location}</p>}
+                      </details>
+                    )}
+                  </div>
                 </div>
               ))}
               {calendarPermissionError && (

@@ -1,3 +1,4 @@
+import { usePageScroll } from "./usePageScroll";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Check,
@@ -72,6 +73,7 @@ function dueLabel(iso: string) {
 }
 
 export function TaskMatrix() {
+  const pageScroll = usePageScroll<HTMLDivElement>("matrix");
   const snapshot = useSyncExternalStore(
     matrixResource.subscribe,
     matrixResource.getSnapshot,
@@ -146,11 +148,10 @@ export function TaskMatrix() {
           (b.due_at ? Date.parse(b.due_at) : Infinity),
     );
   return (
-    <div className="content-page task-matrix-page">
+    <div ref={pageScroll} className="content-page task-matrix-page">
       <header className="matrix-heading">
         <div>
           <span className="matrix-eyebrow">专注当下，留出余地</span>
-          <h1>任务四象限</h1>
           <p>
             {active.length
               ? `${active.length} 件待办，先从最重要的一件开始。`

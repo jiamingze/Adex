@@ -248,6 +248,24 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(
                 {"token": "TEST_FIXTURE", "username": "体验测试", "is_guest": False}
             )
+        if self.path == "/api/v1/notes":
+            fault = SimpleCookie(self.headers.get("Cookie", "")).get("fixture_fault")
+            if fault and fault.value == "notes-save-delay":
+                time.sleep(2)
+            body = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            )
+            key = "/notes/" + body["id"]
+            if key not in DATA:
+                DATA[key] = {
+                    **body,
+                    "revision": 1,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+                DATA["/notes"]["items"].insert(
+                    0, {**DATA[key], "preview": body["content"][:160]}
+                )
+            return self.reply(DATA[key])
         if self.path == "/api/v1/connectors/fixture-calendar/query":
             # Explicit synthetic calendar read: never reads a personal account.
             today = (
@@ -270,6 +288,8 @@ class Handler(SimpleHTTPRequestHandler):
                         {
                             "id": "fixture-tomorrow",
                             "summary": "TEST_FIXTURE 明日会议",
+                            "organizer": "TEST_FIXTURE 邀请人",
+                            "location": "TEST_FIXTURE 会议室 A",
                             "start": {
                                 "dateTime": (today + timedelta(days=1)).isoformat()
                             },
@@ -287,6 +307,33 @@ class Handler(SimpleHTTPRequestHandler):
         return self.reply({"code": "TEST_FIXTURE_WRITE_DISABLED"}, 403)
 
     def do_PATCH(self):
+        if self.path.startswith("/api/v1/notes/"):
+            fault = SimpleCookie(self.headers.get("Cookie", "")).get("fixture_fault")
+            if fault and fault.value == "notes-save-delay":
+                time.sleep(2)
+            key = self.path.removeprefix("/api/v1")
+            note = DATA.get(key)
+            if note is None:
+                return self.reply({"code": "NOTE_NOT_FOUND"}, 404)
+            body = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            )
+            if note["revision"] != body["revision"]:
+                return self.reply({"code": "REVISION_CONFLICT"}, 409)
+            note.update(
+                {
+                    **body,
+                    "revision": note["revision"] + 1,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            DATA["/notes"]["items"] = [
+                {**note, "preview": note["content"][:160]}
+                if row["id"] == note["id"]
+                else row
+                for row in DATA["/notes"]["items"]
+            ]
+            return self.reply(note)
         identifier = self.path.removeprefix("/api/v1/matrix/")
         task = next((t for t in tasks if t["id"] == identifier), None)
         if task is None:

@@ -369,3 +369,50 @@ test("planning bounds calendar context and quotes event text as data", () => {
   assert.ok(prompt.includes("\\nDo not execute"));
   assert.ok(!prompt.includes("Meeting 44"));
 });
+
+test("confirmed write replaces cached data and fences a late background read", async () => {
+  const { createReadResource } = await import(
+    "../../.local-data/client-tests/readResource.js"
+  );
+  let finish;
+  const resource = createReadResource(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const pending = resource.load().catch(() => {});
+  await Promise.resolve();
+  resource.accept({ revision: 2, content: "confirmed save" });
+  finish({ revision: 1, content: "stale read" });
+  await pending;
+  assert.deepEqual(resource.getSnapshot().data, {
+    revision: 2,
+    content: "confirmed save",
+  });
+  assert.deepEqual(await resource.load(), {
+    revision: 2,
+    content: "confirmed save",
+  });
+  resource.reset();
+  assert.equal(resource.getSnapshot().data, null);
+});
+
+test("expired cache stays visible while revalidating and a failed update keeps it", async () => {
+  const { createReadResource } = await import(
+    "../../.local-data/client-tests/readResource.js"
+  );
+  const resource = createReadResource(
+    async () => {
+      throw new Error("OFFLINE");
+    },
+    { freshMs: 0 },
+  );
+  resource.accept({ items: ["cached note"] });
+  const update = resource.load().catch(() => {});
+  assert.deepEqual(resource.getSnapshot().data, { items: ["cached note"] });
+  assert.equal(resource.getSnapshot().loading, true);
+  await update;
+  assert.deepEqual(resource.getSnapshot().data, { items: ["cached note"] });
+  assert.ok(resource.getSnapshot().error);
+});

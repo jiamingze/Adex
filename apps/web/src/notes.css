@@ -223,3 +223,96 @@
     font-size: 16px;
   }
 }
+/* Fill the remaining viewport. A vh minimum here pushes the tab bar upward or
+   outside the keyboard-resized WebView; child scrolling must stay inside flex. */
+.notes-page {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.notes-heading {
+  flex-shrink: 0;
+}
+.notes-layout {
+  flex: 1;
+  min-height: 0;
+}
+.notes-list {
+  min-height: 0;
+}
+.notes-editor {
+  min-height: 0;
+  overflow: hidden;
+}
+.notes-toolbar {
+  flex-shrink: 0;
+}
+.note-title {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 0;
+}
+.note-body {
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  resize: none;
+  line-height: 1.8;
+  overflow: auto;
+  border-radius: 0;
+}
+@media (max-width: 700px) {
+  .notes-page {
+    padding: 14px 16px 8px;
+  }
+  .notes-heading {
+    margin-bottom: 14px;
+  }
+  .notes-heading p {
+    font-size: 12px;
+  }
+  .notes-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .notes-list {
+    flex: 1;
+    overflow: auto;
+  }
+  .notes-open .notes-editor {
+    flex: 1;
+    min-height: 0;
+  }
+  .note-body {
+    flex: 1;
+    min-height: 0;
+  }
+  .notes-toolbar {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+  .notes-toolbar > span {
+    min-width: 0;
+    font-size: 10px;
+  }
+  .notes-toolbar button {
+    flex-shrink: 0;
+  }
+  .notes-back {
+    font-size: 12px;
+    padding-left: 0 !important;
+  }
+  .note-title {
+    padding: 8px 0;
+  }
+  .note-body {
+    padding: 10px 0;
+  }
+  .notes-editor > .notes-empty {
+    min-height: 0;
+  }
+}

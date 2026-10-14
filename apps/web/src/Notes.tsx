@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { usePageScroll } from "./usePageScroll";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   ArrowLeft,
   Search,
@@ -8,58 +9,71 @@ import {
   NotebookPen,
   Check,
 } from "lucide-react";
-import { notesApi, noteDrafts, type Note, type NoteSummary } from "./notesApi";
+import {
+  notesApi,
+  noteDrafts,
+  noteView,
+  notesList,
+  noteDetail,
+  acceptNote,
+  forgetNote,
+  type Note,
+} from "./notesApi";
 import "./notes.css";
-import { createReadResource } from "./readResource";
 export function Notes() {
-  const [items, setItems] = useState<NoteSummary[]>([]),
-    [selected, setSelected] = useState<Note | null>(null);
-  const [query, setQuery] = useState(""),
+  const [selected, setSelected] = useState<Note | null>(
+    () =>
+      noteDrafts.get(noteView.selected) ??
+      (noteView.selected
+        ? noteDetail(noteView.selected).getSnapshot().data
+        : null),
+  );
+  const [query, setQuery] = useState(noteView.query),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [loading, setLoading] = useState(true),
-    [more, setMore] = useState(false);
-  const [revision, setRevision] = useState(0),
+    [saving, setSaving] = useState(false),
+    [revision, setRevision] = useState(0),
     [saved, setSaved] = useState(false);
+  const listScroll = usePageScroll<HTMLElement>("notes-list:" + query);
+  const bodyScroll = usePageScroll<HTMLTextAreaElement>(
+    "notes-body:" + (selected?.id ?? ""),
+  );
+  const resource = notesList(query);
+  const snapshot = useSyncExternalStore(
+    resource.subscribe,
+    resource.getSnapshot,
+  );
+  const items = snapshot.data?.items ?? [],
+    more = snapshot.data?.has_more ?? false,
+    loading = snapshot.loading;
   useEffect(() => {
-    let live = true;
-    setLoading(true);
-    const resource = createReadResource((signal) =>
-      notesApi.list(query, signal),
+    noteView.query = query;
+    const timer = setTimeout(
+      () => {
+        void resource.load(revision > 0).catch(() => {});
+      },
+      query ? 150 : 0,
     );
-    const timer = setTimeout(() => {
-      resource
-        .load()
-        .then((result) => {
-          if (live) {
-            setItems(result.items);
-            setMore(result.has_more);
-            setError("");
-          }
-        })
-        .catch(() => {
-          if (live) setError("笔记读取失败，请重试。");
-        })
-        .finally(() => {
-          if (live) setLoading(false);
-        });
-    }, 200);
+    return () => clearTimeout(timer);
+  }, [query, revision, resource]);
+  useEffect(() => {
+    noteView.selected = selected?.id ?? "";
+  }, [selected]);
+  useEffect(() => {
+    if (!selected || noteDrafts.has(selected.id)) return;
+    const latest = snapshot.data?.items.find((item) => item.id === selected.id);
+    if (!latest || latest.revision === selected.revision) return;
+    let live = true;
+    void noteDetail(selected.id)
+      .load(true)
+      .then((note) => {
+        if (live && !noteDrafts.has(note.id)) setSelected(note);
+      })
+      .catch(() => {});
     return () => {
       live = false;
-      clearTimeout(timer);
-      resource.reset();
     };
-  }, [query, revision]);
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (noteDrafts.size) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, []);
+  }, [selected?.id, snapshot.data]);
   const draftRows = Array.from(noteDrafts.values())
     .filter((n) => !n.revision)
     .map((n) => ({ ...n, preview: n.content }));
@@ -68,7 +82,9 @@ export function Notes() {
     setError("");
     setBusy(true);
     try {
-      setSelected(noteDrafts.get(id) ?? (await notesApi.get(id)));
+      const cached = noteDetail(id).getSnapshot().data;
+      if (cached) setSelected(noteDrafts.get(id) ?? cached);
+      setSelected(noteDrafts.get(id) ?? (await noteDetail(id).load()));
       setSaved(false);
     } catch {
       setError("无法打开笔记，请重试。");
@@ -100,6 +116,7 @@ export function Notes() {
   async function save() {
     if (!selected || busy) return;
     setBusy(true);
+    setSaving(true);
     setError("");
     try {
       const input = {
@@ -118,17 +135,37 @@ export function Notes() {
       ) {
         throw new Error("REVISION_CONFLICT");
       }
-      setSelected(result);
-      noteDrafts.delete(result.id);
-      setSaved(true);
+      acceptNote(result);
+      const draft = noteDrafts.get(result.id);
+      // A confirmed response must not erase text typed while it was in flight.
+      if (
+        draft &&
+        (draft.title !== selected.title ||
+          draft.content !== selected.content ||
+          draft.pinned !== selected.pinned)
+      ) {
+        const next = {
+          ...draft,
+          revision: result.revision,
+          updated_at: result.updated_at,
+        };
+        noteDrafts.set(next.id, next);
+        setSelected(next);
+        setSaved(false);
+      } else {
+        setSelected(result);
+        noteDrafts.delete(result.id);
+        setSaved(true);
+      }
       setRevision((n) => n + 1);
     } catch (error) {
       setError(
         String(error).includes("REVISION_CONFLICT")
           ? "此笔记已在其他设备更新。草稿仍保留，请复制内容后重新打开原笔记核对。"
-          : "保存失败，草稿仍保留，请重试。",
+          : "保存尚未确认，草稿仍保留。请核对后重试。",
       );
     } finally {
+      setSaving(false);
       setBusy(false);
     }
   }
@@ -143,7 +180,7 @@ export function Notes() {
       return;
     setBusy(true);
     try {
-      const original = await notesApi.get(selected.id);
+      const original = await noteDetail(selected.id).load(true);
       noteDrafts.delete(selected.id);
       setSelected(original);
       setError("");
@@ -160,6 +197,7 @@ export function Notes() {
     setBusy(true);
     try {
       if (selected.revision) await notesApi.remove(selected);
+      forgetNote(selected.id);
       noteDrafts.delete(selected.id);
       setSelected(null);
       setRevision((n) => n + 1);
@@ -174,8 +212,6 @@ export function Notes() {
     <div className={`notes-page ${selected ? "notes-open" : ""}`}>
       <header className="notes-heading">
         <div>
-          <span className="eyebrow">YOUR NOTES</span>
-          <h1>笔记</h1>
           <p>记下想法、会议记录和生活事项。</p>
         </div>
         <button className="notes-primary" onClick={create} disabled={busy}>
@@ -183,14 +219,14 @@ export function Notes() {
           新建笔记
         </button>
       </header>
-      {error && (
+      {(!!error || !!snapshot.error) && (
         <div className="experience-inline-error" role="alert">
-          {error}
+          {error || "笔记更新失败，已缓存内容仍可查看。"}
           <button onClick={() => setRevision((n) => n + 1)}>重试</button>
         </div>
       )}
       <div className="notes-layout">
-        <aside className="notes-list">
+        <aside ref={listScroll} className="notes-list">
           <label className="notes-search">
             <Search size={17} />
             <input
@@ -278,16 +314,17 @@ export function Notes() {
                 placeholder="标题"
                 maxLength={200}
                 value={selected.title}
-                disabled={busy}
+                disabled={busy && !saving}
                 onChange={(e) => edit({ title: e.target.value })}
               />
               <textarea
+                ref={bodyScroll}
                 className="note-body"
                 aria-label="笔记正文"
                 placeholder="从这里开始记录…"
                 maxLength={100000}
                 value={selected.content}
-                disabled={busy}
+                disabled={busy && !saving}
                 onChange={(e) => edit({ content: e.target.value })}
               />
             </>

@@ -825,9 +825,9 @@ function App() {
                 <ChevronDown size={14} />
               </label>
             ) : (
-              <span>{page === "today" ? "Today" : page === "matrix" ? "Todo" : "Adex"}</span>
+              <span>{page === "today" ? "Today" : page === "matrix" ? "Todo" : page === "workspace" ? "笔记" : "Adex"}</span>
             )}
-            {page !== "today" && page !== "matrix" && <><ChevronRight size={13} /><strong>{pageLabels[page]}</strong></>}
+            {page !== "today" && page !== "matrix" && page !== "workspace" && <><ChevronRight size={13} /><strong>{pageLabels[page]}</strong></>}
           </div>
           <div className="top-actions">
             <button
