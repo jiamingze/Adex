@@ -66,7 +66,35 @@ DATA = {
         "music_max_seconds": 600,
     },
     "/conversations": {"items": []},
-    "/notifications": {"items": []},
+    "/notifications": {
+        "items": [
+            {
+                "id": "fixture-recent-result",
+                "title": "任务已完成",
+                "body": "TEST_FIXTURE 今日简报已整理：三条值得关注的科技动态，点击查看来源和详细内容。",
+                "created_at": iso(-2),
+                "read": True,
+                "run_id": "fixture-result-run",
+                "conversation_id": CONVERSATION,
+            },
+            {
+                "id": "fixture-monitor-result",
+                "title": "监控发现新信息",
+                "body": "TEST_FIXTURE 监控发现新的发布记录，已把变化整理到原会话。",
+                "created_at": iso(-3),
+                "read": False,
+                "conversation_id": CONVERSATION,
+            },
+            {
+                "id": "fixture-expired-result",
+                "title": "任务已完成",
+                "body": "TEST_FIXTURE 过期未读结果不应显示在今日",
+                "created_at": iso(-25),
+                "read": False,
+                "conversation_id": CONVERSATION,
+            },
+        ]
+    },
     "/matrix": {"items": tasks},
     "/automations": {
         "items": [

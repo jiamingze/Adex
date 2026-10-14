@@ -16,7 +16,7 @@ public class NotificationService {
   public Object notifications(UUID owner) {
     return Kernel.items(
         k.db.queryForList(
-            "SELECT * FROM notifications WHERE owner_id=? ORDER BY created_at DESC LIMIT 100",
+            "SELECT n.* FROM notifications n WHERE n.owner_id=? AND (n.conversation_id IS NULL OR EXISTS (SELECT 1 FROM conversations c WHERE c.id=n.conversation_id AND c.owner_id=n.owner_id AND c.deleted_at IS NULL)) ORDER BY n.created_at DESC LIMIT 100",
             owner));
   }
 

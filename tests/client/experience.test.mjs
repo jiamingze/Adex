@@ -433,3 +433,60 @@ test("chat positions are conversation-specific, preserve history offsets and fol
   assert.equal(positions.get("history"), undefined);
   assert.equal(positions.get("latest"), undefined);
 });
+
+test("task result visibility expires at 24h regardless of read state, deduplicates and excludes unrelated notifications", async () => {
+  const { recentTaskResults } = await import(
+    "../../.local-data/client-tests/todayModel.js"
+  );
+  const now = new Date("2026-10-14T12:00:00Z");
+  const entry = (id, hours, extra = {}) => ({
+    id,
+    title: "任务已完成",
+    created_at: new Date(now.getTime() - hours * 3600000).toISOString(),
+    ...extra,
+  });
+  const result = recentTaskResults(
+    [
+      entry("expired-unread", 24, { read: false }),
+      entry("older", 25),
+      entry("recent-read", 2, { read: true }),
+      entry("monitor", 1, { title: "监控发现新信息" }),
+      entry("other", 0, { title: "欢迎使用" }),
+      entry("future", -1),
+      entry("bad", 1, { created_at: "invalid" }),
+      entry("dup-old", 3, { event_id: "same" }),
+      entry("dup-new", 2, { event_id: "same" }),
+      entry("run", 1, { title: "Report", run_id: "run-id" }),
+    ],
+    now,
+  );
+  assert.deepEqual(
+    result.map((n) => n.id),
+    ["monitor", "run", "recent-read", "dup-new"],
+  );
+  assert.equal(
+    recentTaskResults(
+      [entry("recent-read", 2, { read: true })],
+      new Date(now.getTime() + 22 * 3600000),
+    ).length,
+    0,
+  );
+});
+
+test("priority tags map all four quadrants and result excerpts stay bounded plain text", async () => {
+  const { taskPriority, resultExcerpt } = await import(
+    "../../.local-data/client-tests/todayModel.js"
+  );
+  assert.equal(
+    taskPriority({ important: true, urgent: true }).label,
+    "重要紧急",
+  );
+  assert.equal(taskPriority({ important: true, urgent: false }).label, "重要");
+  assert.equal(taskPriority({ important: false, urgent: true }).label, "紧急");
+  assert.equal(taskPriority({ important: false, urgent: false }).label, "普通");
+  assert.equal(
+    resultExcerpt("## **结果**\n[来源](https://example.com)\n```js\ncode\n```"),
+    "结果 来源 [附件内容]",
+  );
+  assert.ok(resultExcerpt("x".repeat(500)).length <= 220);
+});

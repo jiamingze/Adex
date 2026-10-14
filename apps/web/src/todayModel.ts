@@ -148,3 +148,52 @@ export function planningPrompt(
   }
   return lines.join("\n");
 }
+
+export function taskPriority(task: { important: boolean; urgent: boolean }) {
+  return task.important && task.urgent
+    ? { label: "重要紧急", tone: "critical" }
+    : task.important
+      ? { label: "重要", tone: "important" }
+      : task.urgent
+        ? { label: "紧急", tone: "urgent" }
+        : { label: "普通", tone: "normal" };
+}
+/** Read status never extends visibility; original durable records are untouched. */
+export function recentTaskResults<
+  T extends {
+    id: string;
+    event_id?: string;
+    run_id?: string | null;
+    title: string;
+    created_at: string;
+  },
+>(items: T[], now = new Date()) {
+  const cutoff = now.getTime() - 24 * 60 * 60 * 1000;
+  const seen = new Set<string>();
+  return items
+    .filter((item) => {
+      const time = Date.parse(item.created_at);
+      return (
+        (item.run_id ||
+          ["任务已完成", "监控发现新信息"].includes(item.title)) &&
+        time > cutoff &&
+        time <= now.getTime()
+      );
+    })
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    .filter((item) => {
+      const key = item.event_id || item.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+export function resultExcerpt(body: string) {
+  return body
+    .replace(/```[\s\S]*?```/g, " [附件内容] ")
+    .replace(/!?\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[#*>|`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220);
+}

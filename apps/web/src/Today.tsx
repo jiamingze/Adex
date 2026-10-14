@@ -12,7 +12,7 @@ import {
   Clock3,
   Brain,
 } from "lucide-react";
-import { api, type Schedule, type Run } from "./api";
+import { api, type Schedule, type Run, type Notification } from "./api";
 import {
   assistantApi,
   type MatrixTask,
@@ -25,6 +25,9 @@ import {
   isDueToday,
   awaitingAction,
   planningPrompt,
+  taskPriority,
+  recentTaskResults,
+  resultExcerpt,
 } from "./todayModel";
 import { native } from "./platform";
 import { requestCalendarPermission } from "./nativeCalendar";
@@ -45,6 +48,7 @@ type Props = {
   onAssistant: (tab: AssistantTab) => void;
 };
 type Data = {
+  results: Notification[] | null;
   tasks: MatrixTask[] | null;
   schedules: Schedule[] | null;
   runs: Run[] | null;
@@ -53,20 +57,13 @@ type Data = {
   connections: { items: { status: string }[]; availability: string } | null;
 };
 const empty: Data = {
+  results: null,
   tasks: null,
   schedules: null,
   runs: null,
   actions: null,
   signals: null,
   connections: null,
-};
-const runLabels: Record<string, string> = {
-  QUEUED: "等待执行",
-  RUNNING: "正在处理",
-  COMPLETED: "已完成",
-  FAILED: "执行失败",
-  UNKNOWN: "结果待核对",
-  CANCELLED: "已取消",
 };
 
 export function Today({
@@ -244,7 +241,14 @@ export function Today({
       ?.filter((s) => s.status === "ACTIVE" && s.next_fire_at)
       .sort((a, b) => Date.parse(a.next_fire_at!) - Date.parse(b.next_fire_at!))
       .slice(0, 3) ?? [];
-  const attention = awaitingAction(data.actions ?? []);
+  const attention = awaitingAction(data.actions ?? []).sort(
+    (a, b) => Number(b.state === "UNKNOWN") - Number(a.state === "UNKNOWN"),
+  );
+  const attentionRows = [
+    ...attention.map((action) => ({ kind: "action" as const, action })),
+    ...focus.map((task) => ({ kind: "task" as const, task })),
+  ].slice(0, 5);
+  const results = recentTaskResults(data.results ?? [], now).slice(0, 5);
   const date = now.toLocaleDateString("zh-CN", {
     month: "long",
     day: "numeric",
@@ -403,81 +407,98 @@ export function Today({
             </button>
           </div>
           <div className="today-grid">
-            <section className="experience-card">
+            <section className="experience-card today-attention">
               <header>
                 <h2>
                   <Circle size={17} />
-                  优先关注
+                  待你处理
                 </h2>
-                <button onClick={() => onNavigate("matrix")}>
-                  四象限
-                  <ArrowRight size={14} />
-                </button>
+                <div className="attention-links">
+                  <button onClick={() => onNavigate("matrix")}>待办</button>
+                  <button onClick={() => onAssistant("actions")}>
+                    审批
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
               </header>
               {taskError && (
                 <p className="experience-inline-error" role="alert">
                   {taskError}
                 </p>
               )}
-              {focus.slice(0, 5).map((t) => (
-                <div className="today-task" key={t.id}>
+              {attentionRows.map((row) =>
+                row.kind === "task" ? (
+                  (() => {
+                    const t = row.task,
+                      priority = taskPriority(t);
+                    return (
+                      <div className="attention-row" key={"task:" + t.id}>
+                        <button
+                          className="attention-check"
+                          aria-label={`完成任务 ${t.title}`}
+                          disabled={!!pending}
+                          onClick={() => complete(t)}
+                        >
+                          <Circle size={17} />
+                        </button>
+                        <button
+                          className="attention-title"
+                          onClick={() => onNavigate("matrix")}
+                        >
+                          <strong>{t.title}</strong>
+                          <small>{dueCaption(t.due_at)}</small>
+                        </button>
+                        <span className={`priority-tag ${priority.tone}`}>
+                          {priority.label}
+                        </span>
+                      </div>
+                    );
+                  })()
+                ) : (
                   <button
-                    aria-label={`完成任务 ${t.title}`}
-                    disabled={!!pending}
-                    onClick={() => complete(t)}
-                    className="today-check"
+                    className="attention-row attention-action"
+                    key={"action:" + row.action.id}
+                    onClick={() => onAssistant("actions")}
                   >
-                    <Circle size={21} />
+                    <ShieldCheck size={17} />
+                    <span className="attention-title">
+                      <strong>
+                        {row.action.kind === "calendar.update"
+                          ? "调整日历安排"
+                          : row.action.kind === "gmail.send"
+                            ? "发送邮件"
+                            : "确认助手操作"}
+                      </strong>
+                      <small>
+                        {row.action.state === "UNKNOWN"
+                          ? "核对执行结果，避免重复操作"
+                          : "查看内容后决定是否执行"}
+                      </small>
+                    </span>
+                    <span
+                      className={`priority-tag ${row.action.state === "UNKNOWN" ? "critical" : "approval"}`}
+                    >
+                      {row.action.state === "UNKNOWN" ? "待核对" : "待确认"}
+                    </span>
                   </button>
-                  <button
-                    className="today-task-title"
-                    onClick={() => onNavigate("matrix")}
-                  >
-                    <strong>{t.title}</strong>
-                    <small>
-                      {dueCaption(t.due_at)}
-                      {t.important && " · 重要"}
-                    </small>
-                  </button>
-                </div>
-              ))}
-              {!focus.length &&
-                sectionState("tasks", "暂时没有待办，为今天留一件重要的事。")}
-            </section>
-            <section className="experience-card">
-              <header>
-                <h2>
-                  <ShieldCheck size={17} />
-                  需要你决定
-                </h2>
-                <button onClick={() => onAssistant("actions")}>
-                  查看
-                  <ArrowRight size={14} />
-                </button>
-              </header>
-              {attention.slice(0, 3).map((a) => (
-                <button
-                  className="today-work"
-                  key={a.id}
-                  onClick={() => onAssistant("actions")}
-                >
-                  <span
-                    className={`experience-status ${a.state === "UNKNOWN" ? "warning" : ""}`}
-                  >
-                    {a.state === "UNKNOWN" ? "待核对" : "待确认"}
-                  </span>
-                  <strong>
-                    {a.kind === "calendar.update" ? "调整日历安排" : "发送邮件"}
-                  </strong>
-                  <small>
-                    {a.state === "UNKNOWN"
-                      ? "执行结果尚未确认，先核对，避免重复操作。"
-                      : "查看具体内容后，再决定是否执行。"}
-                  </small>
-                </button>
-              ))}
-              {!attention.length &&
-                sectionState("actions", "没有需要你确认的操作。")}
+                ),
+              )}
+              {errors.includes("actions") && sectionState("actions", "")}
+              {errors.includes("tasks") && sectionState("tasks", "")}
+              {!attentionRows.length &&
+                !errors.includes("actions") &&
+                !errors.includes("tasks") && (
+                  <p className="experience-empty">
+                    {(data.tasks === null || data.actions === null) && loading
+                      ? "正在读取待办与审批…"
+                      : "暂时没有需要处理的事项。"}
+                  </p>
+                )}
+              {focus.length + attention.length > 5 && (
+                <p className="attention-more">
+                  显示前 5 项 · 其余事项见待办或审批
+                </p>
+              )}
             </section>
             <section className="experience-card">
               <header>
@@ -649,25 +670,53 @@ export function Today({
                 <ArrowRight size={14} />
               </button>
             </header>
-            {activeRuns.slice(0, 3).map((r) => (
+            <p className="result-window">
+              最近 24 小时的执行结果 · 到期自动隐藏
+            </p>
+            {results.map((result) => (
               <button
-                className="today-run"
-                key={r.id}
-                onClick={() => onConversation(r.origin_conversation_id)}
+                className="today-result"
+                key={result.id}
+                onClick={() => onConversation(result.conversation_id)}
               >
-                <span
-                  className={`experience-status ${r.status === "UNKNOWN" ? "warning" : ""}`}
-                >
-                  {runLabels[r.status] || r.status}
+                <span className="result-mark">
+                  <Check size={17} />
                 </span>
-                <strong>{r.instruction.slice(0, 100)}</strong>
-                <ArrowRight size={16} />
+                <span className="result-content">
+                  <strong>
+                    {(() => {
+                      const run = data.runs?.find(
+                        (run) => run.id === result.run_id,
+                      );
+                      return (
+                        data.schedules?.find(
+                          (schedule) => schedule.id === run?.schedule_id,
+                        )?.title ||
+                        run?.instruction.slice(0, 100) ||
+                        result.title
+                      );
+                    })()}
+                  </strong>
+                  <span>
+                    {resultExcerpt(result.body) ||
+                      "结果已送达，打开原会话查看。"}
+                  </span>
+                  <small>
+                    {new Date(result.created_at).toLocaleString("zh-CN", {
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </small>
+                </span>
+                <ArrowRight size={15} />
               </button>
             ))}
-            {!activeRuns.length &&
+            {!results.length &&
               sectionState(
-                "runs",
-                "当前没有后台工作。你可以随时安排研究、创作或提醒。",
+                "results",
+                "最近 24 小时没有新的任务执行结果。历史结果仍可在通知或原会话查看。",
               )}
           </section>
           {updated && (

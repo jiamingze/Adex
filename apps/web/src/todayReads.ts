@@ -1,8 +1,17 @@
 import { request } from "./api";
-import type { Schedule, Run } from "./api";
+import type { Schedule, Run, Notification } from "./api";
 import type { Action, Signal, Connection } from "./assistantApi";
 import { createReadResource } from "./readResource";
 export const todayReads = {
+  results: createReadResource((signal) =>
+    request<{ items: Notification[] }>(
+      "/notifications",
+      "GET",
+      undefined,
+      undefined,
+      { signal },
+    ),
+  ),
   schedules: createReadResource((signal) =>
     request<{ items: Schedule[] }>(
       "/automations",

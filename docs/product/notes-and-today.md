@@ -25,3 +25,11 @@ Remove duplicate page headings, keep header names Today / Todo / 笔记. Meeting
 ## Chat position preservation (2026-10-14)
 
 Store each conversation's scroll offset and near-bottom state in session memory; clear on account changes. Returning from another tab restores the saved history offset, or follows the latest message if previously near the bottom. First load defaults to bottom. Do not record or restore against another conversation's messages or the empty loading placeholder. Streaming follows only while near bottom; manual history reading stays stationary. No message data or durable storage in this cache.
+
+## Compact attention and 24-hour result feed (2026-10-14)
+
+Merge attention tasks and Action Approvals into “待你处理”, maximum five rows total. UNKNOWN reconciliation and approvals precede priority-sorted open tasks; separate links expose all tasks and approvals. This is a projection only, not executing an approval. Right-aligned text+color priority labels remain readable without color perception. Labels are based on task important/urgent flags; actions get distinct confirmation/reconciliation tags. Inspiration: Todoist priority scanning (https://www.todoist.com/help/articles/set-a-priority-in-todoist-Wy82Jp), not a new task model.
+
+“交给 Adex 的事” shows at most five newest durable notification result records from the existing deduplicated App result backfill. Include Run-linked outcomes and existing legacy result/monitor titles; exclude unrelated general notifications. Show title, a bounded plain-text summary and delivery time; click opens the original conversation. Visibility is `now-24h < created_at <= now` irrespective of read flag, deduplicated by event identity. After 24 hours it disappears from this projection but remains in notifications/history. Existing API returns at most 100 notifications; the feed is limited to those records, so it is not a complete archive. Empty/missing/unavailable states stay distinct. No database/API migration or new scheduler/notification system.
+
+Notification read projection excludes records attached to deleted conversations so exposing results on Today does not restore deleted conversation text. This filters existing records without purging their durable delivery ledger; no migration.

@@ -23,6 +23,7 @@ export type Schedule = {
   origin_conversation_id: string;
 };
 export type Run = {
+  schedule_id?: string | null;
   id: string;
   instruction: string;
   status: string;
@@ -32,6 +33,8 @@ export type Run = {
   origin_conversation_id: string;
 };
 export type Notification = {
+  event_id?: string;
+  run_id?: string | null;
   id: string;
   title: string;
   body: string;
