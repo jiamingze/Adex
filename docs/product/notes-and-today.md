@@ -37,3 +37,5 @@ Notification read projection excludes records attached to deleted conversations 
 ## Compact page context bars (2026-10-14)
 
 Use one route name in the top bar, followed by one compact contextual row in page content. Today: greeting/name on the left, device-local date and weekday on the right, refresh icon at the edge. Remove the decorative sun icon because there is no real weather projection; do not imply temperature or weather from a greeting icon. No new location permission or weather service. Long names truncate without pushing the date/actions outside phone width. Notes uses count + New, Matrix uses current workload + Add; other pages remove repeated route names and oversized explanatory headers. Keep authentication/welcome dialogs and task content headings intact. This is presentation only, no API/schema changes.
+
+Bottom tab navigation disables text selection, WebKit long-press callouts and context menus within the navigation only. It preserves ordinary taps, keyboard focus and accessibility; chat/note content retains selection and copy. No touchstart cancellation or global copy suppression.

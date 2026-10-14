@@ -1701,3 +1701,15 @@
     padding: 8px 11px;
   }
 }
+
+/* Navigation labels behave as controls on iOS, not selectable document text. */
+.mobile-tabbar,
+.mobile-tabbar * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+.mobile-tabbar button {
+  touch-action: manipulation;
+}

@@ -302,3 +302,8 @@ The signed app is prepared; actual installation requires reconnecting the phone.
 
 - Single route heading in the top bar; removed repeated page names/marketing blocks from Today, Matrix, Notes, Assistant, Settings, automations, memory and tools headers. Context/count and actions share a compact row. Today shows greeting/name alongside device-local date/weekday; night hours use a night greeting. No weather provider is connected, so the decorative sun no longer implies actual weather.
 - Validation: 21 client tests, check-style/architecture, secret scan, Web/iOS prepare and signed Xcode build. UI TEST_FIXTURE at 320 and 390 pixels shows no horizontal overflow; Today context and Matrix header measured 36px, Notes header about 34px; one accessible primary route heading. Settings has no repeated body title. No API/database or permission changes.
+
+### Bottom navigation selection policy
+
+- Bottom tab controls and their labels/icons disable text selection, WebKit touch callouts and dragging; the nav-local context menu handler prevents long-press/right-click menus. Ordinary tap, keyboard focus and accessibility remain; no global text/copy/touchstart suppression, so chat and note content remain selectable.
+- Verification: check-style/architecture, Web build, iOS prepare/signed Xcode build, secret scan and diff whitespace check. This is a scoped reversible styling/event change, no API/schema changes or new synthetic tests. Physical-device long-press acceptance remains a user check after installation.

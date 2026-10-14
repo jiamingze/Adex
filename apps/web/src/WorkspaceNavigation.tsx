@@ -74,6 +74,7 @@ export function MobileNavigation({
     <nav
       className={`mobile-tabbar ${keyboardVisible ? "keyboard-hidden" : ""}`}
       aria-label="快捷导航"
+      onContextMenu={(event) => event.preventDefault()}
     >
       {primary.map((item) => (
         <button
