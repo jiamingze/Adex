@@ -60,7 +60,7 @@ import {
   pageLabels,
   type Page,
 } from "./navigation";
-import { Workspace } from "./Workspace";
+import { Notes } from "./Notes";
 import { Tools } from "./Tools";
 import { Settings } from "./Settings";
 import { accountApi, workspaceApi } from "./api";
@@ -825,10 +825,9 @@ function App() {
                 <ChevronDown size={14} />
               </label>
             ) : (
-              <span>Adex</span>
+              <span>{page === "today" ? "Today" : page === "matrix" ? "Todo" : "Adex"}</span>
             )}
-            <ChevronRight size={13} />
-            <strong>{pageLabels[page]}</strong>
+            {page !== "today" && page !== "matrix" && <><ChevronRight size={13} /><strong>{pageLabels[page]}</strong></>}
           </div>
           <div className="top-actions">
             <button
@@ -1470,7 +1469,7 @@ function App() {
         )}
         {!guest && page === "tools" && <Tools conversation={current} />}
         {!guest && page === "workspace" && (
-          <Workspace conversations={conversations} current={current} />
+          <Notes />
         )}
         {!guest && page === "memory" && (
           <MemoryPage

@@ -16,10 +16,10 @@ export const pageLabels: Record<Page, string> = {
   chat: "聊天",
   tasks: "自动任务",
   memory: "个人记忆",
-  workspace: "作品与文件",
+  workspace: "笔记",
   tools: "音乐与工具",
   settings: "我的设置",
-  matrix: "任务四象限",
+  matrix: "待办",
   assistant: "主动助手",
 };
 export function isPage(value: unknown): value is Page {
@@ -35,6 +35,7 @@ export function routeFromPath(path: string): {
     );
   if (match) return { page: "chat", conversation: match[1] };
   const value = path.replace(/^\//, "").replace(/\/$/, "");
+  if (value === "notes") return { page: "workspace", conversation: "" };
   return { page: isPage(value) ? value : "chat", conversation: "" };
 }
 export function pagePath(page: Page, conversation = "") {
@@ -42,5 +43,7 @@ export function pagePath(page: Page, conversation = "") {
     ? conversation
       ? `/c/${conversation}`
       : "/"
-    : `/${page}`;
+    : page === "workspace"
+      ? "/notes"
+      : `/${page}`;
 }

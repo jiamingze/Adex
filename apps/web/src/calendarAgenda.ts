@@ -2,6 +2,8 @@
 export type CalendarEvent = {
   id: string;
   summary?: string | null;
+  organizer?: string | null;
+  location?: string | null;
   status?: string | null;
   start?: { dateTime?: string; date?: string; timeZone?: string } | null;
   end?: { dateTime?: string; date?: string; timeZone?: string } | null;
@@ -9,6 +11,8 @@ export type CalendarEvent = {
 export type AgendaItem = {
   id: string;
   title: string;
+  organizer?: string;
+  location?: string;
   start: number;
   end: number;
   allDay: boolean;
@@ -57,6 +61,14 @@ export function upcomingAgenda(
     items.push({
       id: event.id,
       title: event.summary?.trim() || "未命名安排",
+      organizer:
+        typeof event.organizer === "string"
+          ? event.organizer.trim() || undefined
+          : undefined,
+      location:
+        typeof event.location === "string"
+          ? event.location.trim() || undefined
+          : undefined,
       start,
       end,
       allDay,

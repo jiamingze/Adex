@@ -55,10 +55,15 @@ public class AdexCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             day.dateFormat = "yyyy-MM-dd"
             let rows: [[String: Any]] = events.prefix(200).enumerated().map { index, event in
                 let key = event.isAllDay ? "date" : "dateTime"
-                return ["id": "\(event.eventIdentifier ?? String(index)):\(event.startDate.timeIntervalSince1970)",
+                var row: [String: Any] = ["id": "\(event.eventIdentifier ?? String(index)):\(event.startDate.timeIntervalSince1970)",
                         "summary": event.title ?? "未命名安排",
                         "start": [key: event.isAllDay ? day.string(from: event.startDate) : iso.string(from: event.startDate)],
                         "end": [key: event.isAllDay ? day.string(from: event.endDate) : iso.string(from: event.endDate)]]
+                if let organizer = event.organizer {
+                    row["organizer"] = organizer.name ?? organizer.url.absoluteString.replacingOccurrences(of: "mailto:", with: "")
+                }
+                if let location = event.location, !location.isEmpty { row["location"] = location }
+                return row
             }
             call.resolve(["permission": "GRANTED", "events": rows, "partial": events.count > 200])
         }

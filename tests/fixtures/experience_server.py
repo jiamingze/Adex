@@ -143,6 +143,27 @@ DATA = {
             {"id": "trip", "title": "周末旅行计划", "kind": "TRAVEL", "revision": 2},
         ]
     },
+    "/notes": {
+        "items": [
+            {
+                "id": "fixture-note",
+                "title": "周末的几个想法",
+                "preview": "给自己留一点时间，去公园走走。",
+                "pinned": True,
+                "revision": 1,
+                "updated_at": "2026-10-14T08:00:00Z",
+            }
+        ],
+        "has_more": False,
+    },
+    "/notes/fixture-note": {
+        "id": "fixture-note",
+        "title": "周末的几个想法",
+        "content": "给自己留一点时间，去公园走走。\n\n这是一条 TEST_FIXTURE 笔记。",
+        "pinned": True,
+        "revision": 1,
+        "updated_at": "2026-10-14T08:00:00Z",
+    },
     "/connectors": {"items": [], "availability": "BLOCKED_EXTERNAL"},
     "/notification-preferences": {
         "enabled": True,

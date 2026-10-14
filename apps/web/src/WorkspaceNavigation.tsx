@@ -2,7 +2,7 @@ import {
   Sun,
   MessageSquare,
   Check,
-  FolderOpen,
+  NotebookPen,
   CalendarClock,
   Sparkles,
   Brain,
@@ -17,7 +17,7 @@ const primary = [
   { id: "today", icon: Sun },
   { id: "chat", icon: MessageSquare },
   { id: "matrix", icon: Check },
-  { id: "workspace", icon: FolderOpen },
+  { id: "workspace", icon: NotebookPen },
 ] as const;
 const secondary = [
   { id: "assistant", icon: Sparkles },
@@ -86,7 +86,7 @@ export function MobileNavigation({
             {item.id === "matrix"
               ? "待办"
               : item.id === "workspace"
-                ? "作品"
+                ? "笔记"
                 : pageLabels[item.id]}
           </span>
         </button>

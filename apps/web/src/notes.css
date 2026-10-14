@@ -1,0 +1,225 @@
+.notes-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.notes-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.notes-heading h1 {
+  margin: 6px 0;
+  font-size: 28px;
+}
+.notes-heading p {
+  color: var(--muted);
+  margin: 0;
+}
+.notes-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--text, #202020) !important;
+  color: var(--bg, #fff) !important;
+  border: 0;
+  border-radius: 18px;
+  padding: 9px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.notes-layout {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  border: 1px solid var(--border, #eee);
+  border-radius: 22px;
+  min-height: 60vh;
+  overflow: hidden;
+  background: var(--bg, #fff);
+}
+.notes-list {
+  border-right: 1px solid var(--border, #eee);
+  padding: 14px;
+  overflow: auto;
+}
+.notes-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--hover, #f6f6f6);
+  padding: 10px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.notes-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  min-width: 0;
+}
+.note-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  border-radius: 12px;
+  margin-bottom: 4px;
+}
+.note-row.selected,
+.note-row:hover {
+  background: var(--hover, #f4f4f4);
+}
+.note-row strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.note-row span,
+.note-row small {
+  color: var(--muted, #777);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.notes-editor {
+  padding: 18px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.notes-toolbar > span {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.notes-toolbar button:not(.notes-primary) {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 7px;
+}
+.notes-back {
+  display: none;
+}
+.note-title {
+  font-size: 24px;
+  font-weight: 600;
+  border: 0;
+  outline: 0;
+  padding: 8px;
+  background: transparent;
+  color: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.note-body {
+  flex: 1;
+  min-height: 350px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  padding: 12px 8px;
+  line-height: 1.8;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+}
+.notes-empty {
+  display: flex;
+  flex: 1;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: var(--muted);
+  text-align: center;
+  padding: 24px;
+  gap: 8px;
+}
+.notes-empty h2 {
+  font-size: 20px;
+  color: var(--text);
+  margin: 0;
+}
+.notes-empty p {
+  font-size: 13px;
+}
+.notes-page button:disabled {
+  opacity: 0.5;
+}
+.notes-page button {
+  cursor: pointer;
+}
+@media (max-width: 700px) {
+  .notes-page {
+    padding: 20px 16px;
+  }
+  .notes-layout {
+    display: block;
+    border: 0;
+    min-height: 60vh;
+  }
+  .notes-list {
+    border: 0;
+    padding: 0;
+  }
+  .notes-editor {
+    display: none;
+    padding: 0;
+  }
+  .notes-open .notes-list {
+    display: none;
+  }
+  .notes-open .notes-editor {
+    display: flex;
+  }
+  .notes-back {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+  }
+  .notes-toolbar {
+    margin: 0 0 16px;
+    gap: 4px;
+  }
+  .notes-toolbar > span {
+    font-size: 11px;
+  }
+  .notes-open .notes-heading {
+    display: none;
+  }
+  .note-row {
+    border-bottom: 1px solid var(--border, #eee);
+    padding: 18px 12px;
+  }
+  .note-body {
+    min-height: 50vh;
+    font-size: 16px;
+  }
+  .note-title {
+    font-size: 25px;
+  }
+  .notes-search input {
+    font-size: 16px;
+  }
+}

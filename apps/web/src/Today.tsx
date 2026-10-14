@@ -8,17 +8,10 @@ import {
   Sparkles,
   Circle,
   ShieldCheck,
-  FolderOpen,
   Clock3,
   Brain,
 } from "lucide-react";
-import {
-  api,
-  workspaceApi,
-  type Schedule,
-  type Run,
-  type Artifact,
-} from "./api";
+import { api, type Schedule, type Run } from "./api";
 import {
   assistantApi,
   type MatrixTask,
@@ -36,6 +29,7 @@ import { native } from "./platform";
 import { requestCalendarPermission } from "./nativeCalendar";
 import { calendarResource } from "./calendarResource";
 import { upcomingAgenda, agendaTime } from "./calendarAgenda";
+import { todayReads } from "./todayReads";
 import { matrixResource } from "./matrixResource";
 import type { AssistantTab } from "./AssistantHub";
 import type { Page } from "./navigation";
@@ -55,7 +49,6 @@ type Data = {
   runs: Run[] | null;
   actions: Action[] | null;
   signals: Signal[] | null;
-  artifacts: Artifact[] | null;
   connections: { items: { status: string }[]; availability: string } | null;
 };
 const empty: Data = {
@@ -64,7 +57,6 @@ const empty: Data = {
   runs: null,
   actions: null,
   signals: null,
-  artifacts: null,
   connections: null,
 };
 const runLabels: Record<string, string> = {
@@ -90,7 +82,20 @@ export function Today({
     calendarResource.getSnapshot,
   );
   const agenda = upcomingAgenda(calendar.data?.events ?? []);
-  const [data, setData] = useState<Data>(empty);
+  const [data, setData] = useState<Data>(() => ({
+    ...empty,
+    tasks: guest ? null : (matrixResource.getSnapshot().data?.items ?? null),
+    ...Object.fromEntries(
+      Object.entries(todayReads).map(([key, resource]) => [
+        key,
+        guest
+          ? null
+          : key === "connections"
+            ? resource.getSnapshot().data
+            : (resource.getSnapshot().data?.items ?? null),
+      ]),
+    ),
+  }));
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(!guest);
   const [revision, setRevision] = useState(0);
@@ -140,38 +145,27 @@ export function Today({
     }
     let live = true;
     setLoading(true);
-    // Read projections independently: an unavailable connector must not hide durable tasks.
-    Promise.allSettled([
-      matrixResource.load(),
-      api.schedules(),
-      api.runs(),
-      assistantApi.actions(),
-      assistantApi.signals(),
-      workspaceApi.artifacts(),
-      assistantApi.connections(),
-    ]).then((results) => {
-      if (!live) return;
-      const next: Data = { ...empty };
-      const keys = [
-        "tasks",
-        "schedules",
-        "runs",
-        "actions",
-        "signals",
-        "artifacts",
-        "connections",
-      ] as const;
-      const failures: string[] = [];
-      results.forEach((result, i) => {
-        if (result.status === "fulfilled") {
-          const value = i === 6 ? result.value : result.value.items;
-          Object.assign(next, { [keys[i]]: value });
-        } else failures.push(keys[i]);
-      });
-      setData(next);
-      setErrors(failures);
-      setUpdated(new Date());
-      setLoading(false);
+    setErrors([]);
+    const reads = { tasks: matrixResource, ...todayReads };
+    let remaining = Object.keys(reads).length;
+    // Each bounded read publishes immediately; a slow connector cannot block tasks.
+    Object.entries(reads).forEach(([key, resource]) => {
+      void resource
+        .load(revision > 0)
+        .then((value) => {
+          if (!live) return;
+          setData((previous) => ({
+            ...previous,
+            [key]: key === "connections" ? value : value.items,
+          }));
+          setUpdated(new Date());
+        })
+        .catch(() => {
+          if (live) setErrors((previous) => [...previous, key]);
+        })
+        .finally(() => {
+          if (live && --remaining === 0) setLoading(false);
+        });
     });
     return () => {
       live = false;
@@ -213,7 +207,7 @@ export function Today({
       <p className="experience-inline-error" role="status">
         暂时无法读取，请刷新重试。
       </p>
-    ) : loading && !updated ? (
+    ) : data[key as keyof Data] === null && loading ? (
       <p className="experience-empty">正在整理…</p>
     ) : (
       <p className="experience-empty">{text}</p>
@@ -327,7 +321,7 @@ export function Today({
             <div className="today-signin">
               <div>
                 <strong>让手机与网页保持同步</strong>
-                <p>登录后，任务、作品和个人记忆都保存在你的账户中。</p>
+                <p>登录后，任务、笔记和个人记忆都保存在你的账户中。</p>
               </div>
               <button className="experience-primary" onClick={onSignIn}>
                 登录或注册
@@ -462,6 +456,8 @@ export function Today({
                 <div className="today-work" key={item.id}>
                   <strong>{item.title}</strong>
                   <small>{agendaTime(item)}</small>
+                  {item.organizer && <small>邀请人：{item.organizer}</small>}
+                  {item.location && <small>地点：{item.location}</small>}
                 </div>
               ))}
               {calendarPermissionError && (
@@ -594,29 +590,6 @@ export function Today({
                 "runs",
                 "当前没有后台工作。你可以随时安排研究、创作或提醒。",
               )}
-          </section>
-          <section className="experience-card">
-            <header>
-              <h2>
-                <FolderOpen size={17} />
-                最近的成果
-              </h2>
-              <button onClick={() => onNavigate("workspace")}>
-                作品与文件
-                <ArrowRight size={14} />
-              </button>
-            </header>
-            <div className="today-artifacts">
-              {data.artifacts?.slice(0, 3).map((a) => (
-                <button key={a.id} onClick={() => onNavigate("workspace")}>
-                  <FolderOpen size={19} />
-                  <strong>{a.title}</strong>
-                  <small>版本 {a.revision}</small>
-                </button>
-              ))}
-            </div>
-            {!data.artifacts?.length &&
-              sectionState("artifacts", "报告、行程和创作结果，会在这里汇集。")}
           </section>
           {updated && (
             <p className="today-updated" role="status">

@@ -262,3 +262,12 @@ The signed app is prepared; actual installation requires reconnecting the phone.
 - User selected iPhone system calendars rather than Google. Native Today now reads EventKit locally, including synced calendars and expanded recurring events; Web keeps the Google connector option.
 - Explicit permission button, iOS 17 full-access disclosure, read-only bridge, no server upload/persisted calendar cache. Denied access gives settings guidance; refresh/foreground rechecks permissions. Only title/id/start/end are exposed, with 200-result cap and partial warning. No database migration.
 - Validation: `make test-client` (12 passed), `make check-style`, TypeScript/Vite via `pnpm --dir apps/ios prepare`, signed `xcodebuild` and secret scan. Physical-calendar authorization and actual event display still require user acceptance on the phone; synthetic projection tests do not establish real calendar access.
+
+
+### 2026-10-14 · Today performance, native meeting details and private notes
+
+- Top header now displays Today / Todo without the Adex breadcrumb. Today removes recent artifacts and its fetch; sections independently publish with eight-second deadlines and session-local caches. Returning to a visited Today immediately shows cached projections. No server-side scheduling changes.
+- EventKit adds organizer and location when supplied; local-only calendar content stays off server. Metadata projection test excludes invented organizer/location.
+- Notes replaces the workspace navigation entry at `/notes`; `/workspace` remains compatible. Private App PostgreSQL table in app/017.sql, authenticated CRUD/search/pinning, stable-create UUID, CAS saves/deletes and soft deletion. Existing artifacts/files are retained. Explicit saves; unsaved drafts are session-memory only and cleared on account changes. No Apple Notes synchronization, attachments or durable offline drafts in this release.
+- Checks: `make test` (13 client, 9 Java, 33 Agent, 32 Tools; 82 OpenAPI operations), `make test-integration` (41 passed, isolated PG), `make check-style`, secret scan, Web and native builds, signed iPhone install. Browser fixture checks: mobile open/back, retained draft on navigation, cached Today revisit, light/dark notes contrast; forced matrix timeout shows an inline retry error while approvals, schedules and runs remain available. Real native organizer/location display depends on device calendar metadata and still requires device acceptance.
+- Screenshot: [synthetic note example](images/notes-mobile-fixture.jpg), labelled TEST_FIXTURE with no personal data.

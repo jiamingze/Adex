@@ -15,6 +15,8 @@ test("every page restores on direct link and history", () => {
   for (const page of pages)
     assert.equal(routeFromPath(pagePath(page)).page, page);
   assert.equal(routeFromPath("/matrix/").page, "matrix");
+  assert.equal(routeFromPath("/notes").page, "workspace");
+  assert.equal(routeFromPath("/workspace").page, "workspace");
 });
 test("conversation deep links stay distinct from page navigation", () => {
   const id = "52dcd853-05c2-4c5a-873c-da21659bb7e5";
@@ -225,4 +227,32 @@ test("agenda handles exclusive all-day end and flags malformed or unzoned dates"
   );
   assert.equal(result.items[0].allDay, true);
   assert.equal(result.invalid, 2);
+});
+
+test("calendar organizer/location are optional provider metadata, never invented", async () => {
+  const { upcomingAgenda } = await import(
+    "../../.local-data/client-tests/calendarAgenda.js"
+  );
+  const { items } = upcomingAgenda(
+    [
+      {
+        id: "metadata",
+        summary: "Meeting",
+        organizer: " Alice ",
+        location: " Room 3 ",
+        start: { dateTime: "2026-10-14T10:00:00Z" },
+        end: { dateTime: "2026-10-14T11:00:00Z" },
+      },
+      {
+        id: "private",
+        start: { dateTime: "2026-10-14T12:00:00Z" },
+        end: { dateTime: "2026-10-14T13:00:00Z" },
+      },
+    ],
+    new Date("2026-10-14T09:00:00Z"),
+  );
+  assert.equal(items[0].organizer, "Alice");
+  assert.equal(items[0].location, "Room 3");
+  assert.equal(items[1].organizer, undefined);
+  assert.equal(items[1].location, undefined);
 });
