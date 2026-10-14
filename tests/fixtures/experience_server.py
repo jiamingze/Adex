@@ -264,6 +264,14 @@ class Handler(SimpleHTTPRequestHandler):
                         "availability": "TEST_FIXTURE",
                     }
                 )
+            if (
+                fault
+                and fault.value == "notes-read-timeout"
+                and path.startswith("/notes/")
+            ):
+                time.sleep(
+                    12
+                )  # Cached conversion must open without waiting on this read.
             if fault and fault.value == "matrix-timeout" and path == "/matrix":
                 time.sleep(12)  # TEST_FIXTURE: exceed the client's read deadline.
             if fault and fault.value == "actions" and path == "/actions":
@@ -374,6 +382,22 @@ class Handler(SimpleHTTPRequestHandler):
                 }
             )
         return self.reply({"code": "TEST_FIXTURE_WRITE_DISABLED"}, 403)
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/v1/notes/"):
+            return self.reply({"code": "TEST_FIXTURE_WRITE_DISABLED"}, 403)
+        key = parsed.path.removeprefix("/api/v1")
+        note = DATA.get(key)
+        if note is None:
+            return self.reply({"code": "NOTE_NOT_FOUND"}, 404)
+        if parse_qs(parsed.query).get("revision") != [str(note["revision"])]:
+            return self.reply({"code": "REVISION_CONFLICT"}, 409)
+        del DATA[key]
+        DATA["/notes"]["items"] = [
+            row for row in DATA["/notes"]["items"] if row["id"] != note["id"]
+        ]
+        return self.reply({"deleted": True})
 
     def do_PATCH(self):
         if self.path.startswith("/api/v1/notes/"):

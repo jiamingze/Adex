@@ -42,7 +42,7 @@ export const notesApi = {
         { signal },
       ),
     ),
-  remove: (note: Note) =>
+  remove: (note: Pick<Note, "id" | "revision">) =>
     boundedWrite((signal) =>
       request(
         `/notes/${note.id}?revision=${note.revision}`,

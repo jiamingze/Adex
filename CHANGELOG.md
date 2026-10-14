@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fix Today card spacing on mobile/desktop and use a task-list icon for attention items.
+- Move the reply-to-note action after Copy, using an accessible icon with pending feedback.
+- Open confirmed cached notes immediately without a blocking detail fetch; fence stale opens when switching notes.
+- Add long-press/right-click/Shift+F10 note actions for pinning and confirmed deletion; preserve unsaved text when pinning.
+
 - Repair temporary public access with configurable HTTP/2/IPv4 tunnel transport; rebuild and verify the iOS bundled endpoint.
 - Verify signed iPhone build, installation and launch after development certificate repair (real APNs still requires separate acceptance).
 

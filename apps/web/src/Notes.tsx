@@ -1,5 +1,5 @@
 import { usePageScroll } from "./usePageScroll";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ArrowLeft,
   Search,
@@ -18,6 +18,7 @@ import {
   acceptNote,
   forgetNote,
   type Note,
+  type NoteSummary,
 } from "./notesApi";
 import "./notes.css";
 export function Notes() {
@@ -34,6 +35,26 @@ export function Notes() {
     [saving, setSaving] = useState(false),
     [revision, setRevision] = useState(0),
     [saved, setSaved] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [menu, setMenu] = useState<NoteSummary | null>(null);
+  const press = useRef<{
+    timer: ReturnType<typeof setTimeout>;
+    x: number;
+    y: number;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  const openEpoch = useRef(0);
+  function cancelPress() {
+    if (press.current) clearTimeout(press.current.timer);
+    press.current = null;
+  }
+  useEffect(
+    () => () => {
+      cancelPress();
+      openEpoch.current++;
+    },
+    [],
+  );
   const listScroll = usePageScroll<HTMLElement>("notes-list:" + query);
   const bodyScroll = usePageScroll<HTMLTextAreaElement>(
     "notes-body:" + (selected?.id ?? ""),
@@ -79,15 +100,61 @@ export function Notes() {
     .map((n) => ({ ...n, preview: n.content }));
   async function open(id: string) {
     if (busy) return;
+    const epoch = ++openEpoch.current;
     setError("");
-    setBusy(true);
+    setSaved(false);
+    const cached = noteDrafts.get(id) ?? noteDetail(id).getSnapshot().data;
+    // Converted notes already have an authoritative response. Opening that copy
+    // must not wait for another mobile network round trip or lock the editor.
+    if (cached) {
+      setSelected(cached);
+      setOpening(false);
+      return;
+    }
+    setOpening(true);
     try {
-      const cached = noteDetail(id).getSnapshot().data;
-      if (cached) setSelected(noteDrafts.get(id) ?? cached);
-      setSelected(noteDrafts.get(id) ?? (await noteDetail(id).load()));
-      setSaved(false);
+      const note = await noteDetail(id).load();
+      if (epoch === openEpoch.current) setSelected(noteDrafts.get(id) ?? note);
     } catch {
-      setError("无法打开笔记，请重试。");
+      if (epoch === openEpoch.current) setError("无法打开笔记，请重试。");
+    } finally {
+      if (epoch === openEpoch.current) setOpening(false);
+    }
+  }
+  async function pinRow(row: NoteSummary) {
+    if (busy) return;
+    setMenu(null);
+    setBusy(true);
+    setError("");
+    try {
+      const draft = noteDrafts.get(row.id);
+      if (draft && !draft.revision) {
+        const next = { ...draft, pinned: !draft.pinned };
+        noteDrafts.set(row.id, next);
+        if (selected?.id === row.id) setSelected(next);
+        setRevision((n) => n + 1);
+      } else {
+        const current = await noteDetail(row.id).load(true);
+        const result = await notesApi.save({
+          ...current,
+          pinned: !current.pinned,
+        });
+        acceptNote(result);
+        // Pin only the confirmed server copy; preserve unsaved editor text.
+        const latestDraft = noteDrafts.get(row.id);
+        if (latestDraft) {
+          const next = {
+            ...latestDraft,
+            pinned: result.pinned,
+            revision: result.revision,
+            updated_at: result.updated_at,
+          };
+          noteDrafts.set(row.id, next);
+          if (selected?.id === row.id) setSelected(next);
+        } else if (selected?.id === row.id) setSelected(result);
+      }
+    } catch {
+      setError("置顶更新失败，请刷新后重试。");
     } finally {
       setBusy(false);
     }
@@ -100,6 +167,8 @@ export function Notes() {
     setSaved(false);
   }
   function create() {
+    openEpoch.current++;
+    setOpening(false);
     const note = {
       id: crypto.randomUUID(),
       title: "",
@@ -191,15 +260,16 @@ export function Notes() {
       setBusy(false);
     }
   }
-  async function remove() {
-    if (!selected || busy || !window.confirm("删除这条笔记？删除后无法恢复。"))
+  async function remove(target: Note | NoteSummary | null = selected) {
+    if (!target || busy || !window.confirm("删除这条笔记？删除后无法恢复。"))
       return;
     setBusy(true);
     try {
-      if (selected.revision) await notesApi.remove(selected);
-      forgetNote(selected.id);
-      noteDrafts.delete(selected.id);
-      setSelected(null);
+      if (target.revision) await notesApi.remove(target);
+      forgetNote(target.id);
+      noteDrafts.delete(target.id);
+      if (selected?.id === target.id) setSelected(null);
+      setMenu(null);
       setRevision((n) => n + 1);
       setError("");
     } catch {
@@ -229,6 +299,47 @@ export function Notes() {
           <button onClick={() => setRevision((n) => n + 1)}>重试</button>
         </div>
       )}
+      {menu && (
+        <div className="note-menu-backdrop" onClick={() => setMenu(null)}>
+          <div
+            className="note-context-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-label="笔记操作"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setMenu(null);
+              if (event.key === "Tab") {
+                const buttons = Array.from(
+                  event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                    "button:not(:disabled)",
+                  ),
+                );
+                const first = buttons[0],
+                  last = buttons[buttons.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last?.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first?.focus();
+                }
+              }
+            }}
+          >
+            <strong>{menu.title || "未命名笔记"}</strong>
+            <button autoFocus disabled={busy} onClick={() => void pinRow(menu)}>
+              <Pin size={18} />
+              {menu.pinned ? "取消置顶" : "置顶笔记"}
+            </button>
+            <button disabled={busy} onClick={() => void remove(menu)}>
+              <Trash2 size={18} />
+              删除笔记
+            </button>
+            <button onClick={() => setMenu(null)}>取消</button>
+          </div>
+        </div>
+      )}
       <div className="notes-layout">
         <aside ref={listScroll} className="notes-list">
           <label className="notes-search">
@@ -240,12 +351,57 @@ export function Notes() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
+          {opening && <p role="status">正在打开笔记…</p>}
           {loading && !items.length && <p>正在读取笔记…</p>}
           {[...draftRows, ...items].map((note) => (
             <button
               className={`note-row ${selected?.id === note.id ? "selected" : ""}`}
               key={note.id}
-              onClick={() => open(note.id)}
+              onClick={() => {
+                if (suppressClick.current) {
+                  suppressClick.current = false;
+                  return;
+                }
+                void open(note.id);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                cancelPress();
+                setMenu(note);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "F10" && event.shiftKey) {
+                  event.preventDefault();
+                  setMenu(note);
+                }
+              }}
+              onPointerDown={(event) => {
+                if (!event.isPrimary || event.button !== 0) return;
+                cancelPress();
+                suppressClick.current = false;
+                press.current = {
+                  x: event.clientX,
+                  y: event.clientY,
+                  timer: setTimeout(() => {
+                    suppressClick.current = true;
+                    setMenu(note);
+                    press.current = null;
+                  }, 500),
+                };
+              }}
+              onPointerMove={(event) => {
+                if (
+                  press.current &&
+                  Math.hypot(
+                    event.clientX - press.current.x,
+                    event.clientY - press.current.y,
+                  ) > 10
+                )
+                  cancelPress();
+              }}
+              onPointerUp={cancelPress}
+              onPointerCancel={cancelPress}
+              onPointerLeave={cancelPress}
             >
               <strong>
                 {note.pinned && <Pin size={13} />} {note.title || "未命名笔记"}
@@ -273,7 +429,11 @@ export function Notes() {
               <div className="notes-toolbar">
                 <button
                   className="notes-back"
-                  onClick={() => setSelected(null)}
+                  onClick={() => {
+                    openEpoch.current++;
+                    setOpening(false);
+                    setSelected(null);
+                  }}
                 >
                   <ArrowLeft size={18} />
                   全部笔记
@@ -295,7 +455,11 @@ export function Notes() {
                 >
                   <Pin size={18} />
                 </button>
-                <button aria-label="删除笔记" disabled={busy} onClick={remove}>
+                <button
+                  aria-label="删除笔记"
+                  disabled={busy}
+                  onClick={() => void remove()}
+                >
                   <Trash2 size={18} />
                 </button>
                 <button

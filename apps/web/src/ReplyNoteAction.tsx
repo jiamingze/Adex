@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { NotebookPen } from "lucide-react";
+import { LoaderCircle, NotebookPen } from "lucide-react";
 import { notesApi, acceptNote, convertedReplies } from "./notesApi";
 
 /** Explicit conversion only; success follows an App-committed note response. */
@@ -49,12 +49,17 @@ export function ReplyNoteAction({
     <span className="reply-note-action">
       <button
         className="text-button"
-        aria-label={saved ? "打开笔记" : "转成笔记"}
+        aria-label={pending ? "正在整理笔记" : saved ? "打开笔记" : "转成笔记"}
+        title={pending ? "正在整理笔记" : saved ? "打开笔记" : "转成笔记"}
+        aria-busy={pending}
         disabled={pending}
         onClick={() => void convert()}
       >
-        <NotebookPen size={15} />
-        {pending ? "正在整理笔记…" : saved ? "打开笔记" : "转成笔记"}
+        {pending ? (
+          <LoaderCircle size={16} className="note-convert-spinner" />
+        ) : (
+          <NotebookPen size={16} />
+        )}
       </button>
       {error && <small role="status">{error}</small>}
     </span>

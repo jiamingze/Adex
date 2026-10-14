@@ -398,6 +398,7 @@
 }
 .today-grid {
   display: grid;
+  row-gap: 18px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 18px;
 }
@@ -927,7 +928,7 @@
   }
   .today-grid {
     grid-template-columns: 1fr;
-    gap: 0;
+    gap: 14px;
   }
   .experience-card {
     padding: 18px;
@@ -1227,6 +1228,7 @@
   margin: 0;
 }
 .today-grid .experience-card {
+  margin-bottom: 0;
   padding: 18px 20px;
 }
 .today-grid .experience-card > header {
@@ -1802,3 +1804,7 @@
   height: 18px;
   accent-color: var(--text);
 }
+
+.note-convert-spinner { animation: note-convert-spin 1s linear infinite; }
+@keyframes note-convert-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .note-convert-spinner { animation: none; } }

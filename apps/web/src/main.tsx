@@ -1117,7 +1117,6 @@ function App() {
                             <RotateCcw size={16} />
                           </button>
                         )}
-                        {m.role === "assistant" && <ReplyNoteAction conversation={current} message={m.id} guest={guest} onSignIn={()=>{setAuthRegister(false);setAuthOpen(true);}} onOpen={id=>{noteView.selected=id;noteView.query="";setPage("workspace");}}/>}
                         {m.role === "assistant" && (
                           <button
                             className="text-button"
@@ -1134,6 +1133,7 @@ function App() {
                             <Copy size={16} />
                           </button>
                         )}
+                        {m.role === "assistant" && <ReplyNoteAction conversation={current} message={m.id} guest={guest} onSignIn={()=>{setAuthRegister(false);setAuthOpen(true);}} onOpen={id=>{noteView.selected=id;noteView.query="";setPage("workspace");}}/>}
                       </div>
                     </article>
                   ))}

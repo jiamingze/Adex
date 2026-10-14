@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Sparkles,
   Circle,
+  ListTodo,
   ShieldCheck,
   Clock3,
   Brain,
@@ -404,7 +405,7 @@ export function Today({
             <section className="experience-card today-attention">
               <header>
                 <h2>
-                  <Circle size={17} />
+                  <ListTodo size={17} />
                   待你处理
                 </h2>
                 <div className="attention-links">
