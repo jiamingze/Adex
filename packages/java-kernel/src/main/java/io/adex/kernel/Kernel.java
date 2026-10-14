@@ -216,7 +216,9 @@ public class Kernel {
                   Duration.ofSeconds(
                       scope.equals("schedule:draft")
                           ? 150
-                          : scope.equals("connector:read") ? 60 : 15))
+                          : scope.equals("note:compose")
+                              ? 90
+                              : scope.equals("connector:read") ? 60 : 15))
               .header("Authorization", "Bearer " + token(aud, scope, owner, resource))
               .header("Content-Type", "application/json");
       var response =

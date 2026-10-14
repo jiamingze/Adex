@@ -9,10 +9,17 @@ import org.springframework.web.bind.annotation.*;
 public class NoteController {
   private final Auth auth;
   private final NoteService service;
+  private final NoteConversionService conversion;
 
-  public NoteController(Auth auth, NoteService service) {
+  public NoteController(Auth auth, NoteService service, NoteConversionService conversion) {
     this.auth = auth;
     this.service = service;
+    this.conversion = conversion;
+  }
+
+  @PostMapping("/api/v1/notes/from-message")
+  public Object fromMessage(HttpServletRequest r, @RequestBody Map<String, Object> body) {
+    return conversion.convert(auth.owner(r), body);
   }
 
   @GetMapping("/api/v1/notes")

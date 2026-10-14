@@ -3100,6 +3100,59 @@
           }
         ]
       }
+    },
+    "/notes/from-message": {
+      "post": {
+        "operationId": "noteFromMessage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "conversation_id",
+                  "message_id"
+                ],
+                "properties": {
+                  "conversation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "message_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authoritatively saved note (same source returns same note)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Source not owned/not live/not assistant or saved note deleted"
+          },
+          "502": {
+            "description": "Model composition failed"
+          },
+          "503": {
+            "description": "Service unavailable"
+          }
+        }
+      }
     }
   },
   "components": {

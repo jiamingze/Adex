@@ -2,6 +2,7 @@
 
 import os
 import signal
+import shutil
 import subprocess
 import time
 from uuid import uuid4
@@ -51,13 +52,16 @@ e["ADEX_MEDIA_WEBHOOK_SECRET"] = "adex-integration-webhook-fixture"
 # External fixtures only run against a random adex_test_* database.
 import base64
 from secrets import token_bytes
+
 e["ADEX_CONNECTOR_TEST_FIXTURE"] = "true"
 e["ADEX_APNS_TEST_FIXTURE"] = "true"
 e["ADEX_CONNECTOR_ENCRYPTION_KEY"] = base64.b64encode(token_bytes(32)).decode()
 e["ADEX_APNS_DEVICE_ENCRYPTION_KEY"] = base64.b64encode(token_bytes(32)).decode()
 e["ADEX_GOOGLE_CLIENT_ID"] = "test-client"
 e["ADEX_GOOGLE_CLIENT_SECRET"] = "test-secret"
-e["ADEX_GOOGLE_REDIRECT_URI"] = "http://127.0.0.1:18080/api/v1/connectors/google/callback"
+e["ADEX_GOOGLE_REDIRECT_URI"] = (
+    "http://127.0.0.1:18080/api/v1/connectors/google/callback"
+)
 for service, port in [
     ("APP", 18080),
     ("AUTOMATION", 18081),
@@ -96,7 +100,25 @@ try:
     os.environ.update(e)
     fixture_log = (ROOT / ".local-data/test-connector-fixture.log").open("w")
     logs.append(fixture_log)
-    children.append(subprocess.Popen(["uv", "run", "python", "tests/fixtures/connector_server.py"], cwd=ROOT, env=e, stdout=fixture_log, stderr=fixture_log, start_new_session=True))
+    children.append(
+        subprocess.Popen(
+            ["uv", "run", "python", "tests/fixtures/connector_server.py"],
+            cwd=ROOT,
+            env=e,
+            stdout=fixture_log,
+            stderr=fixture_log,
+            start_new_session=True,
+        )
+    )
+    # Running JVMs must not read target JARs which a subsequent build can replace.
+    # Match the dev runtime's immutable-per-launch artifact isolation.
+    runtime_jars = ROOT / ".local-data" / name / "runtime"
+    runtime_jars.mkdir(parents=True, exist_ok=True)
+    for service in ("app", "automation"):
+        shutil.copyfile(
+            ROOT / f"services/adex-{service}/target/adex-{service}-0.1.0.jar",
+            runtime_jars / f"{service}.jar",
+        )
     for service, port in [
         ("app", 18080),
         ("automation", 18081),
@@ -115,7 +137,7 @@ try:
                 "-Djava.net.preferIPv4Stack=true",
                 "-Xmx256m",
                 "-jar",
-                str(ROOT / f"services/adex-{service}/target/adex-{service}-0.1.0.jar"),
+                str(runtime_jars / f"{service}.jar"),
             ]
         else:
             cmd = [

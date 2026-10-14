@@ -10,6 +10,18 @@ export type Note = {
 };
 export type NoteSummary = Omit<Note, "content"> & { preview: string };
 export const notesApi = {
+  convert: (conversation_id: string, message_id: string) =>
+    boundedWrite<Note>(
+      (signal) =>
+        request<Note>(
+          "/notes/from-message",
+          "POST",
+          { conversation_id, message_id },
+          undefined,
+          { signal },
+        ),
+      90000,
+    ),
   list: (query = "", signal?: AbortSignal) =>
     request<{ items: NoteSummary[]; has_more: boolean }>(
       `/notes?query=${encodeURIComponent(query)}`,
@@ -42,8 +54,11 @@ export const notesApi = {
     ),
 };
 // A deadline stops the UI waiting, not proof that a server-side write failed.
-function boundedWrite<T>(run: (signal: AbortSignal) => Promise<T>) {
-  const resource = createReadResource(run);
+function boundedWrite<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = 8000,
+) {
+  const resource = createReadResource(run, { timeoutMs });
   const cancel = () => resource.reset();
   window.addEventListener("adex:session-changed", cancel);
   return resource
@@ -60,6 +75,7 @@ export const noteDetails = new Map<
   string,
   ReturnType<typeof createReadResource<Note>>
 >();
+export const convertedReplies = new Map<string, string>();
 export const noteView = { query: "", selected: "" };
 export function notesList(query: string) {
   if (!notesLists.has(query)) {
@@ -114,6 +130,9 @@ export function acceptNote(note: Note) {
   });
 }
 export function forgetNote(id: string) {
+  convertedReplies.forEach((note, message) => {
+    if (note === id) convertedReplies.delete(message);
+  });
   noteDetails.get(id)?.reset();
   noteDetails.delete(id);
   notesLists.forEach((resource) => {
@@ -128,6 +147,7 @@ export function forgetNote(id: string) {
 // Drafts survive tab navigation within this session only, never another account.
 export const noteDrafts = new Map<string, Note>();
 window.addEventListener("adex:session-changed", () => {
+  convertedReplies.clear();
   noteDrafts.clear();
   notesLists.forEach((r) => r.reset());
   notesLists.clear();

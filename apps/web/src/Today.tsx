@@ -1,3 +1,4 @@
+import { TaskPriority } from "./TaskPriority";
 import { usePageScroll } from "./usePageScroll";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
@@ -24,7 +25,6 @@ import {
   isDueToday,
   awaitingAction,
   planningPrompt,
-  taskPriority,
   recentTaskResults,
   resultExcerpt,
 } from "./todayModel";
@@ -423,8 +423,7 @@ export function Today({
               {attentionRows.map((row) =>
                 row.kind === "task" ? (
                   (() => {
-                    const t = row.task,
-                      priority = taskPriority(t);
+                    const t = row.task;
                     return (
                       <div className="attention-row" key={"task:" + t.id}>
                         <button
@@ -442,9 +441,10 @@ export function Today({
                           <strong>{t.title}</strong>
                           <small>{dueCaption(t.due_at)}</small>
                         </button>
-                        <span className={`priority-tag ${priority.tone}`}>
-                          {priority.label}
-                        </span>
+                        <TaskPriority
+                          important={t.important}
+                          urgent={t.urgent}
+                        />
                       </div>
                     );
                   })()
@@ -535,22 +535,29 @@ export function Today({
                     </small>
                   </div>
                   <div className="agenda-main">
-                    <strong>{item.title}</strong>
-                    <small>
-                      {item.ongoing ? "进行中 · " : ""}
-                      {item.allDay
-                        ? "全天事项"
-                        : `至 ${new Date(item.end).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`}
-                      {item.location ? ` · ${item.location}` : ""}
-                    </small>
-                    {(item.organizer || item.location) && (
-                      <details>
-                        <summary>会议详情</summary>
-                        <p>{agendaTime(item)}</p>
-                        {item.organizer && <p>邀请人：{item.organizer}</p>}
-                        {item.location && <p>地点：{item.location}</p>}
-                      </details>
-                    )}
+                    <strong title={item.title}>{item.title}</strong>
+                    <div className="agenda-metadata">
+                      <small
+                        title={
+                          agendaTime(item) +
+                          (item.location ? " · " + item.location : "")
+                        }
+                      >
+                        {item.ongoing ? "进行中 · " : ""}
+                        {item.allDay
+                          ? "全天事项"
+                          : `至 ${new Date(item.end).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`}
+                        {item.location ? ` · ${item.location}` : ""}
+                      </small>
+                      {item.organizer && (
+                        <small
+                          className="agenda-organizer"
+                          title={item.organizer}
+                        >
+                          邀请人：{item.organizer}
+                        </small>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -586,6 +593,66 @@ export function Today({
                   日历结果不完整，请到原日历核对。
                 </p>
               )}
+            </section>
+            <section className="experience-card today-running">
+              <header>
+                <h2>
+                  <Clock3 size={17} />
+                  交给 Adex 的事
+                </h2>
+                <button onClick={() => onNavigate("tasks")}>
+                  全部记录
+                  <ArrowRight size={14} />
+                </button>
+              </header>
+              <p className="result-window">
+                最近 24 小时的执行结果 · 到期自动隐藏
+              </p>
+              {results.map((result) => (
+                <button
+                  className="today-result"
+                  key={result.id}
+                  onClick={() => onConversation(result.conversation_id)}
+                >
+                  <span className="result-mark">
+                    <Check size={17} />
+                  </span>
+                  <span className="result-content">
+                    <strong>
+                      {(() => {
+                        const run = data.runs?.find(
+                          (run) => run.id === result.run_id,
+                        );
+                        return (
+                          data.schedules?.find(
+                            (schedule) => schedule.id === run?.schedule_id,
+                          )?.title ||
+                          run?.instruction.slice(0, 100) ||
+                          result.title
+                        );
+                      })()}
+                    </strong>
+                    <span>
+                      {resultExcerpt(result.body) ||
+                        "结果已送达，打开原会话查看。"}
+                    </span>
+                    <small>
+                      {new Date(result.created_at).toLocaleString("zh-CN", {
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </small>
+                  </span>
+                  <ArrowRight size={15} />
+                </button>
+              ))}
+              {!results.length &&
+                sectionState(
+                  "results",
+                  "最近 24 小时没有新的任务执行结果。历史结果仍可在通知或原会话查看。",
+                )}
             </section>
             <section className="experience-card">
               <header>
@@ -653,66 +720,6 @@ export function Today({
                 )}
             </section>
           </div>
-          <section className="experience-card today-running">
-            <header>
-              <h2>
-                <Clock3 size={17} />
-                交给 Adex 的事
-              </h2>
-              <button onClick={() => onNavigate("tasks")}>
-                全部记录
-                <ArrowRight size={14} />
-              </button>
-            </header>
-            <p className="result-window">
-              最近 24 小时的执行结果 · 到期自动隐藏
-            </p>
-            {results.map((result) => (
-              <button
-                className="today-result"
-                key={result.id}
-                onClick={() => onConversation(result.conversation_id)}
-              >
-                <span className="result-mark">
-                  <Check size={17} />
-                </span>
-                <span className="result-content">
-                  <strong>
-                    {(() => {
-                      const run = data.runs?.find(
-                        (run) => run.id === result.run_id,
-                      );
-                      return (
-                        data.schedules?.find(
-                          (schedule) => schedule.id === run?.schedule_id,
-                        )?.title ||
-                        run?.instruction.slice(0, 100) ||
-                        result.title
-                      );
-                    })()}
-                  </strong>
-                  <span>
-                    {resultExcerpt(result.body) ||
-                      "结果已送达，打开原会话查看。"}
-                  </span>
-                  <small>
-                    {new Date(result.created_at).toLocaleString("zh-CN", {
-                      month: "numeric",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </small>
-                </span>
-                <ArrowRight size={15} />
-              </button>
-            ))}
-            {!results.length &&
-              sectionState(
-                "results",
-                "最近 24 小时没有新的任务执行结果。历史结果仍可在通知或原会话查看。",
-              )}
-          </section>
           {updated && (
             <p className="today-updated" role="status">
               更新于{" "}

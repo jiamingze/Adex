@@ -1,48 +1,16 @@
+import { TaskPriority } from "./TaskPriority";
 import { usePageScroll } from "./usePageScroll";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import {
-  Check,
-  Plus,
-  Search,
-  X,
-  CalendarDays,
-  ArrowUpRight,
-  Circle,
-  Trash2,
-} from "lucide-react";
+import { Check, Plus, Search, X, Circle, Trash2 } from "lucide-react";
 import { assistantApi, type MatrixTask } from "./assistantApi";
 import "./taskMatrix.css";
 import { matrixResource } from "./matrixResource";
 
 const quadrants = [
-  {
-    name: "立即处理",
-    hint: "重要且紧急",
-    note: "先完成最需要你关注的事",
-    important: true,
-    urgent: true,
-  },
-  {
-    name: "安排计划",
-    hint: "重要 · 不紧急",
-    note: "为长期目标留出时间",
-    important: true,
-    urgent: false,
-  },
-  {
-    name: "考虑委派",
-    hint: "紧急 · 不重要",
-    note: "交给合适的人，或简化处理",
-    important: false,
-    urgent: true,
-  },
-  {
-    name: "暂时放下",
-    hint: "不重要 · 不紧急",
-    note: "减少干扰，把精力留给重点",
-    important: false,
-    urgent: false,
-  },
+  { important: true, urgent: true },
+  { important: true, urgent: false },
+  { important: false, urgent: true },
+  { important: false, urgent: false },
 ];
 const quadrantOf = (t: MatrixTask) =>
   quadrants.findIndex(
@@ -86,7 +54,6 @@ export function TaskMatrix() {
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("TODO");
-  const [focus, setFocus] = useState(-1);
   const [editor, setEditor] = useState<{
     task?: MatrixTask;
     quadrant: number;
@@ -144,6 +111,9 @@ export function TaskMatrix() {
     .sort(
       (a, b) =>
         Number(a.status === "DONE") - Number(b.status === "DONE") ||
+        Number(b.important) * 2 +
+          Number(b.urgent) -
+          (Number(a.important) * 2 + Number(a.urgent)) ||
         (a.due_at ? Date.parse(a.due_at) : Infinity) -
           (b.due_at ? Date.parse(b.due_at) : Infinity),
     );
@@ -224,141 +194,54 @@ export function TaskMatrix() {
           </button>
         </p>
       )}
-      <nav className="matrix-tabs" aria-label="聚焦象限">
-        <button aria-pressed={focus === -1} onClick={() => setFocus(-1)}>
-          总览
-        </button>
-        {quadrants.map((q, i) => (
-          <button
-            key={q.name}
-            className={`matrix-tone-${i}`}
-            aria-pressed={focus === i}
-            onClick={() => setFocus(i)}
-          >
-            {q.name}
-            <span>{active.filter((t) => quadrantOf(t) === i).length}</span>
-          </button>
-        ))}
-      </nav>
       {loading ? (
-        <div
-          className="matrix-skeleton"
-          role="status"
-          aria-label="正在读取待办"
-        >
-          {quadrants.map((q) => (
-            <section key={q.name}>
-              <h2>{q.name}</h2>
-              <i />
-              <i />
-              <i />
-            </section>
-          ))}
+        <div className="matrix-loading" role="status">
+          正在读取待办…
         </div>
       ) : snapshot.data === null ? (
-        <div className="matrix-loading">暂时无法读取待办，请点击上方重试。</div>
+        <div className="matrix-loading">暂时无法读取待办，请重试。</div>
       ) : (
-        <div className={`matrix-board ${focus >= 0 ? "focused" : ""}`}>
-          {quadrants.map((q, i) => {
-            const items = visible.filter((t) => quadrantOf(t) === i);
-            return (
-              (focus === -1 || focus === i) && (
-                <section
-                  key={q.name}
-                  className={`matrix-panel matrix-tone-${i}`}
-                >
-                  <header>
-                    <div>
-                      <h2>
-                        <span className="matrix-dot" />
-                        {q.name}
-                        <span className="matrix-count">{items.length}</span>
-                      </h2>
-                      <p>{q.hint}</p>
-                    </div>
-                    <button
-                      className="matrix-add"
-                      aria-label={`添加到${q.name}`}
-                      onClick={() => open(i)}
-                    >
-                      <Plus size={19} />
-                    </button>
-                  </header>
-                  <div className="matrix-items">
-                    {items.map((t) => (
-                      <article
-                        className={`matrix-item ${t.status === "DONE" ? "is-done" : ""}`}
-                        key={t.id}
-                      >
-                        <button
-                          className="matrix-check"
-                          aria-label={`${t.status === "DONE" ? "恢复" : "完成"}任务 ${t.title}`}
-                          disabled={pending}
-                          onClick={() =>
-                            act(() =>
-                              assistantApi.saveTask({
-                                ...t,
-                                status: t.status === "DONE" ? "TODO" : "DONE",
-                              }),
-                            )
-                          }
-                        >
-                          {t.status === "DONE" ? (
-                            <Check size={16} />
-                          ) : (
-                            <Circle size={20} />
-                          )}
-                        </button>
-                        <button
-                          className="matrix-item-body"
-                          onClick={() => open(i, t)}
-                        >
-                          <span>{t.title}</span>
-                          {t.due_at && (
-                            <small
-                              className={
-                                t.status === "TODO" &&
-                                Date.parse(t.due_at) < Date.now()
-                                  ? "overdue"
-                                  : ""
-                              }
-                            >
-                              <CalendarDays size={12} />
-                              {dueLabel(t.due_at)}
-                              {t.status === "TODO" &&
-                                Date.parse(t.due_at) < Date.now() &&
-                                " · 已逾期"}
-                            </small>
-                          )}
-                        </button>
-                        <ArrowUpRight size={14} className="matrix-edit-hint" />
-                      </article>
-                    ))}
-                    {!items.length && (
-                      <div className="matrix-empty">
-                        <span className="matrix-empty-symbol">
-                          <Check size={22} />
-                        </span>
-                        <p>
-                          {query
-                            ? "没有匹配的任务"
-                            : filter === "DONE"
-                              ? "还没有已完成的任务"
-                              : "这里暂时没有待办"}
-                        </p>
-                        <small>{q.note}</small>
-                      </div>
-                    )}
-                  </div>
-                  <button className="matrix-inline-add" onClick={() => open(i)}>
-                    <Plus size={15} />
-                    添加任务
-                  </button>
-                </section>
-              )
-            );
-          })}
-        </div>
+        <section className="flat-tasks" aria-label="事项列表">
+          {visible.map((t) => (
+            <article
+              className={`attention-row ${t.status === "DONE" ? "is-done" : ""}`}
+              key={t.id}
+            >
+              <button
+                className="attention-check"
+                aria-label={`${t.status === "DONE" ? "恢复" : "完成"}任务 ${t.title}`}
+                disabled={pending}
+                onClick={() =>
+                  act(() =>
+                    assistantApi.saveTask({
+                      ...t,
+                      status: t.status === "DONE" ? "TODO" : "DONE",
+                    }),
+                  )
+                }
+              >
+                {t.status === "DONE" ? (
+                  <Check size={17} />
+                ) : (
+                  <Circle size={17} />
+                )}
+              </button>
+              <button
+                className="attention-title"
+                onClick={() => open(quadrantOf(t), t)}
+              >
+                <strong>{t.title}</strong>
+                <small>{t.due_at ? dueLabel(t.due_at) : "未设截止时间"}</small>
+              </button>
+              <TaskPriority important={t.important} urgent={t.urgent} />
+            </article>
+          ))}
+          {!visible.length && (
+            <p className="experience-empty">
+              {query ? "没有匹配的事项" : "暂无事项，添加一件今天想完成的事。"}
+            </p>
+          )}
+        </section>
       )}
       <dialog
         ref={dialog}
@@ -419,21 +302,43 @@ export function TaskMatrix() {
               />
             </label>
             <fieldset disabled={pending}>
-              <legend>放入象限</legend>
-              <div className="matrix-choice">
-                {quadrants.map((q, i) => (
-                  <button
-                    type="button"
-                    key={q.name}
-                    className={`matrix-tone-${i}`}
-                    aria-pressed={editor.quadrant === i}
-                    onClick={() => setEditor({ ...editor, quadrant: i })}
-                  >
-                    <span className="matrix-dot" />
-                    {q.name}
-                    <small>{q.hint}</small>
-                  </button>
-                ))}
+              <legend>重要性与紧急程度</legend>
+              <div className="matrix-priority-controls">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={quadrants[editor.quadrant].important}
+                    onChange={(e) =>
+                      setEditor({
+                        ...editor,
+                        quadrant: quadrants.findIndex(
+                          (q) =>
+                            q.important === e.target.checked &&
+                            q.urgent === quadrants[editor.quadrant].urgent,
+                        ),
+                      })
+                    }
+                  />
+                  重要事项
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={quadrants[editor.quadrant].urgent}
+                    onChange={(e) =>
+                      setEditor({
+                        ...editor,
+                        quadrant: quadrants.findIndex(
+                          (q) =>
+                            q.urgent === e.target.checked &&
+                            q.important ===
+                              quadrants[editor.quadrant].important,
+                        ),
+                      })
+                    }
+                  />
+                  需要尽快处理
+                </label>
               </div>
             </fieldset>
             <label className="matrix-field">

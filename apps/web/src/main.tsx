@@ -1,3 +1,5 @@
+import { noteView } from "./notesApi";
+import { ReplyNoteAction } from "./ReplyNoteAction";
 import { useChatScroll } from "./useChatScroll";
 import { preferences } from "./preferences";
 import { Cards } from "./Cards";
@@ -1115,6 +1117,7 @@ function App() {
                             <RotateCcw size={16} />
                           </button>
                         )}
+                        {m.role === "assistant" && <ReplyNoteAction conversation={current} message={m.id} guest={guest} onSignIn={()=>{setAuthRegister(false);setAuthOpen(true);}} onOpen={id=>{noteView.selected=id;noteView.query="";setPage("workspace");}}/>}
                         {m.role === "assistant" && (
                           <button
                             className="text-button"

@@ -20,3 +20,6 @@ Artifacts use an expected_revision CAS and retain immutable JSON source versions
 
 ### Interactive progress (2026-10-11)
 Agent NDJSON may emit `{"type":"progress","text":"正在整理资料与回答"}` before answer deltas. App persists this as `turn.progress` with turn ID under the same lease/epoch checks as text. Conversation snapshots expose optional `progress` for running turns; clients show only these bounded processing summaries, never hidden model reasoning. Native clients use WebView streaming fetch and authenticated polling fallback. Native file upload uses multipart form-data with a binary file part and the existing idempotency key.
+
+### Explicit reply-to-note conversion
+App → Agent `POST /internal/agent/note-compose`, scope `note:compose`, resource conversation UUID. Body: owner_id, conversation_id, message_id, content (authoritative App assistant reply, <=64000 chars). Response: validated JSON title (1–200 chars), content (1–100000 chars). Existing owner/message-keyed model invocation ledger is used; no tool actions or new worker/scheduler. App performs ownership checks before delegation and commits a source-message-unique note before acknowledging success. Scoped timeout 90 seconds; timeout is ambiguous and retry uses the same invocation/source key, not blind resubmission.

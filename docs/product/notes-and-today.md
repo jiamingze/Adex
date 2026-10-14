@@ -39,3 +39,23 @@ Notification read projection excludes records attached to deleted conversations 
 Use one route name in the top bar, followed by one compact contextual row in page content. Today: greeting/name on the left, device-local date and weekday on the right, refresh icon at the edge. Remove the decorative sun icon because there is no real weather projection; do not imply temperature or weather from a greeting icon. No new location permission or weather service. Long names truncate without pushing the date/actions outside phone width. Notes uses count + New, Matrix uses current workload + Add; other pages remove repeated route names and oversized explanatory headers. Keep authentication/welcome dialogs and task content headings intact. This is presentation only, no API/schema changes.
 
 Bottom tab navigation disables text selection, WebKit long-press callouts and context menus within the navigation only. It preserves ordinary taps, keyboard focus and accessibility; chat/note content retains selection and copy. No touchstart cancellation or global copy suppression.
+
+## Flat tasks and AI reply-to-note (2026-10-15)
+
+Priority displays two separate badges: important/not important + urgent/not urgent, with all four combinations explicit. Matrix navigation now uses a flat priority-sorted list while retaining importance/urgency fields, state filters, edits and CAS semantics. No scheduling changes. Agenda shows organizer right-aligned on the time/location metadata row, without an expansion control; title attributes expose truncated text. Place recent outcome feed immediately after the agenda inside the responsive grid.
+
+New authenticated `POST /notes/from-message` `{conversation_id,message_id}`. App validates ownership of the live conversation and assistant source message; sends only that authoritative reply to Agent `POST /internal/agent/note-compose` with scoped `note:compose` credentials. Agent invokes existing invocation ledger with stable owner/message key, prompts for faithful JSON `{title,content}`, validates length/structure, and performs no tool actions. App persists the note before returning success. App migration 018 adds owner/source-message uniqueness; retries return the same saved note. Deleted notes are not silently recreated; explicit saved copies survive source conversation deletion. A model or validation error yields failure with retry, never a fake AI success or empty note. User click authorizes this model-assisted transformation and save; ordinary replies are not copied automatically. Existing default model provider used; TEST_FIXTURE mocks are labelled and do not prove real LLM generation.
+
+Verification commands for this change:
+
+```sh
+make test
+make test-integration
+make check-style
+pnpm --dir apps/web build
+pnpm --dir apps/ios prepare
+xcodebuild -project apps/ios/ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .local-data/proactive-ios-device-build -allowProvisioningUpdates build
+uv run python scripts/check_secrets.py
+```
+
+Observed: 21 client tests, 35 Agent tests, 32 Tools tests, Java test suites, 44 isolated integration tests and 83 OpenAPI operations validated. A separate live qwen3.8-max formatting probe used a synthetic public technical example, returned a valid note title and 663-character body, and wrote no production database records. The browser fixture model is explicitly simulated; it verifies navigation/UI, not live model execution.

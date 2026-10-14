@@ -5,6 +5,7 @@ Run after pnpm --dir apps/web build. Bind loopback; never deploy this server.
 
 import json
 import time
+from uuid import uuid5, NAMESPACE_URL
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from http.cookies import SimpleCookie
@@ -295,6 +296,27 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(
                 {"token": "TEST_FIXTURE", "username": "体验测试", "is_guest": False}
             )
+        if self.path == "/api/v1/notes/from-message":
+            body = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            )
+            if body.get("conversation_id") != CONVERSATION:
+                return self.reply({"code": "NOT_FOUND"}, 404)
+            identifier = str(uuid5(NAMESPACE_URL, "TEST_FIXTURE:" + body["message_id"]))
+            key = "/notes/" + identifier
+            if key not in DATA:
+                DATA[key] = {
+                    "id": identifier,
+                    "title": "TEST_FIXTURE 技术方案笔记",
+                    "content": "TEST_FIXTURE 整理后的笔记正文；不是实际模型执行。",
+                    "pinned": False,
+                    "revision": 1,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+                DATA["/notes"]["items"].insert(
+                    0, {**DATA[key], "preview": DATA[key]["content"]}
+                )
+            return self.reply(DATA[key])
         if self.path == "/api/v1/notes":
             fault = SimpleCookie(self.headers.get("Cookie", "")).get("fixture_fault")
             if fault and fault.value == "notes-save-delay":

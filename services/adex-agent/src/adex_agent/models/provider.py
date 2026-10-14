@@ -189,6 +189,21 @@ class MockProvider:
         if latest == "fixture:slow-stream":
             await asyncio.sleep(30)
         text = "【测试模型，非真实 AI】已收到：" + latest[:200]
+        if any(
+            m.get("role") == "system" and m.get("content", "").startswith("NOTE_COMPOSE_V1") for m in messages
+        ):
+            text = json.dumps(
+                {"title": "TEST_FIXTURE 整理笔记", "content": "【测试模型，非真实 AI】\n\n" + latest},
+                ensure_ascii=False,
+            )
+        if (
+            any(
+                m.get("role") == "system" and m.get("content", "").startswith("NOTE_COMPOSE_V1")
+                for m in messages
+            )
+            and latest == "fixture:note-invalid"
+        ):
+            text = "invalid-note-json"
         for index in range(0, len(text), 8):
             await asyncio.sleep(0.02)
             yield {"type": "delta", "text": text[index : index + 8]}

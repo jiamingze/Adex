@@ -21,6 +21,7 @@ Adex is an open-source, self-hosted AI application for multiple users, with Web 
 
 | Core capability | What the implementation provides |
 | --- | --- |
+| **AI reply to private note** | Explicit one-click transformation generates a title and structured note, validates it, and saves with owner/source-message deduplication. Failed generation creates no note; user edits and intentional copies remain independent of chat deletion. |
 | **Personal notes and daily agenda** | Searchable, pinnable private notes with revision-safe saves; independent cached Today sections with compact attention tags and a 24-hour task-result feed; iPhone-local calendar meetings with organizer and location when available. Notes do not sync with Apple Notes. |
 | **Multi-user by design** | Guest access, registration and login; owner-scoped conversations, memories, schedules, files and artifacts. Internal service calls validate scoped credentials and resource ownership. |
 | **Short- and long-term memory** | L1 working context in Redis, L2 persisted conversation history and summaries, and L3 user-managed long-term facts with source provenance. Users can inspect, correct and delete memory; tombstones and revision checks prevent stale extraction from restoring deleted facts. |
