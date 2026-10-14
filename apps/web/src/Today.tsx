@@ -32,6 +32,8 @@ import {
   awaitingAction,
   planningPrompt,
 } from "./todayModel";
+import { native } from "./platform";
+import { requestCalendarPermission } from "./nativeCalendar";
 import { calendarResource } from "./calendarResource";
 import { upcomingAgenda, agendaTime } from "./calendarAgenda";
 import { matrixResource } from "./matrixResource";
@@ -94,9 +96,40 @@ export function Today({
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (guest) return;
-    void calendarResource.load(revision > 0).catch(() => {});
+    if (native) calendarResource.invalidate();
+    void calendarResource.load(native || revision > 0).catch(() => {});
+    const refresh = () => {
+      if (native && document.visibilityState === "visible") {
+        calendarResource.invalidate();
+        void calendarResource.load().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
   }, [guest, revision]);
   const [updated, setUpdated] = useState<Date | null>(null);
+  const [calendarAuthorizing, setCalendarAuthorizing] = useState(false);
+  const [calendarPermissionError, setCalendarPermissionError] = useState("");
+  async function authorizeCalendar() {
+    setCalendarAuthorizing(true);
+    setCalendarPermissionError("");
+    let sessionChanged = false;
+    const cancel = () => {
+      sessionChanged = true;
+    };
+    window.addEventListener("adex:session-changed", cancel);
+    try {
+      await requestCalendarPermission();
+      if (sessionChanged) return;
+      calendarResource.invalidate();
+      await calendarResource.load();
+    } catch {
+      setCalendarPermissionError("日历授权未完成，请重试。");
+    } finally {
+      window.removeEventListener("adex:session-changed", cancel);
+      setCalendarAuthorizing(false);
+    }
+  }
   const [pending, setPending] = useState("");
   const [taskError, setTaskError] = useState("");
   useEffect(() => {
@@ -409,8 +442,19 @@ export function Today({
                   <CalendarDays size={17} />
                   接下来
                 </h2>
-                <button onClick={() => onAssistant("connections")}>
-                  日历
+                <button
+                  disabled={calendarAuthorizing}
+                  onClick={() =>
+                    native
+                      ? void authorizeCalendar()
+                      : onAssistant("connections")
+                  }
+                >
+                  {native
+                    ? calendarAuthorizing
+                      ? "授权中…"
+                      : "日历权限"
+                    : "日历"}
                   <ArrowRight size={14} />
                 </button>
               </header>
@@ -420,6 +464,9 @@ export function Today({
                   <small>{agendaTime(item)}</small>
                 </div>
               ))}
+              {calendarPermissionError && (
+                <p className="experience-empty">{calendarPermissionError}</p>
+              )}
               {calendar.loading && !calendar.data && (
                 <p className="experience-empty">正在读取日历…</p>
               )}
@@ -430,9 +477,13 @@ export function Today({
               )}
               {calendar.data && !calendar.data.connected && (
                 <p className="experience-empty">
-                  {calendar.data.blocked
-                    ? "日历服务尚未配置（BLOCKED_EXTERNAL）。"
-                    : "连接 Google Calendar 后，会议会显示在这里。"}
+                  {native
+                    ? calendar.data.permission === "DENIED"
+                      ? "日历访问未授权，请到 iPhone 设置 → Adex 开启完整日历访问。"
+                      : "点击日历权限，读取手机已同步的会议。iOS 需要完整访问权限，此功能只读取、不修改、不上传。"
+                    : calendar.data.blocked
+                      ? "日历服务尚未配置（BLOCKED_EXTERNAL）。"
+                      : "连接 Google Calendar 后，会议会显示在这里。"}
                 </p>
               )}
               {calendar.data?.connected &&

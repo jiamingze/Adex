@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>在今日页面读取手机已同步日历的近期会议。iOS 要求完整日历权限，但 Adex 此功能只读取，不修改，不上传会议内容。</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>读取手机日历的近期会议并显示在今日页面，不修改或上传会议内容。</string>
 	<key>NSCameraUsageDescription</key>
 	<string>拍摄你授权上传的参考图片</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -256,3 +256,9 @@ The signed app is prepared; actual installation requires reconnecting the phone.
 - Session-local cache, eight-second deadline, retry via refresh, cancelled/ended event exclusion, all-day and ongoing labels, partial-result warning. No database migrations or new scheduler.
 - Local Google OAuth client, redirect and credential-encryption settings are missing: real personal-calendar reading is **BLOCKED_EXTERNAL**, not validated by fixtures. Native iPhone EventKit calendars are not connected by this change.
 - Verification: `make test-client` (12 passed), `make check-style` (Spotless/Ruff/architecture passed), Web TypeScript/Vite build and secret scan. Calendar date tests are synthetic projection tests, not evidence of real Google execution.
+
+### 2026-10-14 · iPhone system-calendar clarification
+
+- User selected iPhone system calendars rather than Google. Native Today now reads EventKit locally, including synced calendars and expanded recurring events; Web keeps the Google connector option.
+- Explicit permission button, iOS 17 full-access disclosure, read-only bridge, no server upload/persisted calendar cache. Denied access gives settings guidance; refresh/foreground rechecks permissions. Only title/id/start/end are exposed, with 200-result cap and partial warning. No database migration.
+- Validation: `make test-client` (12 passed), `make check-style`, TypeScript/Vite via `pnpm --dir apps/ios prepare`, signed `xcodebuild` and secret scan. Physical-calendar authorization and actual event display still require user acceptance on the phone; synthetic projection tests do not establish real calendar access.

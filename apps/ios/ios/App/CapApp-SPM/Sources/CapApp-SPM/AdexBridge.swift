@@ -14,6 +14,7 @@ public class AdexBridge: CAPBridgeViewController {
         bridge?.registerPluginInstance(SecureSessionPlugin())
         bridge?.registerPluginInstance(AdexSpeechPlugin())
         bridge?.registerPluginInstance(AdexPushPlugin())
+        bridge?.registerPluginInstance(AdexCalendarPlugin())
     }
 }
 

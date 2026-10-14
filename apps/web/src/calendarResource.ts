@@ -1,3 +1,5 @@
+import { native } from "./platform";
+import { readNativeCalendar } from "./nativeCalendar";
 import { request } from "./api";
 import type { Connection } from "./assistantApi";
 import type { CalendarEvent } from "./calendarAgenda";
@@ -6,6 +8,16 @@ import { createReadResource } from "./readResource";
 /** Read-only, session-local projection; no calendar data is persisted on the device. */
 export const calendarResource = createReadResource(
   async (signal) => {
+    if (native) {
+      const result = await readNativeCalendar();
+      return {
+        events: result.events,
+        connected: result.permission === "GRANTED",
+        partial: result.partial,
+        blocked: false,
+        permission: result.permission,
+      };
+    }
     const connections = await request<{
       items: Connection[];
       availability: string;
@@ -19,6 +31,7 @@ export const calendarResource = createReadResource(
         connected: false,
         partial: false,
         blocked: connections.availability === "BLOCKED_EXTERNAL",
+        permission: undefined,
       };
     const now = new Date();
     const result = await request<{
@@ -42,6 +55,7 @@ export const calendarResource = createReadResource(
       connected: true,
       partial: !!result.partial || !!result.warnings?.length,
       blocked: false,
+      permission: undefined,
     };
   },
   { freshMs: 30000 },
