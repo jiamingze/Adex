@@ -1,3 +1,4 @@
+import { useChatScroll } from "./useChatScroll";
 import { preferences } from "./preferences";
 import { Cards } from "./Cards";
 import React, { useEffect, useRef, useState, useDeferredValue } from "react";
@@ -145,6 +146,7 @@ function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [current, setCurrent] = useState(chatFromUrl);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loadedConversation, setLoadedConversation] = useState("");
   const [partial, setPartial] = useState("");
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
@@ -175,6 +177,7 @@ function App() {
     (Message & { conv: string }) | null
   >(null);
   const followBottom = useRef(true);
+  const chatScroll = useChatScroll(current, page === "chat", !current || loadedConversation === current, followBottom);
   const deferredPartial = useDeferredValue(partial);
   const [attachments, setAttachments] = useState<
     { id: string; name: string }[]
@@ -351,6 +354,7 @@ function App() {
     const controller = new AbortController();
     let after = 0;
     let cancelled = false;
+    setLoadedConversation("");
     setMessages([]);
     setFailedTurns({});
     setChatError("");
@@ -370,6 +374,7 @@ function App() {
         } while (snap.items.length === 200 && !cancelled);
         if (cancelled) return;
         setMessages(all);
+        setLoadedConversation(current);
         setFailedTurns(
           Object.fromEntries(
             snap.turns
@@ -525,7 +530,7 @@ function App() {
       );
       return () => cancelAnimationFrame(frame);
     }
-  }, [messages, deferredPartial, optimistic]);
+  }, [messages, deferredPartial, optimistic, page, current, loadedConversation]);
   async function newConversation() {
     try {
       const c = await api.createConversation("新对话");
@@ -947,11 +952,8 @@ function App() {
           <div className="chat-page">
             <div
               className="chat-scroll"
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                followBottom.current =
-                  el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-              }}
+              ref={chatScroll.ref}
+              onScroll={chatScroll.onScroll}
             >
               {messages.length === 0 &&
               (!optimistic || optimistic.conv !== current) &&

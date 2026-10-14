@@ -202,6 +202,25 @@ class Handler(SimpleHTTPRequestHandler):
             path = parsed.path.removeprefix("/api/v1")
             cookie = SimpleCookie(self.headers.get("Cookie", ""))
             fault = cookie.get("fixture_fault")
+            if path == f"/conversations/{CONVERSATION}/messages":
+                return self.reply(
+                    {
+                        "items": [
+                            {
+                                "id": f"fixture-message-{i}",
+                                "role": "user" if i % 2 == 0 else "assistant",
+                                "content": f"TEST_FIXTURE 滚动位置验证，第 {i} 条。\n\n"
+                                + "这是一段用于滚动测试的内容。" * 12,
+                                "seq": i + 1,
+                                "turn_id": f"fixture-turn-{i}",
+                                "created_at": now.isoformat(),
+                            }
+                            for i in range(40)
+                        ],
+                        "turns": [],
+                        "event_seq": 0,
+                    }
+                )
             if fault and fault.value == "calendar-plan" and path == "/connectors":
                 return self.reply(
                     {

@@ -21,3 +21,7 @@ Use stale-while-revalidate presentation (https://swr.vercel.app/docs/revalidatio
 The notes route must fill the remaining flex viewport between header and tab bar, with min-height:0 on containers and textarea, no vh-based minimum editor height. The tab bar stays at the bottom when the keyboard is closed and hides during editing with the keyboard open (https://developer.apple.com/design/human-interface-guidelines/tab-bars). Verify at phone widths, viewport shrink and supported keyboard event fixtures; fixtures do not prove physical iOS keyboard behavior.
 
 Remove duplicate page headings, keep header names Today / Todo / 笔记. Meeting rows use a compact time rail, two-line title and secondary location; organizer is available in an expandable details area. No invented attendees or venue.
+
+## Chat position preservation (2026-10-14)
+
+Store each conversation's scroll offset and near-bottom state in session memory; clear on account changes. Returning from another tab restores the saved history offset, or follows the latest message if previously near the bottom. First load defaults to bottom. Do not record or restore against another conversation's messages or the empty loading placeholder. Streaming follows only while near bottom; manual history reading stays stationary. No message data or durable storage in this cache.

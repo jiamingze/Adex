@@ -416,3 +416,20 @@ test("expired cache stays visible while revalidating and a failed update keeps i
   assert.deepEqual(resource.getSnapshot().data, { items: ["cached note"] });
   assert.ok(resource.getSnapshot().error);
 });
+
+test("chat positions are conversation-specific, preserve history offsets and follow bottom", async () => {
+  const { createChatPositions } = await import(
+    "../../.local-data/client-tests/chatScrollState.js"
+  );
+  const positions = createChatPositions();
+  assert.equal(positions.get("new"), undefined);
+  positions.record("history", 420, 3000, 800);
+  positions.record("latest", 2150, 3000, 800);
+  assert.deepEqual(positions.get("history"), { top: 420, bottom: false });
+  assert.deepEqual(positions.get("latest"), { top: 2150, bottom: true });
+  positions.record("history", -10, 3000, 800);
+  assert.equal(positions.get("history").top, 0);
+  positions.clear();
+  assert.equal(positions.get("history"), undefined);
+  assert.equal(positions.get("latest"), undefined);
+});
