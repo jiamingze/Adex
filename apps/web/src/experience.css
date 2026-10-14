@@ -1566,3 +1566,138 @@
   margin-top: 5px;
   color: var(--muted);
 }
+/* A single route name plus a compact context/action row, not a second masthead. */
+.content-page {
+  padding-top: 18px;
+}
+.page-heading {
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.page-heading > div {
+  min-width: 0;
+}
+.page-heading p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.today-heading {
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  min-height: 32px;
+}
+.today-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.today-context strong {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.today-context strong span {
+  font-weight: 400;
+}
+.today-context-date {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.today-heading .experience-icon {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 6px;
+  flex-shrink: 0;
+}
+.today-invitation {
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  gap: 12px;
+  align-items: center;
+}
+.today-invitation > div {
+  flex: 1;
+  min-width: 0;
+}
+.today-invitation h2 {
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.4;
+}
+.today-invitation p {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 3px 0 0;
+}
+.today-invitation .experience-primary {
+  flex-shrink: 0;
+  margin: 0;
+}
+.settings-page > .settings-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.settings-page .settings-layout {
+  margin-top: 12px;
+}
+.assistant-hub .assistant-tabs {
+  margin-top: 0;
+}
+@media (max-width: 760px) {
+  .content-page {
+    padding-top: 14px;
+  }
+  .page-heading {
+    margin-bottom: 12px;
+  }
+  .today-heading {
+    margin-bottom: 10px;
+  }
+  .today-invitation {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .today-heading .experience-icon {
+    width: 30px;
+    height: 30px;
+  }
+  .today-context {
+    gap: 8px;
+  }
+  .today-context strong {
+    font-size: 13px;
+  }
+  .today-context-date {
+    font-size: 10px;
+  }
+  .today-summary {
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+  }
+  .settings-page .settings-tabs {
+    margin-bottom: 16px;
+  }
+  .today-invitation .experience-primary {
+    padding: 8px 10px;
+    min-height: 36px;
+  }
+  .page-heading > .button {
+    padding: 8px 11px;
+  }
+}

@@ -212,7 +212,11 @@ export function Notes() {
     <div className={`notes-page ${selected ? "notes-open" : ""}`}>
       <header className="notes-heading">
         <div>
-          <p>记下想法、会议记录和生活事项。</p>
+          <p>
+            {snapshot.data
+              ? `${query ? "匹配" : "共"} ${items.length + draftRows.length} 条笔记`
+              : "你的笔记"}
+          </p>
         </div>
         <button className="notes-primary" onClick={create} disabled={busy}>
           <Plus size={18} />

@@ -159,7 +159,6 @@ export function AssistantHub({
     <div className="content-page assistant-hub">
       <div className="page-heading">
         <div>
-          <h1>主动助手</h1>
           <p>连接日历与邮件，发现重要事项；对外操作始终由你确认。</p>
         </div>
         <button
@@ -170,15 +169,6 @@ export function AssistantHub({
         >
           <RefreshCw size={18} />
         </button>
-      </div>
-      <div className="assistant-intro">
-        <Sparkles size={22} />
-        <div>
-          <strong>把跟进交给助手，把决定留给你</strong>
-          <p>
-            先连接你需要的服务；重要变化会形成建议，对外操作会等待你的确认。
-          </p>
-        </div>
       </div>
       <nav className="assistant-tabs" aria-label="主动助手栏目">
         {(

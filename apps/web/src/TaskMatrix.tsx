@@ -151,12 +151,7 @@ export function TaskMatrix() {
     <div ref={pageScroll} className="content-page task-matrix-page">
       <header className="matrix-heading">
         <div>
-          <span className="matrix-eyebrow">专注当下，留出余地</span>
-          <p>
-            {active.length
-              ? `${active.length} 件待办，先从最重要的一件开始。`
-              : "把事情放在合适的位置，让今天更从容。"}
-          </p>
+          <p>{snapshot.data ? active.length : "—"} 件待办</p>
         </div>
         <button className="matrix-primary" onClick={() => open(1)}>
           <Plus size={18} />

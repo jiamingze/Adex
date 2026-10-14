@@ -79,8 +79,7 @@ export function Settings({
     setNotice("偏好已保存到当前设备");
   };
   return (
-    <div className="content-page">
-      <h1>设置</h1>
+    <div className="content-page settings-page">
       <p className="settings-subtitle">
         按你的习惯，调整助手的外观、记忆与通知。
       </p>

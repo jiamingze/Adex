@@ -4,7 +4,6 @@ import {
   ArrowRight,
   RefreshCw,
   Check,
-  Sun,
   CalendarDays,
   Sparkles,
   Circle,
@@ -249,13 +248,15 @@ export function Today({
     ...focus.map((task) => ({ kind: "task" as const, task })),
   ].slice(0, 5);
   const results = recentTaskResults(data.results ?? [], now).slice(0, 5);
-  const date = now.toLocaleDateString("zh-CN", {
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  });
+  const date = `${now.toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} · ${now.toLocaleDateString("zh-CN", { weekday: "short" })}`;
   const greeting =
-    now.getHours() < 12 ? "早上好" : now.getHours() < 18 ? "下午好" : "晚上好";
+    now.getHours() < 5 || now.getHours() >= 23
+      ? "夜深了"
+      : now.getHours() < 12
+        ? "早上好"
+        : now.getHours() < 18
+          ? "下午好"
+          : "晚上好";
   function sectionState(key: string, text: string) {
     return errors.includes(key) ? (
       <p className="experience-inline-error" role="status">
@@ -286,15 +287,12 @@ export function Today({
   return (
     <div ref={pageScroll} className="content-page today-page">
       <header className="today-heading">
-        <div>
-          <span className="experience-eyebrow">
-            <Sun size={14} />
-            {date}
-          </span>
-          <p>
+        <div className="today-context">
+          <strong title={guest ? greeting : `${greeting}，${username}`}>
             {greeting}
-            {guest ? "，欢迎来到 Adex" : `，${username}`}。
-          </p>
+            {!guest && <span>，{username}</span>}
+          </strong>
+          <span className="today-context-date">{date}</span>
         </div>
         <button
           className="experience-icon"
@@ -314,12 +312,8 @@ export function Today({
             <Sparkles size={24} />
           </span>
           <div>
-            <h2>{guest ? "有件事想交给助手？" : "一起梳理今天的重点"}</h2>
-            <p>
-              {guest
-                ? "从一句话开始。"
-                : "结合今天的日历和待办生成草稿，确认发送后交给助手。"}
-            </p>
+            <h2>{guest ? "有件事想交给助手？" : "今天的安排"}</h2>
+            <p>{guest ? "从一句话开始。" : "日历与待办，先生成计划草稿。"}</p>
           </div>
         </div>
         <button

@@ -316,3 +316,22 @@
     min-height: 0;
   }
 }
+.notes-heading {
+  align-items: center;
+  min-height: 34px;
+  margin-bottom: 12px;
+}
+.notes-heading p {
+  font-size: 12px;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .notes-heading {
+    margin-bottom: 10px;
+    min-height: 32px;
+  }
+  .notes-heading .notes-primary {
+    padding: 8px 12px;
+    min-height: 34px;
+  }
+}

@@ -9,7 +9,6 @@ import {
   Brain,
   CalendarClock,
   Check,
-  ChevronRight,
   CirclePlus,
   Clock3,
   LogOut,
@@ -830,9 +829,8 @@ function App() {
                 <ChevronDown size={14} />
               </label>
             ) : (
-              <span>{page === "today" ? "Today" : page === "matrix" ? "Todo" : page === "workspace" ? "笔记" : "Adex"}</span>
+              <span role="heading" aria-level={1}>{page === "today" ? "Today" : page === "matrix" ? "Todo" : pageLabels[page]}</span>
             )}
-            {page !== "today" && page !== "matrix" && page !== "workspace" && <><ChevronRight size={13} /><strong>{pageLabels[page]}</strong></>}
           </div>
           <div className="top-actions">
             <button
@@ -1281,8 +1279,6 @@ function App() {
           <div className="content-page">
             <div className="page-heading">
               <div>
-                <div className="eyebrow">任务</div>
-                <h1>定时任务</h1>
                 <p>安排一次提醒，或把重复的事交给后台。</p>
               </div>
               <Button className="primary" onClick={() => setShowSchedule(true)}>
@@ -1799,13 +1795,9 @@ function MemoryPage({
     <div className="content-page">
       <div className="page-heading">
         <div>
-          <div className="eyebrow">个性化</div>
-          <h1>记忆</h1>
           <p>保存明确的偏好。你始终可以纠正或删除它们。</p>
         </div>
-        <div className="memory-mark">
-          <Brain size={30} />
-        </div>
+
       </div>
       <div className="memory-info">
         <ShieldCheck size={20} />

@@ -574,3 +574,31 @@
   color: var(--muted);
   margin: -12px 0 16px;
 }
+.matrix-heading {
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+.matrix-heading p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+@media (max-width: 700px) {
+  .matrix-heading {
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 10px;
+  }
+  .matrix-heading p {
+    font-size: 11px;
+  }
+  .matrix-heading .matrix-primary {
+    padding: 9px 12px;
+    min-height: 36px;
+  }
+}
+
+.matrix-heading .matrix-primary {
+  margin: 0;
+}

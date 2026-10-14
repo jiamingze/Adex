@@ -297,3 +297,8 @@ The signed app is prepared; actual installation requires reconnecting the phone.
 - Notification list excludes records belonging to deleted conversations, preventing deleted text reappearing through this new projection; internal delivery ledger is retained. No new API contract or schema.
 - Checks: 21 client tests, Java unit tests, 42 isolated-PG integration tests, check-style/architecture, secret scan, Web/iOS prepare and signed Xcode build. Native app installed; all four readiness endpoints return 200. Synthetic UI verified read/recent monitor outcomes shown, 25h unread result absent, and click opens original conversation. No real external service execution is claimed by fixtures.
 - Screenshots: [attention](images/today-attention-mobile-fixture.jpg), [recent results](images/today-results-mobile-fixture.jpg); all content is TEST_FIXTURE.
+
+### Compact page context bars
+
+- Single route heading in the top bar; removed repeated page names/marketing blocks from Today, Matrix, Notes, Assistant, Settings, automations, memory and tools headers. Context/count and actions share a compact row. Today shows greeting/name alongside device-local date/weekday; night hours use a night greeting. No weather provider is connected, so the decorative sun no longer implies actual weather.
+- Validation: 21 client tests, check-style/architecture, secret scan, Web/iOS prepare and signed Xcode build. UI TEST_FIXTURE at 320 and 390 pixels shows no horizontal overflow; Today context and Matrix header measured 36px, Notes header about 34px; one accessible primary route heading. Settings has no repeated body title. No API/database or permission changes.
