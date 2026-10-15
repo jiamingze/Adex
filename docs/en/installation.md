@@ -2,6 +2,10 @@
 
 [中文](../zh-CN/installation.md) · [README](../../README.md)
 
+## Preview before installing services
+
+For a synthetic UI-only tour, run `make demo-ui` after cloning (Node.js 22, pnpm 10.11.0, uv and Python 3.12+). Open http://127.0.0.1:18117/today?fault=calendar-plan. No Java, database, keys or Xcode required. It does not persist your work or run real models/actions. Stop with Ctrl+C; never expose this fixture publicly.
+
 ## Choose an environment
 
 Local development runs services directly and gives readable logs. Docker Compose runs the service topology in containers. iOS needs a working server plus macOS and full Xcode; the phone is a client, not a server.
@@ -16,7 +20,7 @@ export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
 export PATH="$JAVA_HOME/bin:$(brew --prefix node@22)/bin:$PATH"
 ```
 
-Use pnpm 10 (the repository pins 10.11.0). Full Xcode is needed only for iOS. FFmpeg is used for media composition and fixtures. Docker Desktop or Colima is needed for isolated runners and container tests, not basic local chat.
+Use pnpm 10 (the repository pins 10.11.0). Full Xcode is needed only for iOS. `pnpm install` does not build iOS; bundling is an explicit step. FFmpeg is used for media composition and fixtures. Docker Desktop or Colima is needed for isolated runners and container tests, not basic local chat.
 
 ## Ubuntu prerequisites
 

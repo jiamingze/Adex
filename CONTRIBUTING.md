@@ -8,6 +8,8 @@ Contributions are welcome from beginners and experienced developers alike. Code,
 
 欢迎新朋友和有经验的开发者一起参与。除了代码，界面设计、iPhone/浏览器测试、模型适配、文档和可复现的 Bug 报告同样有价值。
 
+Start with the [bounded starter tasks](docs/project/starter-tasks.md); try `make demo-ui` without a database or paid model. / 可先查看入门任务，无需数据库或付费模型即可体验界面。
+
 1. Browse the [roadmap](ROADMAP.md) and [issues](https://github.com/jiamingze/Adex/issues), or propose a focused improvement. / 查看路线图和 Issues，或提出一个具体的改进。
 2. Comment on the issue to coordinate scope; fork the repository and work on a feature branch. / 在 Issue 中沟通范围，Fork 仓库并创建开发分支。
 3. Follow the installation guide, make the change, and run the relevant checks. / 按安装指南搭建环境，完成修改并验证。
@@ -36,3 +38,5 @@ Never submit `.env`, keys, cookies, private user data, generated private media, 
 ## License / 许可
 
 By submitting a contribution, you agree it may be distributed under the project's MIT license. Only submit work you have the right to contribute. Third-party assets require attribution and compatible licensing.
+
+Community expectations: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). / 社区行为规范见该文件。

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 2026-10-16 — Fresh-clone onboarding and project discovery
+
+- Fix `pnpm install` / CI failing on a missing private tunnel file: iOS bundling is now explicit (`pnpm --dir apps/ios bundle`), with actionable endpoint errors and regression tests.
+- Add `make demo-ui` for a synthetic, loopback-only interface tour without Java, databases, provider keys or signing.
+- Reorganize both README languages around product workflows, mobile screenshots, preview versus deployment, and contribution entry points. Preserve external execution limits.
+- Add bounded starter tasks, community guidelines and setup/security issue links; document the repository audit and measurement limits.
+- Supply FFmpeg and Chromium OS dependencies in Linux CI; keep existing build/style/unit/integration gates.
+
+
 ### 2026-10-16 — In-chat website actions
 
 - Put browser progress, secure login, actual-page takeover, frozen publication approval and verified title/link receipts in the originating chat.

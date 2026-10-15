@@ -1,6 +1,6 @@
 # 一期实现与验收记录
 
-更新：2026-10-11，macOS / Java21 / Python3.12 / 本地 PostgreSQL16、Redis、Elasticsearch8.17.4。当前代码尚无 Git commit SHA；源码文件 SHA 清单见 `VALIDATION_MANIFEST.json`，结合工作区文件和本地测试日志作为证据，不能作为已发布生产版本证明。
+本文件按日期累计记录，下面早期章节是历史验收快照，不代表当前实现。最新变更与验证见文末及 [CHANGELOG](../CHANGELOG.md)，源码清单见 `VALIDATION_MANIFEST.json`；真实外部服务的 BLOCKED_EXTERNAL 状态须逐项核实。GitHub 提交历史提供源码版本，不能将历史测试数字当作当前覆盖率。
 
 ## 实现范围
 
@@ -349,3 +349,10 @@ incidental memories. See [memory design and limits](architecture/conversational-
 - `uv run ruff check services/adex-tools/src/adex_tools/browser services/adex-tools/src/adex_tools/api/browser.py services/adex-agent/src/adex_agent/browser`、新增测试文件 Ruff、`uv run python scripts/check_secrets.py`、`git diff --check` 通过。`uv run python scripts/prepare_ios.py` 与签名 `xcodebuild ... -destination generic/platform=iOS ... build` 成功；用户连接并解锁设备后，`xcrun devicectl device install app` 与 `device process launch` 均成功（`io.adex.personal`）；这只确认安装／启动，不代表真实商家流程真机验收。
 - 本机 App／Automation／Agent／Tools 就绪端点均 200。移动端 390×844 合成 UI 实测登录、确认、完成回执及放大预览；body/document 宽度均保持 390。README 截图仅合成数据。
 - **BLOCKED_EXTERNAL：真实小红书／淘宝登录、发表、下单兼容性尚未授权实测。** 本地 Chromium／PG 测试不代表真实网站成功执行；验证码、嵌入身份提供商或自定义控件可能需要接管，通用回执识别不等于支付结算核验。
+
+## 开源项目安装与入口修复（2026-10-16）
+
+- GitHub 最近连续五次 CI 的实际失败点为 pnpm 安装自动触发 iOS prepare，并读取缺失的私有临时隧道文件。现改为显式 `pnpm --dir apps/ios bundle`；缺少 HTTPS endpoint 时显示配置说明，保留凭据／路径等 URL 校验。
+- 全新归档目录中，无 `.env`／`.local-data`／Xcode／签名，`pnpm install --frozen-lockfile` 与 Web 构建通过。新增 6 项 bootstrap 回归测试；`make demo-ui` 提供只监听 loopback 的合成 UI 预览，不调用真实模型、不做第三方操作。
+- 中英文 README 调整产品定位、截图、预览／完整部署入口；补充入门贡献任务、社区规范与 Issue 引导，修正本文开头将历史快照误作当前状态的问题。
+- `make build`、`make test`、`make check-style` 均通过；Java 9／Agent 45／Tools 67／bootstrap 6 项，OpenAPI 91。`make test-integration`：55 passed in 180.45s。Ruff、97 个本地文档链接目标、secret scan、diff whitespace 通过。外部仓库配置及 GitHub Linux CI 状态另行核验，见 [审计记录](project/repository-audit.md)。

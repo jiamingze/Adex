@@ -1,5 +1,7 @@
 name: core
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-24.04
@@ -13,8 +15,9 @@ jobs:
         with: {version: "10.11.0"}
       - uses: actions/setup-node@v4
         with: {node-version: "22", cache: pnpm}
-      - run: sudo apt-get update && sudo apt-get install -y postgresql-16 redis-server
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-16 redis-server ffmpeg
       - run: make setup
+      - run: uv run --project services/adex-tools playwright install-deps chromium
       - run: make build test check-style
       - run: uv run ruff check services/adex-agent/src services/adex-tools/src packages/python-kernel/src
       - run: python3 scripts/init_env.py && python3 scripts/local_infra.py

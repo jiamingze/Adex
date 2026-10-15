@@ -21,6 +21,7 @@ test-client:
 	node scripts/test_client.mjs
 
 test:
+	uv run pytest tests/scripts -q
 	$(MAKE) test-client
 	uv run python scripts/check_architecture.py
 	mvn -B test
@@ -48,3 +49,10 @@ check-style:
 	mvn -B com.diffplug.spotless:spotless-maven-plugin:2.44.3:check
 	uv run ruff format --check services/adex-agent/src services/adex-tools/src
 	uv run python scripts/check_architecture.py
+
+# Synthetic UI only: no Java, database, model keys, Xcode or external execution.
+.PHONY: demo-ui
+demo-ui:
+	pnpm install --frozen-lockfile
+	pnpm --dir apps/web build
+	uv run python tests/fixtures/product_gallery_server.py

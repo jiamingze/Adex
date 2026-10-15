@@ -5,7 +5,7 @@
   "scripts": {
     "sync": "cap sync ios",
     "open": "cap open ios",
-    "prepare": "uv run python ../../scripts/prepare_ios.py"
+    "bundle": "uv run python ../../scripts/prepare_ios.py"
   },
   "dependencies": {
     "@capacitor/camera": "^8.0.0",

@@ -2,6 +2,10 @@
 
 [English](../en/installation.md) · [首页](../../README.zh-CN.md)
 
+## 先体验界面
+
+克隆后可先运行 `make demo-ui`（Node.js 22、pnpm 10.11.0、uv 与 Python 3.12+），打开 http://127.0.0.1:18117/today?fault=calendar-plan。无需 Java、数据库、Key 或 Xcode。此合成演示不持久保存工作，不执行真实模型或外部操作；Ctrl+C 停止，切勿公开暴露。`pnpm install` 不会自动构建 iOS，手机打包需显式执行。
+
 ## 环境选择
 
 本地开发直接运行服务，便于阅读日志与调试；Docker Compose 用于容器部署。iOS 需要可连接的服务端、macOS 和完整 Xcode，手机本身不承担服务端运行。

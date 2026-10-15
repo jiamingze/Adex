@@ -2,188 +2,131 @@
 
 ![Adex](docs/assets/banner.svg)
 
-**支持多用户、长短期记忆与可靠 Agent 执行的开源 AI 工作空间。**
+**可自托管的个人 AI 助手：记住偏好、安排每天的事，把任务持续做下去。**
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [安装指南](docs/zh-CN/installation.md) · [技术架构](docs/zh-CN/architecture.md) · [参与贡献](CONTRIBUTING.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [体验界面](#体验界面) · [安装](docs/zh-CN/installation.md) · [参与开发](CONTRIBUTING.md)
 
 [![CI](https://github.com/jiamingze/Adex/actions/workflows/core.yml/badge.svg)](https://github.com/jiamingze/Adex/actions/workflows/core.yml)
-![Java](https://img.shields.io/badge/Java-21-ED8B00)
-![Python](https://img.shields.io/badge/Python-3.12+-3776AB)
-![React](https://img.shields.io/badge/React-19-61DAFB)
-![License](https://img.shields.io/badge/License-MIT-green)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+![Web + iOS](https://img.shields.io/badge/Web_%2B_iOS-React_%2F_Capacitor-119EFF)
 
 </div>
 
-Adex 是支持多用户的开源、自托管 AI 应用，提供 Web 与 iOS 客户端。它将流式聊天、长短期记忆、自主联网检索、定时执行和创作作品连接在一个私有工作空间中。后端由四个职责明确的服务组成，将用户数据、Agent 执行、自动化调度与工具调用分开，支持服务独立部署和后台任务中断恢复。
+Adex 将 **聊天、记忆、日程、笔记和后台任务** 放在统一的 Web／iPhone 工作空间中。你可以在自己的机器上部署，接入自己的模型，隔离不同用户的数据；也可以沿着完整的 Java／Python 后端学习可靠 Agent 的实现。
 
-## 项目核心特色
+- **记住值得保留的信息。** 模型根据语义将口语偏好整理成事实，后续对话可参考；支持查看、纠正、遗忘和关闭。
+- **离开页面也继续执行。** 定时简报与后台任务持久保存，中断后恢复，结果回到原来的会话。
+- **关键操作由你决定。** 网页任务可在聊天里请求登录、展示待提交文章、等待确认，并核对执行回执；真实商家流程仍需外部验证。
 
-| 核心能力 | 已实现的工程机制 |
-| --- | --- |
-| **AI 回复转笔记** | 一键生成标题并整理正文，校验后保存到私有笔记；按用户与源消息去重，生成失败不创建空笔记，明确保存的副本独立于原会话保留。 |
-| **笔记与日程概览** | 私有笔记支持搜索、置顶、版本冲突保护；今日模块独立加载并复用缓存，合并待处理事项并展示最近 24 小时的任务结果；iPhone 本地会议按实际元数据展示邀请人和地点。笔记暂不与 Apple 备忘录同步。 |
-| **多用户与数据隔离** | 支持访客、注册和登录；会话、记忆、定时任务、文件与作品按用户归属校验。内部服务调用同时验证凭证范围和资源所有权。 |
-| **长短期三层记忆** | L1 为 Redis 工作上下文，L2 为持久会话历史与摘要，L3 为带来源的用户长期事实。支持查看、纠正和删除，通过删除标记与版本校验阻止旧提取任务恢复已删除记忆。 |
-| **分布式服务架构** | Java / Python 四个服务可独立部署，各自拥有 PostgreSQL 数据域。调度器与 Worker 使用数据库抢占、租约和 fencing 协作，已有多调度实例竞争的集成测试。 |
-| **可恢复 Agent 执行** | 使用不可变 Checkpoint、执行 attempt 与权威检查点引用恢复任务；记忆、Checkpoint 和任务运行状态分别管理。 |
-| **持久化自动化** | 从对话创建定时任务和后台任务，关闭客户端后继续执行；唯一调度 occurrence、Outbox 与去重交付将结果送回原会话。 |
-| **模型与工具可扩展** | Qwen / MiniMax 聊天、Tavily 搜索、服务端浏览器读取和可配置的图片／音乐／视频适配器；工具效果账本对不确定的供应商请求进行对账，避免盲目重复提交。 |
-| **私有、可追溯的作品空间** | 文件访问权限、不可变作品版本、私有媒体播放、可编辑图形源文件，以及隔离的生成代码执行。 |
-| **可学习的完整后端工程** | 按能力划分模块，分离应用服务、持久化接口与供应商适配器，并用架构检查、格式门禁和集成／故障测试约束实现。 |
+**当前为开发预览。** 没有公开托管服务或 App Store 下载。界面演示均为合成数据；真实模型、Google OAuth、APNs 和媒体生成需要自行配置，能力受供应商权限影响。[查看已验证范围与阻碍](docs/IMPLEMENTATION_STATUS.md)。
 
-**外部服务状态：** Google／APNs 集成测试使用明确标注的本地测试夹具，不代表真实账户已修改或手机已收到推送。缺少 OAuth／APNs 凭证时返回 `BLOCKED_EXTERNAL`。当前 Google 授权从 Web 发起，iOS 登录同一注册账户后可使用这些连接。
-
-**分布式部署边界：** 已实现服务拆分与多实例协调，仓库附带的 Compose 是单机部署起点。一期文件仍存放在 App 管理的持久本地磁盘；跨主机部署多个 App 实例时，需要明确的文件路由或经架构决策批准的存储方案，多个独立本地磁盘不等于共享存储或自动高可用。详见 [技术架构](docs/zh-CN/architecture.md) 与 [文件存储约定](docs/LOCAL_FILE_STORAGE.md)。
-
-**项目阶段：早期开发，持续迭代。** 已有可运行服务和测试，但不代表全部功能已达到生产验收标准。真实模型能力需要配置自己的供应商凭证；具体证据与限制见 [实现状态](docs/IMPLEMENTATION_STATUS.md) 和 [验收记录](docs/ACCEPTANCE_EVIDENCE.md)。
-
-## 功能
-
-| 模块 | 使用体验 |
-| --- | --- |
-| 今日概览 | 汇集重点待办、接下来的自动任务、待确认操作、主动建议、后台工作和近期成果；生成可编辑的今日计划聊天草稿 |
-| 聊天 | 流式回复、Qwen / MiniMax 切换、Markdown、历史删除、停止与重试 |
-| 联网搜索 | 根据问题自行搜索最新资料，通过 Tavily 返回来源 |
-| 浏览器访问 | 服务端打开公开 HTTPS 网页、读取动态渲染正文与有限同域链接，返回来源与时间；无登录状态、只读，阻止内网访问 |
-| 记忆 | 工作态、会话和长期记忆；查看、纠正与删除 |
-| 定时执行 | 从聊天创建每日任务，管理任务和运行记录，结果回到原会话 |
-| 连接服务 | Google Calendar / Gmail OAuth、增量授权、凭证加密、查询与撤销；真实连接需自行配置 OAuth |
-| 操作审批 | 查看具体日历变更或邮件内容，明确批准后执行，以供应商回执确认结果，未知结果先对账 |
-| 主动助手 | 日历冲突、重要邮件变化、事件去重与关联、重要性评估和通知偏好；持续检查复用 Automation |
-| 任务四象限 | 按重要／紧急整理待办，移动象限、完成与删除任务，可关联已有 Run |
-| 离线通知 | APNs HTTP/2 适配、私有设备登记和原会话／Run／操作恢复；真实推送需具备相应 Apple 签名和凭证 |
-| 创作 | 研究报告、旅游行程、沙箱 HTML 游戏、可编辑图形与媒体作品 |
-| 原创音乐与视频 | 配置真实模型后生成，保存私有作品、播放和下载 |
-| 附件 | 图片、文档上传与问答；iOS 原生相册和语音桥接 |
-| 作品空间 | 文件权限、版本历史、预览与导出 |
-
-图片生成是否可用取决于适配器配置。Mock 媒体明确标注为测试样例，不会冒充真实生成结果。商业音乐目录只能跳转授权平台，检索结果不等于站内播放授权。iOS 相册上传、麦克风识别和键盘交互仍需按实际设备验证，最新边界记录在实现状态文档中。
-
-## 示例界面
-
-从看清今天的安排，到讨论方案、处理待办、留下笔记，形成连续的个人助手体验。
-以下截图**全部采用虚构演示数据**，由隔离的本地演示服务提供，不读取个人账号、聊天、日历或文件。日历和任务结果仅展示界面，不代表真实外部服务执行成功。这些是 Web 截图，不是 iOS 真机验收截图。
-
-### 手机端体验
-
-390 × 844 手机视口，浅色主题；全部为虚构演示数据，展示移动端 Web 布局。
+## 一个组织日常事务的工作空间
 
 | 今日 | 聊天 | 待办 | 笔记 |
 | --- | --- | --- | --- |
-| [<img src="docs/images/gallery/today-mobile.jpg" alt="今日 · synthetic mobile demo" width="195" />](docs/images/gallery/today-mobile.jpg) | [<img src="docs/images/gallery/chat-mobile.jpg" alt="聊天 · synthetic mobile demo" width="195" />](docs/images/gallery/chat-mobile.jpg) | [<img src="docs/images/gallery/tasks-mobile.jpg" alt="待办 · synthetic mobile demo" width="195" />](docs/images/gallery/tasks-mobile.jpg) | [<img src="docs/images/gallery/notes-mobile.jpg" alt="笔记 · synthetic mobile demo" width="195" />](docs/images/gallery/notes-mobile.jpg) |
+| [<img src="docs/images/gallery/today-mobile.jpg" alt="今日概览，合成数据" width="195" />](docs/images/gallery/today-mobile.jpg) | [<img src="docs/images/gallery/chat-mobile.jpg" alt="结构化聊天，合成数据" width="195" />](docs/images/gallery/chat-mobile.jpg) | [<img src="docs/images/gallery/tasks-mobile.jpg" alt="重要性与紧急程度，合成数据" width="195" />](docs/images/gallery/tasks-mobile.jpg) | [<img src="docs/images/gallery/notes-mobile.jpg" alt="私有笔记，合成数据" width="195" />](docs/images/gallery/notes-mobile.jpg) |
 
-### 桌面端体验
+390×844 响应式 Web，账号与内容均为虚构，不代表 iPhone 原生功能已通过真机验收。[更多截图与复现方式](docs/product/screenshot-gallery.md)。
 
-| Today · 一眼看清今天 | 聊天 · 让回答成为积累 |
-| --- | --- |
-| [![今日概览](docs/images/gallery/today.jpg)](docs/images/gallery/today.jpg) | [![聊天](docs/images/gallery/chat.jpg)](docs/images/gallery/chat.jpg) |
-| 集中查看优先待办、待审批事项和接下来的会议。 | 阅读结构化 Markdown，将有价值的回复一键转成私有笔记。 |
-| **待办 · 分清轻重缓急** | **笔记 · 留住想法与方案** |
-| [![待办](docs/images/gallery/tasks.jpg)](docs/images/gallery/tasks.jpg) | [![笔记](docs/images/gallery/notes.jpg)](docs/images/gallery/notes.jpg) |
-| 重要性与紧急程度独立标记，支持搜索、完成状态筛选。 | 支持搜索、置顶、编辑与带版本校验的保存。 |
+## 体验界面
 
-点击图片查看原图。[安全复现和更新截图](docs/product/screenshot-gallery.md)。
-
-## 快速开始
-
-需要 Git、Java 21、Maven、Node.js 22、pnpm 10、Python 3.12+、uv、PostgreSQL 16 和 Redis。本地基础设施脚本支持 macOS/Homebrew 与 Ubuntu PostgreSQL 16 路径，使用普通用户运行。
+**无需模型 Key、数据库、Java 或 Xcode。** 安装 Node.js 22、pnpm 10.11.0、uv 和 Python 3.12+ 后：
 
 ```bash
 git clone https://github.com/jiamingze/Adex.git
 cd Adex
+make demo-ui
+```
+
+打开 **http://127.0.0.1:18117/today?fault=calendar-plan**，浏览今日、聊天、待办、笔记。Ctrl+C 停止。此服务仅监听本机并提供静态合成响应，**不调用模型、不持久保存笔记、不执行外部操作**。不要输入真实凭据，不要通过隧道公开，也不要作为正式部署使用。
+
+## 运行完整应用
+
+按 [安装指南](docs/zh-CN/installation.md) 选择 macOS／Ubuntu 本地开发或 Docker Compose。本地开发需要 Java 21、Maven、Node.js 22、pnpm 10、Python 3.12+、uv、PostgreSQL 16、Redis；FFmpeg 用于媒体样例和拼接。请以普通用户运行。
+
+```bash
 make doctor
 make setup
 uv run python scripts/init_env.py
-```
-
-初始化会生成 `.env` 中的私有密码和服务凭证，已有配置不会被覆盖。仅学习代码时，可在 `.env` 设置 `ADEX_MODEL_PROVIDER=mock`、`ADEX_MUSIC_PROVIDER=mock`，无需真实模型 Key；测试回复会明确标注。真实聊天配置 MiniMax 或 Qwen，联网搜索另行配置 Tavily，详见 [配置说明](docs/zh-CN/configuration.md)。
-
-```bash
+# 编辑生成的私有 .env：选择 Mock，或填入自己的供应商配置。
 make build
 make up-dev
 make status
 ```
 
-打开 **http://127.0.0.1:5173**。访客可以聊天，附件、定时和创作需要注册或登录。初始化账户凭证保存在自己的 `.env`，项目没有公开通用密码。
+打开 **http://127.0.0.1:5173**。访客可聊天；注册账户可使用私有附件和持久任务。初始化账号信息在自己的 `.env` 中，没有共享默认密码。`make down-dev` 停止业务进程，不删除数据。
 
-```bash
-make down-dev
-```
+iOS 使用同一套 React 界面和 Capacitor。[在 Mac 上构建签名](docs/zh-CN/installation.md#安装到-iphone)，需要自己的 Apple Team 和手机能访问的 HTTPS 后端；免费签名需定期续签。安装项目依赖不要求配置 iOS 或临时隧道。
 
-依赖安装、Docker Compose、iOS 签名及排错请阅读 [完整安装指南](docs/zh-CN/installation.md)。外网访问需使用有身份验证的 HTTPS 网关，数据库与内部接口不能直接公开。
+## 可以尝试什么
 
-## 技术结构
+| 需求 | 结果与依赖 |
+| --- | --- |
+| “我喜欢安静的地方，行程安排宽松一些。” | 语义记忆将偏好整理成简洁事实；可在个人记忆里修改／遗忘。语义理解需要真实模型。 |
+| “每天早上八点整理最新的 SpaceX 消息。” | 确认带时区的定时任务，后台执行并将结果送回聊天；实时新闻需要 Tavily。 |
+| 一起安排今天 | 汇总待办、会议与任务结果；iPhone 日历需要系统授权，Google 需要 OAuth。 |
+| 保留有价值的回复 | 一键整理成有标题的私有笔记，支持搜索、编辑与置顶。 |
+| 准备网页文章 | 服务端浏览器、会话内登录／接管、冻结请求审批与回执核验。真实小红书／淘宝兼容性仍为 **BLOCKED_EXTERNAL**，需账号实测。 |
+| 绘图或创作图片、原创音乐和视频 | 可编辑图形与私有作品；真实媒体生成需要供应商配置及权限，Mock 会明确标注。 |
+
+还包括 Qwen／MiniMax 切换、自动 Tavily 搜索、Markdown、附件、停止／重试和历史会话。Google Calendar／Gmail 与 APNs 已有适配器和测试夹具，夹具不等于真实账户修改或通知送达。音乐目录检索提供官方跳转，检索权限不等于全曲播放授权。
+
+<details>
+<summary><strong>会话内网页操作 · 合成演示</strong></summary>
+
+<img src="docs/images/browser-chat-login.jpg" width="250" alt="聊天内安全登录，合成数据" /> <img src="docs/images/browser-chat-review.jpg" width="250" alt="冻结文章确认，合成数据" /> <img src="docs/images/browser-chat-result.jpg" width="250" alt="本地测试回执，非真实发表" />
+
+凭据只作为瞬时控制数据，不进入模型和消息；可选保存七天可撤销的加密登录会话，不保存输入密码。验证码／多因素验证及自定义控件可能需要接管。不确定的结果走对账，不盲目重发。[设计与边界](docs/architecture/browser-operator.md)。
+
+</details>
+
+## 支撑可靠执行的后端
 
 ```mermaid
 flowchart LR
-  UI[React Web / Capacitor iOS] --> App[App · Java 21]
+  UI[Web / Capacitor iOS] --> App[App · Java 21]
   App --> Agent[Agent · Python]
   App --> Auto[Automation · Java 21]
   Auto --> Agent
   Agent --> Tools[Tools · Python]
-  Tools --> Provider[模型 / 搜索 / 媒体]
-  Tools --> Runner[隔离执行 Runner]
+  Tools --> Providers[模型 / 搜索 / 媒体 / 浏览器]
   App --> PG[(PostgreSQL)]
   Auto --> PG
   Agent --> PG
   Tools --> PG
   Agent --> Redis[(Redis 缓存)]
   App --> ES[(Elasticsearch 索引)]
-  App --> Files[私有本地文件存储]
+  App --> Files[私有本地文件]
 ```
 
-四个业务服务分别拥有自己的数据边界。PostgreSQL 是权威存储，Redis 和 Elasticsearch 可重建。普通聊天保持交互式执行，耗时任务交给 Automation，通过租约、fencing epoch、Checkpoint 和 Outbox 恢复与交付。详见 [技术架构](docs/zh-CN/architecture.md)。
+四个业务服务独立管理 PostgreSQL 数据域，接口验证用户归属。普通聊天直接调用 Agent；长任务复用 Automation 的租约、fencing、不可变 Checkpoint 和 outbox。Tools 使用幂等效果账本处理外部执行与不确定结果。L1 工作态／L2 会话／L3 长期记忆生命周期分离，删除事实不能被旧提取任务或索引恢复。
 
-## 目录与学习路线
+支持服务独立部署和多实例协调。附带 Compose 是**单机起点**，不等于自动高可用；一期文件保存在 App 管理的持久本地磁盘，多主机 App 需要明确文件路由或经批准的共享存储设计。[技术架构](docs/zh-CN/architecture.md) · [工程边界](docs/architecture/engineering.md) · [文件存储](docs/LOCAL_FILE_STORAGE.md)。
 
-| 目录 | 内容 |
+## 从哪里开始读代码
+
+| 路径 | 职责 |
 | --- | --- |
-| `apps/web` / `apps/ios` | React 客户端、Capacitor 容器和 Swift 桥接 |
-| `services/adex-app` | 账户、聊天、记忆、文件及公共 API |
-| `services/adex-automation` | 调度、持久任务、租约与结果交付 |
-| `services/adex-agent` | 意图路由、上下文、模型和 Checkpoint |
-| `services/adex-tools` | 联网、旅游、研究、媒体和工具效果账本 |
-| `packages` / `migrations` | 共享 UI、契约、内核和分域数据库迁移 |
-| `runners` / `deploy` | 隔离执行、Compose、镜像和网关 |
-| `scripts` / `docs` | 环境初始化、测试、备份恢复、设计和验收证据 |
+| `apps/web`、`apps/ios` | React／TypeScript、Capacitor 与原生桥 |
+| `services/adex-app` | 认证、会话、记忆、文件及公共 API |
+| `services/adex-agent` | 路由、上下文、模型调用与检查点 |
+| `services/adex-automation` | 定时任务、持久 Run、领取与结果交付 |
+| `services/adex-tools` | 供应商、连接器、审批、效果账本及隔离 Runner |
+| `packages`、`migrations`、`deploy` | 共享契约／内核、独立数据域和部署 |
 
-推荐先阅读 [开发与学习指南](docs/zh-CN/development.md)，再从 `apps/web/src/api.ts` 追踪 `conversation/ConversationService`、`PostgresConversationStore`、`ChatWorker` 到 `adex_agent/api/chat.py` 和 `execution/interactive.py`，最后学习自动化调度和工具幂等。
+[安装](docs/zh-CN/installation.md) · [配置](docs/zh-CN/configuration.md) · [开发与学习路线](docs/zh-CN/development.md) · [IDE](docs/zh-CN/jetbrains.md) · [运维](docs/RUNBOOK.md) · [记忆](docs/architecture/conversational-memory.md) · [连接器与推送](docs/architecture/proactive-assistant.md) · [Skills](docs/architecture/skills.md) · [路线图](ROADMAP.md) · [更新记录](CHANGELOG.md)
 
-## 测试
+## 一起参与
+
+欢迎文档、可访问性、移动端问题复现和供应商夹具等小而明确的贡献。[选择入门任务](docs/project/starter-tasks.md)，阅读 [贡献指南](CONTRIBUTING.md)，或 [创建 Issue](https://github.com/jiamingze/Adex/issues/new/choose)。支持中文或英文，并非所有贡献都需要付费模型或 iPhone。
 
 ```bash
 make test
 make check-style
-make test-contract
 make test-integration
 uv run python scripts/check_secrets.py
 ```
 
-集成测试使用独立 `adex_test_*` 数据库与 Mock 外部能力，不用个人 Key 执行付费模型请求。部分检查需要 Docker 和本机基础设施。
+集成测试使用隔离数据库和明确标注的外部夹具，不使用个人 Key；真实供应商验证需自行选择并限制费用。请遵守 [社区规范](CODE_OF_CONDUCT.md)，通过 [SECURITY.md](SECURITY.md) 报告安全问题。
 
-## 更多文档
-
-- [Connector、统一审批、主动建议与 APNs 接入](docs/architecture/proactive-assistant.md)
-- [Skill 架构与行程／预约／下单演进](docs/architecture/skills.md)
-- [安装](docs/zh-CN/installation.md)、[配置](docs/zh-CN/configuration.md)、[开发](docs/zh-CN/development.md)
-- [运维与恢复](docs/RUNBOOK.md)、[文件存储](docs/LOCAL_FILE_STORAGE.md)
-- [路线图](ROADMAP.md)、[更新记录](CHANGELOG.md)、[安全说明](SECURITY.md)
-- [原始设计](docs/Adex_Product_Technical_Design_v4.1.md)、[验收门禁](docs/ACCEPTANCE.md)
-
-## 一起参与开发
-
-欢迎大家一起把 Adex 做得更好，无论你是刚开始学习，还是有工程经验，都可以参与代码开发、界面设计、设备测试、文档完善和需求讨论。可以先看看 [路线图](ROADMAP.md)、[现有问题](https://github.com/jiamingze/Adex/issues) 和 [贡献指南](CONTRIBUTING.md)。较大的功能建议先开 Issue 讨论范围，小修复和文档改进欢迎直接提交 PR。
-
-欢迎提交可复现问题、设备测试、供应商适配器和文档改进。参与前请阅读 [贡献指南](CONTRIBUTING.md)。安全问题请按 [安全策略](SECURITY.md) 私下报告。
-
-Adex 独立开发，不隶属于 OpenAI、阿里云或 MiniMax。供应商名称仅用于说明集成。项目采用 [MIT](LICENSE) 许可证，依赖及生成内容遵守各自适用的许可和权利。
-
-## 通用网页操作
-
-基于网页可访问性树操作，无需为每个站点维护 Skill。支持登录接管、请求冻结与审批、执行回执核验，复用 Run、Checkpoint 和效果账本。当前会话直接展示进度、安全登录、发表前的标题／正文确认及核验回执；按真实网页生成输入项，密码不进入聊天或模型。可选记住七天加密登录会话，支持撤销；二维码／多因素验证可使用实际页面预览。「助手 → 浏览器」仍保留完整接管入口。真实商家发布、下单及支付仍为 **BLOCKED_EXTERNAL**，需用授权账户完成验证。
-
-[Architecture and operating guide](docs/architecture/browser-operator.md)
-
-<img src="docs/images/browser-chat-login.jpg" width="250" alt="会话内安全登录，仅合成数据" /> <img src="docs/images/browser-chat-review.jpg" width="250" alt="发表前确认，仅合成数据" /> <img src="docs/images/browser-chat-result.jpg" width="250" alt="本地测试回执，非真实发表" />
-
-记忆由模型根据语义决定：普通聊天中的稳定偏好可自动整理保存，口语表达会改写成独立、简洁的事实，新信息可以纠正已有记忆；无需固定“记住：”格式。临时事项、引文和敏感画像不自动写入，并支持查看、修改、遗忘和关闭记忆。[设计与边界](docs/architecture/conversational-memory.md)。
+[MIT 许可证](LICENSE)。独立项目，与 OpenAI、阿里云和 MiniMax 无隶属关系；名称仅表示适配，依赖和内容保留各自权利。

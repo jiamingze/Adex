@@ -2,200 +2,131 @@
 
 ![Adex](docs/assets/banner.svg)
 
-**A self-hosted, multi-user AI workspace with persistent memory and durable agent execution.**
+**Your self-hosted personal AI assistant — remember context, organize your day, and follow through.**
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Installation](docs/en/installation.md) · [Architecture](docs/en/architecture.md) · [Contributing](CONTRIBUTING.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Try the UI](#try-the-interface) · [Install](docs/en/installation.md) · [Contribute](CONTRIBUTING.md)
 
 [![CI](https://github.com/jiamingze/Adex/actions/workflows/core.yml/badge.svg)](https://github.com/jiamingze/Adex/actions/workflows/core.yml)
-![Java](https://img.shields.io/badge/Java-21-ED8B00)
-![Python](https://img.shields.io/badge/Python-3.12+-3776AB)
-![React](https://img.shields.io/badge/React-19-61DAFB)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-![Platforms](https://img.shields.io/badge/Web_%2B_iOS-Capacitor-119EFF)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+![Web + iOS](https://img.shields.io/badge/Web_%2B_iOS-React_%2F_Capacitor-119EFF)
 
 </div>
 
-Adex is an open-source, self-hosted AI application for multiple users, with Web and iOS clients. It brings streaming chat, short- and long-term memory, autonomous web retrieval, scheduled work, and creative artifacts into one private workspace. Its four-service backend separates user data, agent execution, automation, and tools, so services can be deployed independently and background work can recover after interruption.
+Adex connects **chat, memory, daily planning, notes and background work** in one Web/iPhone workspace. Run it on your own infrastructure, bring your model keys, and keep each user's data separate. Built for people who want a personal assistant and developers who want to study how a recoverable agent works.
 
-## What makes Adex different
+- **Remember what matters.** Model-assisted memory turns informal preferences into editable facts, recalls them in later chats, and respects correction, deletion and opt-out.
+- **Keep working after you leave.** Scheduled briefs and background tasks persist, recover after interruption and return results to the original conversation.
+- **Stay in control of actions.** Web tasks can ask for login inside the chat, show a frozen draft for approval, and report observed receipts. Real merchant flows still need external validation.
 
-| Core capability | What the implementation provides |
-| --- | --- |
-| **AI reply to private note** | Explicit one-click transformation generates a title and structured note, validates it, and saves with owner/source-message deduplication. Failed generation creates no note; user edits and intentional copies remain independent of chat deletion. |
-| **Personal notes and daily agenda** | Searchable, pinnable private notes with revision-safe saves; independent cached Today sections with compact attention tags and a 24-hour task-result feed; iPhone-local calendar meetings with organizer and location when available. Notes do not sync with Apple Notes. |
-| **Multi-user by design** | Guest access, registration and login; owner-scoped conversations, memories, schedules, files and artifacts. Internal service calls validate scoped credentials and resource ownership. |
-| **Short- and long-term memory** | L1 working context in Redis, L2 persisted conversation history and summaries, and L3 user-managed long-term facts with source provenance. Users can inspect, correct and delete memory; tombstones and revision checks prevent stale extraction from restoring deleted facts. |
-| **Distributed service architecture** | Four independently deployable Java/Python services with service-owned PostgreSQL schemas. Schedulers and workers coordinate through database claims, leases and fencing; concurrent scheduler instances are covered by integration tests. |
-| **Recoverable agent execution** | Immutable checkpoints, attempt IDs and authoritative checkpoint references support task recovery. Memory, checkpoints and run state have separate responsibilities and lifecycles. |
-| **Durable automation** | Chat-created schedules and background tasks persist beyond the client session. Unique occurrences, Outbox delivery and deduplication return results to the original conversation. |
-| **Provider-independent tools** | Qwen / MiniMax chat, Tavily search, server-side browser reads, and configurable image/music/video adapters. Tool-effect ledgers reconcile uncertain provider submissions instead of blindly repeating them. |
-| **Private, versioned workspace** | App-authorized files and immutable artifact versions, private media playback, editable diagram sources and isolated generated-code execution. |
-| **An engineering reference** | Capability modules, application services, persistence/provider ports, architecture checks, formatting gates, and integration/failure tests—not just a chat UI. |
+**Early developer preview.** There is no hosted public service or App Store download. UI demos use synthetic data. Real models, Google OAuth, APNs and media require your own configuration; availability varies by provider. See [what is verified and what is blocked](docs/IMPLEMENTATION_STATUS.md).
 
-**External service status:** Google/APNs integration tests use explicitly labelled local fixtures. They do not establish real account changes or device delivery. Missing OAuth/APNs credentials return `BLOCKED_EXTERNAL`; iOS OAuth consent currently starts on Web, then connections are shared with the same registered account on iOS.
+## A workspace for your day
 
-**Deployment scope:** distributed service boundaries and multi-instance coordination are implemented; the included Compose setup is a single-host starting point. Phase 1 stores files on an App-owned persistent local disk. Multi-host App deployment needs explicit file routing or an approved storage design; a collection of separate local disks does not provide shared storage or automatic high availability. See [architecture](docs/en/architecture.md) and the [storage contract](docs/LOCAL_FILE_STORAGE.md).
-
-**Status:** actively developed, early-stage software. This repository contains implemented services and tests, not a claim of production readiness. Real model capabilities require your own provider credentials. See [implementation status](docs/IMPLEMENTATION_STATUS.md) and [acceptance evidence](docs/ACCEPTANCE_EVIDENCE.md) for the limits of verification.
-
-## What you can do
-
-| Capability | Experience |
-| --- | --- |
-| Today | A daily overview of priority tasks, next automations, approvals, proactive suggestions, running work and recent artifacts; prepare an editable daily-planning chat draft |
-| Chat | Stream responses, switch Qwen / MiniMax, browse and delete history, render Markdown, retry and stop replies |
-| Search | Automatically retrieve current information through Tavily and show sources |
-| Browser | Open public HTTPS pages, render JavaScript content, inspect bounded same-host links, and cite actual URLs/timestamps; credential-free, read-only and private-network blocked |
-| Memory | Working, conversation, and long-term memory; inspect, correct, and delete saved facts |
-| Automation | Create daily schedules from chat; manage schedules, background tasks, and results returned to the original conversation |
-| Connectors | Google Calendar/Gmail OAuth adapters, encrypted credentials, incremental scopes, query and revocation; real connection requires your OAuth configuration |
-| Action approval | Review exact calendar changes or email content, approve before dispatch, verify provider receipts and reconcile uncertain results |
-| Proactive assistant | Calendar conflicts and important email observations, deduplication, correlation, importance and notification preferences; recurring checks reuse Automation |
-| Task matrix | Organize tasks by importance/urgency, move quadrants, complete/delete tasks and link existing Runs |
-| Offline notifications | APNs HTTP/2 transport, private device registration and conversation/Run/action restoration; actual push requires an eligible Apple team and credentials |
-| Create | Research reports, travel plans, sandboxed HTML games, editable diagrams, and provider-backed media |
-| Music & video | Generate original audio/video with configured providers; save private artifacts and play/download results |
-| Attachments | Upload images and documents, ask questions about supported files; native photo and voice adapters on iOS |
-| Workspace | Private file storage, artifact versions, previews, and exports |
-
-Image generation availability depends on the selected adapter. Deterministic mock media is explicitly labeled and does not count as real generation. Music catalog search links to authorized platforms; search results do not grant streaming rights. iOS photo upload, microphone recognition, and keyboard behavior require device-level validation; the latest device test boundaries are recorded in the status document.
-
-## See it in action
-
-From a daily overview to a useful conversation, prioritized tasks and lasting notes.
-All screenshots below use **invented demo data** in an isolated local fixture: no personal accounts, messages, meetings or files. Calendar entries and execution results are UI examples, not evidence of real provider execution. These are Web screenshots, not native iOS acceptance tests.
-
-### Mobile experience
-
-390 × 844 mobile viewport, light theme. Entirely synthetic demo data; responsive Web UI.
-
-| Today | Chat | Todo | Notes |
+| Today | Chat | Tasks | Notes |
 | --- | --- | --- | --- |
-| [<img src="docs/images/gallery/today-mobile.jpg" alt="Today · synthetic mobile demo" width="195" />](docs/images/gallery/today-mobile.jpg) | [<img src="docs/images/gallery/chat-mobile.jpg" alt="Chat · synthetic mobile demo" width="195" />](docs/images/gallery/chat-mobile.jpg) | [<img src="docs/images/gallery/tasks-mobile.jpg" alt="Todo · synthetic mobile demo" width="195" />](docs/images/gallery/tasks-mobile.jpg) | [<img src="docs/images/gallery/notes-mobile.jpg" alt="Notes · synthetic mobile demo" width="195" />](docs/images/gallery/notes-mobile.jpg) |
+| [<img src="docs/images/gallery/today-mobile.jpg" alt="Today overview, synthetic data" width="195" />](docs/images/gallery/today-mobile.jpg) | [<img src="docs/images/gallery/chat-mobile.jpg" alt="Chat and structured answers, synthetic data" width="195" />](docs/images/gallery/chat-mobile.jpg) | [<img src="docs/images/gallery/tasks-mobile.jpg" alt="Tasks by importance and urgency, synthetic data" width="195" />](docs/images/gallery/tasks-mobile.jpg) | [<img src="docs/images/gallery/notes-mobile.jpg" alt="Private notes, synthetic data" width="195" />](docs/images/gallery/notes-mobile.jpg) |
 
-### Desktop experience
+Responsive Web at 390×844, with invented accounts and content; these are not native iPhone acceptance tests. [More screenshots and reproduction steps](docs/product/screenshot-gallery.md).
 
-| Today · your day at a glance | Chat · turn answers into notes |
-| --- | --- |
-| [![Today](docs/images/gallery/today.jpg)](docs/images/gallery/today.jpg) | [![Chat](docs/images/gallery/chat.jpg)](docs/images/gallery/chat.jpg) |
-| Priority tasks, approvals and upcoming meetings in one place. | Read structured Markdown and save useful answers as private notes. |
-| **Todo · decide what matters** | **Notes · keep your ideas** |
-| [![Todo](docs/images/gallery/tasks.jpg)](docs/images/gallery/tasks.jpg) | [![Notes](docs/images/gallery/notes.jpg)](docs/images/gallery/notes.jpg) |
-| Independent importance/urgency tags, search and completion filters. | Search, pin and edit notes with revision-safe saves. |
+## Try the interface
 
-Click an image for full size. [Reproduce the gallery safely](docs/product/screenshot-gallery.md).
-
-## Quick start: local development
-
-Prerequisites: Git, Java 21, Maven, Node.js 22, pnpm 10, Python 3.12+, uv, PostgreSQL 16, and Redis. The local bootstrap supports macOS/Homebrew and Ubuntu PostgreSQL 16 layouts. Use a normal user, not root.
+**No model keys, database, Java or Xcode needed.** Install Node.js 22, pnpm 10.11.0, uv and Python 3.12+, then:
 
 ```bash
 git clone https://github.com/jiamingze/Adex.git
 cd Adex
+make demo-ui
+```
+
+Open **http://127.0.0.1:18117/today?fault=calendar-plan**. Browse Today, Chat, Tasks and Notes. Stop with Ctrl+C. This loopback-only preview serves static synthetic responses: it does **not** run an LLM, save your notes or perform external actions. Never enter real credentials, expose it through a tunnel, or use it as a deployment.
+
+## Run the real application
+
+Choose the [installation guide](docs/en/installation.md) for macOS/Ubuntu or Docker Compose. Local development requires Java 21, Maven, Node.js 22, pnpm 10, Python 3.12+, uv, PostgreSQL 16 and Redis. FFmpeg supports media fixtures/composition. Use a normal user.
+
+```bash
 make doctor
 make setup
 uv run python scripts/init_env.py
-```
-
-The initializer generates private credentials in `.env` and preserves an existing file. For a credential-free learning environment, set `ADEX_MODEL_PROVIDER=mock` and `ADEX_MUSIC_PROVIDER=mock` in `.env`. Mock answers are labeled. For real chat, configure MiniMax or Qwen; configure Tavily separately for search. See the [configuration guide](docs/en/configuration.md).
-
-```bash
+# Edit the generated private .env: choose mock providers or supply your own keys.
 make build
 make up-dev
 make status
 ```
 
-Open **http://127.0.0.1:5173**. Guest chat is available; register or log in for attachments, automation, and creative tasks. The bootstrap owner credentials are in your private `.env` — there is no shared default password.
+Open **http://127.0.0.1:5173**. Guest chat is available; registered accounts unlock private attachments and durable tasks. Bootstrap credentials live in your `.env`; there is no shared default password. `make down-dev` stops application processes without deleting data.
 
-```bash
-make down-dev
-```
+iOS uses the same React UI in Capacitor. [Build/sign on your Mac](docs/en/installation.md#ios) with your own Apple team and a reachable HTTPS backend; free Personal Team signing needs periodic renewal. Dependency installation never requires iOS signing or a tunnel.
 
-For dependencies, Docker Compose, iOS signing, and troubleshooting, follow the [complete installation guide](docs/en/installation.md). For operation beyond localhost, use an authenticated HTTPS gateway; keep databases and internal services private.
+## Things to try
 
-## Architecture at a glance
+| Ask or do | Result / dependency |
+| --- | --- |
+| “I prefer quiet places and a relaxed pace.” | Semantic memory proposes concise preferences; inspect/correct/forget them in Memory. Requires a real model for semantic understanding. |
+| “Every morning at 8, summarize the latest SpaceX news.” | Confirm a timezone-aware schedule; background results return to the chat. Live news requires Tavily. |
+| Plan today | Today combines priorities, meetings and task results; iPhone calendar needs permission, Google needs OAuth configuration. |
+| Save a useful reply | Turn it into a titled private note; search, edit and pin it later. |
+| Prepare a website post | Server-side browser, in-chat login/takeover, frozen-request approval and receipt reconciliation. Actual Xiaohongshu/Taobao compatibility is **BLOCKED_EXTERNAL** pending account acceptance. |
+| Create a diagram, image, original music or video | Editable diagrams and private artifacts; real media generation requires a configured, entitled provider. Mock outputs are labelled. |
+
+Qwen / MiniMax chat, automatic Tavily search, Markdown, attachments, stop/retry and conversation history are included. Google Calendar/Gmail connectors and APNs transport have fixture coverage; fixtures do not establish real account changes or notification delivery. Music catalog search links to authorized platforms; catalog access does not grant streaming rights.
+
+<details>
+<summary><strong>In-chat website workflow · synthetic examples</strong></summary>
+
+<img src="docs/images/browser-chat-login.jpg" width="250" alt="Secure login in chat, synthetic data" /> <img src="docs/images/browser-chat-review.jpg" width="250" alt="Frozen draft approval, synthetic data" /> <img src="docs/images/browser-chat-result.jpg" width="250" alt="Local fixture receipt, not real publication" />
+
+Credentials are transient controls, outside model prompts and messages. Optional encrypted login sessions expire after seven days and can be revoked; input passwords are not saved. CAPTCHA/MFA or unsupported widgets may need takeover. Unknown results reconcile without blind resubmission. [Design and limits](docs/architecture/browser-operator.md).
+
+</details>
+
+## Built for recoverable execution
 
 ```mermaid
 flowchart LR
-  UI[React Web / Capacitor iOS] --> App[App · Java 21]
+  UI[Web / Capacitor iOS] --> App[App · Java 21]
   App --> Agent[Agent · Python]
   App --> Auto[Automation · Java 21]
   Auto --> Agent
   Agent --> Tools[Tools · Python]
-  Tools --> Providers[Models / Search / Media]
-  Tools --> Runner[Isolated Code & Browser Runners]
+  Tools --> Providers[Models / Search / Media / Browser]
   App --> PG[(PostgreSQL)]
   Auto --> PG
   Agent --> PG
   Tools --> PG
-  Agent --> Redis[(Redis · rebuildable cache)]
-  App --> ES[(Elasticsearch · optional index)]
-  App --> Files[Private local file storage]
+  Agent --> Redis[(Redis cache)]
+  App --> ES[(Elasticsearch index)]
+  App --> Files[Private local files]
 ```
 
-Four business services keep distinct responsibilities. PostgreSQL is authoritative. Redis and Elasticsearch can be rebuilt; they do not own durable tasks or memory. Files are stored locally through App-owned metadata and permissions. Ordinary chat stays interactive; long-running work uses Automation. Read the [architecture guide](docs/en/architecture.md) for data ownership and failure recovery.
+Exactly four business domains, with service-owned PostgreSQL schemas and owner-scoped APIs. Ordinary chat calls Agent directly; long work uses Automation's leases, fencing, immutable checkpoints and outbox. Tools records idempotent effects and reconciles uncertain submissions. L1 working / L2 conversation / L3 long-term memory have distinct lifecycles; deleted facts must not reappear from stale extraction or indexing.
 
-## Learn the codebase
+Services can deploy independently and coordinate across instances. Included Compose is a **single-host starting point**, not automatic high availability. Phase 1 files live on App-owned persistent local disk; multi-host App replicas need explicit file routing or an approved shared-storage design. [Architecture](docs/en/architecture.md) · [Engineering boundaries](docs/architecture/engineering.md) · [Storage](docs/LOCAL_FILE_STORAGE.md).
 
-```text
-apps/web                 React + TypeScript client
-apps/ios                 Capacitor container and Swift bridges
-services/adex-app        Authentication, chat, files, memory, public API
-services/adex-automation Schedules, durable runs, leases and delivery
-services/adex-agent      Routing, context, providers and checkpoints
-services/adex-tools      Search, media, research, travel and tool effects
-packages                 Shared UI, contracts and service kernels
-migrations               Service-owned PostgreSQL schemas
-runners                  Isolated execution adapters
-deploy                   Compose, Dockerfiles and gateway configuration
-scripts                  Bootstrap, verification, backup and recovery
-docs                     Guides, design decisions and acceptance evidence
-```
+## Find your way around
 
-Start with [development](docs/en/development.md), then trace `apps/web/src/api.ts` → `conversation/ConversationService` / `PostgresConversationStore` / `ChatWorker` → `adex_agent/api/chat.py` → `execution/interactive.py`. Explore the scheduler and effect ledger after understanding an interactive turn.
+| Path | Responsibility |
+| --- | --- |
+| `apps/web`, `apps/ios` | React/TypeScript UI, Capacitor and native bridges |
+| `services/adex-app` | Authentication, conversations, memory, files and public API |
+| `services/adex-agent` | Routing, context, model calls and checkpoints |
+| `services/adex-automation` | Schedules, durable Runs, claims and result delivery |
+| `services/adex-tools` | Providers, connectors, approvals, effects and isolated runners |
+| `packages`, `migrations`, `deploy` | Shared contracts/kernels, owned schemas and deployment |
 
-## Verification
+[Installation](docs/en/installation.md) · [Configuration](docs/en/configuration.md) · [Development & code tour](docs/en/development.md) · [IDE setup](docs/en/jetbrains.md) · [Operations](docs/RUNBOOK.md) · [Memory](docs/architecture/conversational-memory.md) · [Connectors/APNs](docs/architecture/proactive-assistant.md) · [Skills](docs/architecture/skills.md) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
+
+## Contribute
+
+Small, focused contributions are welcome: documentation, accessibility, reproducible mobile bugs and provider fixtures. [Choose a starter task](docs/project/starter-tasks.md), read [CONTRIBUTING.md](CONTRIBUTING.md), or [open an issue](https://github.com/jiamingze/Adex/issues/new/choose). English and Chinese are welcome; no paid model account or iPhone is needed for every contribution.
 
 ```bash
 make test
 make check-style
-make test-contract
 make test-integration
 uv run python scripts/check_secrets.py
 ```
 
-Integration tests create isolated `adex_test_*` databases and mock external providers. They do not use personal API keys for paid calls. Some checks require Docker and system infrastructure; see [development](docs/en/development.md).
+Integration tests use isolated databases and explicitly labelled external fixtures, not personal keys. Keep real provider tests opt-in and cost-bounded. Read the [community guidelines](CODE_OF_CONDUCT.md) and report vulnerabilities via [SECURITY.md](SECURITY.md).
 
-## Documentation
-
-- [Connectors, approvals, proactive signals and APNs setup](docs/architecture/proactive-assistant.md)
-- [Skills and travel-to-booking roadmap](docs/architecture/skills.md)
-- [Installation & iOS](docs/en/installation.md) / [安装与 iOS](docs/zh-CN/installation.md)
-- [Architecture](docs/en/architecture.md) / [技术架构](docs/zh-CN/architecture.md)
-- [Configuration](docs/en/configuration.md) / [配置说明](docs/zh-CN/configuration.md)
-- [Development & learning path](docs/en/development.md) / [开发与学习路线](docs/zh-CN/development.md)
-- [Operations & recovery](docs/RUNBOOK.md), [file storage](docs/LOCAL_FILE_STORAGE.md)
-- [Roadmap](ROADMAP.md), [changelog](CHANGELOG.md), [security](SECURITY.md)
-- [Original design](docs/Adex_Product_Technical_Design_v4.1.md), [acceptance gates](docs/ACCEPTANCE.md)
-
-## Join the development
-
-Adex welcomes contributors of all experience levels. Help shape the project through code, design, device testing, documentation, or ideas. Start with the [roadmap](ROADMAP.md), [open issues](https://github.com/jiamingze/Adex/issues), and [contribution guide](CONTRIBUTING.md). For a larger feature, open an issue to discuss the scope before starting; small fixes are welcome as pull requests.
-
-## Contributing
-
-Bug reports, reproducible device tests, provider adapters, and documentation improvements are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing contracts or reliability mechanisms. Report security issues privately using [SECURITY.md](SECURITY.md).
-
-Adex is independently developed and is not affiliated with OpenAI, Alibaba Cloud, or MiniMax. Provider names identify integrations. Dependencies and generated content retain their own applicable licenses and rights.
-
-Licensed under [MIT](LICENSE).
-
-## Generic browser operator
-
-A generic accessibility-based browser operator prepares web actions without per-site Skills. Secure login takeover, frozen-request approvals and receipt verification reuse existing Runs/checkpoints/effect ledgers. The originating chat now contains live progress, an actual-page-derived secure login card, frozen title/body approval and verified receipts. Optional encrypted seven-day login sessions can be revoked; passwords are not saved. QR/MFA can use the inline actual-page preview. Assistant → Browser remains available for full control. Real merchant publication/orders/payment remain **BLOCKED_EXTERNAL** until validated with an authorized account.
-
-[Architecture and operating guide](docs/architecture/browser-operator.md)
-
-<img src="docs/images/browser-chat-login.jpg" width="250" alt="In-chat secure login — synthetic data only" /> <img src="docs/images/browser-chat-review.jpg" width="250" alt="Frozen publication approval — synthetic data only" /> <img src="docs/images/browser-chat-result.jpg" width="250" alt="Verified local fixture receipt — not a real publication" />
-
-Memory is now selected and normalized by model semantics: stable preferences can be learned from ordinary conversation, informal wording becomes concise facts, and changed facts update existing memories. Temporary or quoted information is excluded; users retain inspection/correction/deletion and an opt-out. There is no required “remember:” command format. [Memory design and limits](docs/architecture/conversational-memory.md).
+[MIT](LICENSE). Independent project, not affiliated with OpenAI, Alibaba Cloud or MiniMax. Provider names identify integrations; dependencies and content retain their own rights.

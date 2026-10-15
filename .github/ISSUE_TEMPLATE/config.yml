@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup and UI preview / 安装与界面预览
+    url: https://github.com/jiamingze/Adex#try-the-interface
+    about: Start with the synthetic UI demo or installation guide.
+  - name: Security reporting / 安全问题
+    url: https://github.com/jiamingze/Adex/blob/main/SECURITY.md
+    about: Never disclose credentials, private data or vulnerabilities in public issues.
