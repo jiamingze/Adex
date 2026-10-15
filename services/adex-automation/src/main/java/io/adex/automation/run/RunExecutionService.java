@@ -78,6 +78,8 @@ public class RunExecutionService {
                   Boolean.class,
                   String.valueOf(b.get("approval_id")),
                   id);
+    } else if (run.get("kind").equals("BROWSER")) {
+      live = live && id.toString().equals(String.valueOf(b.get("browser_run_id")));
     } else if (run.get("kind").equals("CONNECTOR_SYNC")) {
       live =
           live
@@ -92,7 +94,13 @@ public class RunExecutionService {
               && Set.of("IMAGE", "AUDIO", "VIDEO").contains(run.get("kind"))
               && id.toString().equals(String.valueOf(b.get("request_key")));
     if (!live) throw Kernel.error(409, "STALE_EXECUTION");
-    return Map.of("ok", true);
+    return Map.of(
+        "ok",
+        true,
+        "origin_conversation_id",
+        run.get("origin_conversation_id"),
+        "kind",
+        run.get("kind"));
   }
 
   public Object heartbeat(Map<String, Object> claims, UUID id, Map<String, Object> b) {
@@ -145,6 +153,47 @@ public class RunExecutionService {
         });
   }
 
+  /** Commit the waiting checkpoint before releasing the worker lease. */
+  public Object suspend(Map<String, Object> claims, UUID id, Map<String, Object> b) {
+    var cp = verifyCheckpoint(claims, id, b);
+    Map<String, Object> state = (Map<String, Object>) cp.get("state");
+    if (!"browser_waiting".equals(state.get("phase")))
+      throw Kernel.error(409, "WAITING_CHECKPOINT_REQUIRED");
+    return k.tx.execute(
+        tx -> {
+          var run = authorize(claims, id, b);
+          if (!"BROWSER".equals(run.get("kind"))
+              || !String.valueOf(run.get("checkpoint_ref")).equals(b.get("checkpoint_ref")))
+            throw Kernel.error(409, "UNCOMMITTED_CHECKPOINT");
+          k.db.update(
+              "UPDATE runs SET status='WAITING_INPUT',epoch=epoch+1,lease_until=NULL,updated_at=now() WHERE id=?",
+              id);
+          k.db.update(
+              "UPDATE attempts SET status='WAITING_INPUT',ended_at=now() WHERE id=?",
+              run.get("attempt_id"));
+          UUID event = Kernel.id();
+          String delivery = "waiting:" + run.get("epoch");
+          var payload = new LinkedHashMap<String, Object>();
+          payload.put("event_id", event);
+          payload.put("run_id", id);
+          payload.put("owner_id", run.get("owner_id"));
+          payload.put("origin_conversation_id", run.get("origin_conversation_id"));
+          payload.put("memory_revision", cp.get("memory_revision"));
+          payload.put("kind", "BROWSER");
+          payload.put("delivery_key", delivery);
+          payload.put("schema_version", 1);
+          payload.put("content", Kernel.text(state, "content", 64000));
+          payload.put("artifact", state.getOrDefault("artifact", Map.of()));
+          k.db.update(
+              "INSERT INTO outbox(id,run_id,payload,delivery_key) VALUES(?,?,?::jsonb,?) ON CONFLICT(run_id,delivery_key) DO NOTHING",
+              event,
+              id,
+              k.encode(payload),
+              delivery);
+          return Map.of("ok", true, "status", "WAITING_INPUT");
+        });
+  }
+
   public Object complete(Map<String, Object> claims, UUID id, Map<String, Object> b) {
     var cp = verifyCheckpoint(claims, id, b);
     Map<String, Object> state = (Map<String, Object>) cp.get("state");
@@ -185,7 +234,7 @@ public class RunExecutionService {
                   "artifact",
                   state.getOrDefault("artifact", Map.of()));
           k.db.update(
-              "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id) DO"
+              "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id,delivery_key) DO"
                   + " NOTHING",
               event,
               id,
@@ -242,7 +291,7 @@ public class RunExecutionService {
                     "kind",
                     "ERROR");
             k.db.update(
-                "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id) DO NOTHING",
+                "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id,delivery_key) DO NOTHING",
                 event,
                 id,
                 k.encode(payload));

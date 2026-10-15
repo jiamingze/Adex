@@ -177,3 +177,11 @@ uv run python scripts/check_secrets.py
 欢迎提交可复现问题、设备测试、供应商适配器和文档改进。参与前请阅读 [贡献指南](CONTRIBUTING.md)。安全问题请按 [安全策略](SECURITY.md) 私下报告。
 
 Adex 独立开发，不隶属于 OpenAI、阿里云或 MiniMax。供应商名称仅用于说明集成。项目采用 [MIT](LICENSE) 许可证，依赖及生成内容遵守各自适用的许可和权利。
+
+## 通用网页操作
+
+基于网页可访问性树操作，无需为每个站点维护 Skill。支持登录接管、请求冻结与审批、执行回执核验，复用 Run、Checkpoint 和效果账本。入口为「助手 → 浏览器」。真实商家发布、下单及支付仍为 **BLOCKED_EXTERNAL**，需用授权账户完成验证。
+
+[Architecture and operating guide](docs/architecture/browser-operator.md)
+
+<img src="docs/images/browser-operator-mobile.jpg" width="260" alt="Browser takeover — synthetic test data only" />

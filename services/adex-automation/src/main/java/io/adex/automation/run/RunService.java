@@ -30,7 +30,8 @@ public class RunService {
             "VIDEO",
             "CALENDAR",
             "CONNECTOR_SYNC",
-            "CONNECTOR_ACTION")
+            "CONNECTOR_ACTION",
+            "BROWSER")
         .contains(kind)) throw Kernel.error(400, "INVALID_TASK_KIND");
     String hash = Kernel.hash(k.encode(new TreeMap<>(b)));
     return k.tx.execute(
@@ -75,6 +76,23 @@ public class RunService {
   public Object run(Map<String, Object> claims, UUID id) {
     return k.row(
         "SELECT * FROM runs WHERE id=? AND owner_id=?", id, Kernel.uuid(claims.get("owner")));
+  }
+
+  /** User resumption requeues the same Run; attempts remain auditable. */
+  public Object resume(Map<String, Object> claims, UUID id) {
+    UUID owner = Kernel.uuid(claims.get("owner"));
+    return k.tx.execute(
+        tx -> {
+          var run = k.row("SELECT * FROM runs WHERE id=? AND owner_id=? FOR UPDATE", id, owner);
+          if (!"BROWSER".equals(run.get("kind"))) throw Kernel.error(409, "NOT_A_BROWSER_RUN");
+          if (Set.of("QUEUED", "RUNNING").contains(run.get("status"))) return run;
+          if (!"WAITING_INPUT".equals(run.get("status")))
+            throw Kernel.error(409, "RUN_NOT_WAITING");
+          k.db.update(
+              "UPDATE runs SET status='QUEUED',epoch=epoch+1,max_attempts=max_attempts+1,error_code=NULL,updated_at=now() WHERE id=?",
+              id);
+          return k.row("SELECT * FROM runs WHERE id=?", id);
+        });
   }
 
   public Object cancel(Map<String, Object> claims, UUID id) {

@@ -43,6 +43,7 @@ e["ADEX_IMAGE_PROVIDER"] = "mock"
 e["ADEX_CALDAV_URL"] = ""
 e["ADEX_SMTP_HOST"] = ""
 e["ADEX_BACKGROUND_WORKER"] = "false"
+e["ADEX_BROWSER_TEST_FIXTURE"] = "true"
 e["ADEX_TEST_URL"] = "http://127.0.0.1:18080"
 e["ADEX_REDIS_URL"] = "redis://127.0.0.1:56380/0"
 e["ADEX_ES_URL"] = "http://127.0.0.1:59499"
@@ -51,6 +52,8 @@ e["ADEX_VISION_API_KEY"] = ""
 e["ADEX_MEDIA_WEBHOOK_SECRET"] = "adex-integration-webhook-fixture"
 # External fixtures only run against a random adex_test_* database.
 import base64
+
+e["ADEX_BROWSER_ENCRYPTION_KEY"] = base64.b64encode(os.urandom(32)).decode()
 from secrets import token_bytes
 
 e["ADEX_CONNECTOR_TEST_FIXTURE"] = "true"

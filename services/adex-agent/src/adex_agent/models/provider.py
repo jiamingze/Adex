@@ -204,6 +204,36 @@ class MockProvider:
             and latest == "fixture:note-invalid"
         ):
             text = "invalid-note-json"
+        if any(
+            m.get("role") == "system" and m.get("content", "").startswith("BROWSER_OPERATOR_V1")
+            for m in messages
+        ):
+            value = json.loads(latest)
+            nodes = value["observation"].get("nodes", [])
+            step = {"action": "navigate", "url": "https://example.com/fixture"}
+            if value["observation"].get("url") != "about:blank":
+                step = {"action": "done", "reason": "TEST_FIXTURE only"}
+                for name, content in (
+                    ("标题", "TEST_FIXTURE 标题"),
+                    (
+                        "正文",
+                        "TEST_FIXTURE_UNKNOWN"
+                        if "fixture:browser-unknown" in value["goal"]
+                        else "TEST_FIXTURE 正文，不是真实发布",
+                    ),
+                ):
+                    node = next((n for n in nodes if n.get("name") == name and n.get("id")), None)
+                    if node and not node.get("value"):
+                        step = {"action": "type", "element_id": node["id"], "text": content}
+                        break
+                else:
+                    if not value["observation"].get("business_receipts"):
+                        node = next(
+                            (n for n in nodes if n.get("name") == "发布" and n.get("role") == "button"), None
+                        )
+                        if node:
+                            step = {"action": "click", "element_id": node["id"]}
+            text = json.dumps(step, ensure_ascii=False)
         for index in range(0, len(text), 8):
             await asyncio.sleep(0.02)
             yield {"type": "delta", "text": text[index : index + 8]}

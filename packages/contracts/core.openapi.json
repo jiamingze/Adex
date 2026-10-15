@@ -1968,7 +1968,7 @@
             }
           }
         },
-        "description": "Create an account; upgrades the current private guest owner in-place. Username 3\u201332 ASCII characters; password 12\u2013128 characters."
+        "description": "Create an account; upgrades the current private guest owner in-place. Username 3–32 ASCII characters; password 12–128 characters."
       }
     },
     "/auth/guest": {
@@ -3152,6 +3152,351 @@
             "description": "Service unavailable"
           }
         }
+      }
+    },
+    "/browser/sessions": {
+      "get": {
+        "operationId": "listBrowserSessions",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped browser response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not owned"
+          },
+          "409": {
+            "description": "Stale or pending operation"
+          },
+          "503": {
+            "description": "External dependency unavailable"
+          }
+        }
+      }
+    },
+    "/browser/sessions/{id}": {
+      "get": {
+        "operationId": "viewBrowserSession",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped browser response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not owned"
+          },
+          "409": {
+            "description": "Stale or pending operation"
+          },
+          "503": {
+            "description": "External dependency unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/browser/sessions/{id}/control": {
+      "post": {
+        "operationId": "controlBrowserSession",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped browser response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not owned"
+          },
+          "409": {
+            "description": "Stale or pending operation"
+          },
+          "503": {
+            "description": "External dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "takeover",
+                      "observe",
+                      "click",
+                      "point",
+                      "type",
+                      "key",
+                      "scroll",
+                      "navigate",
+                      "back",
+                      "resume",
+                      "remember",
+                      "recover",
+                      "switch_tab",
+                      "dialog_accept",
+                      "dialog_dismiss"
+                    ]
+                  },
+                  "element_id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 16000
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "x": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1099
+                  },
+                  "y": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 779
+                  },
+                  "profile_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "dialog_id": {
+                    "type": "string",
+                    "maxLength": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/browser/sessions/{id}/resume": {
+      "post": {
+        "operationId": "resumeBrowserSession",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped browser response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not owned"
+          },
+          "409": {
+            "description": "Stale or pending operation"
+          },
+          "503": {
+            "description": "External dependency unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/browser/sessions/{id}/close": {
+      "post": {
+        "operationId": "closeBrowserSession",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped browser response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not owned"
+          },
+          "409": {
+            "description": "Stale or pending operation"
+          },
+          "503": {
+            "description": "External dependency unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/browser/accounts": {
+      "get": {
+        "operationId": "listBrowserAccounts",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped browser response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not owned"
+          },
+          "409": {
+            "description": "Stale or pending operation"
+          },
+          "503": {
+            "description": "External dependency unavailable"
+          }
+        }
+      }
+    },
+    "/browser/accounts/{id}/revoke": {
+      "post": {
+        "operationId": "revokeBrowserAccount",
+        "responses": {
+          "200": {
+            "description": "Owner-scoped browser response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not owned"
+          },
+          "409": {
+            "description": "Stale or pending operation"
+          },
+          "503": {
+            "description": "External dependency unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
       }
     }
   },

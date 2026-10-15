@@ -38,6 +38,10 @@ public class AutomationGateway {
   }
 
   public Object createTask(UUID owner, Map<String, Object> body, String key) {
+    if ("BROWSER".equals(body.get("kind"))
+        && Boolean.TRUE.equals(
+            k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest")))
+      throw Kernel.error(403, "SIGN_IN_REQUIRED");
     chat.own(owner, Kernel.uuid(body.get("origin_conversation_id")));
     var b = new HashMap<>(body);
     b.put("idempotency_key", key);

@@ -26,3 +26,16 @@ App → Agent `POST /internal/agent/note-compose`, scope `note:compose`, resourc
 
 ### Public browser read
 Agent → Tools `POST /internal/browser/read`: owner-bound `search:read`, `{url, query?, max_pages?:1..3}`. Credential-free public HTTPS rendering, bounded same-host navigation, actual extracted text and source URLs/timestamps. Search snippets are not browser evidence. Invalid/private destinations fail closed; see [browser access](../../docs/architecture/browser-access.md). No DB migration or new scheduler.
+
+### Generic browser operator
+
+App authenticated `/browser/sessions`, `/browser/sessions/{id}` (no-store),
+`/{id}/control`, `/{id}/resume`, `/{id}/close`; `/browser/accounts` and
+`/browser/accounts/{id}/revoke`. Owner identity is resolved before Tools calls.
+Agent uses `browser:operate` capability, scoped Run/epoch/attempt and strict
+`/internal/browser/operator/ensure`, `/{session}/observe`, `/{session}/step` contracts.
+Human controls use App-only `browser:control`; no model approval or arbitrary JS.
+Browser requests use existing `browser.request` approvals and `action:<id>` effects.
+Automation suspend validates committed `browser_waiting` checkpoint, emits waiting
+outbox delivery, fences attempt; resume queues the original Run with a new epoch.
+See [full contract](../../docs/architecture/browser-operator.md).

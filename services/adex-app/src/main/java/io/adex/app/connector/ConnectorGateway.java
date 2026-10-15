@@ -152,6 +152,19 @@ public class ConnectorGateway {
   public Object decide(UUID owner, UUID id, String decision, Map<String, Object> body) {
     if (!Set.of("approve", "revoke", "reconcile").contains(decision))
       throw Kernel.error(400, "INVALID_ACTION");
+    var existing =
+        (Map<String, Object>)
+            k.call("tools", "approval:read", owner, id, "GET", "/internal/actions/" + id, null);
+    var browserRequest = (Map<String, Object>) existing.get("request");
+    boolean browser = "browser.request".equals(existing.get("kind"));
+    if (browser && decision.equals("approve") && "PENDING".equals(existing.get("state"))) {
+      UUID run = Kernel.uuid(browserRequest.get("browser_run_id"));
+      var current =
+          (Map<String, Object>)
+              k.call("automation", "run:read", owner, run, "GET", "/internal/runs/" + run, null);
+      if (!"WAITING_INPUT".equals(current.get("status")))
+        throw Kernel.error(409, "BROWSER_AGENT_STILL_PAUSING");
+    }
     var result =
         k.call(
             "tools",
@@ -161,10 +174,32 @@ public class ConnectorGateway {
             "POST",
             "/internal/actions/" + id + "/" + decision,
             body);
+    if (browser && decision.equals("revoke")) {
+      UUID session = Kernel.uuid(browserRequest.get("browser_session_id"));
+      k.call(
+          "tools",
+          "browser:control",
+          owner,
+          session,
+          "POST",
+          "/internal/browser/sessions/" + session + "/control",
+          Map.of("action", "reject"));
+    }
     if (!decision.equals("approve") || !(result.get("request") instanceof Map<?, ?> request))
       return result;
     UUID conv = Kernel.uuid(request.get("origin_conversation_id"));
     chat.own(owner, conv);
+    if (request.containsKey("browser_session_id")) {
+      UUID run = Kernel.uuid(request.get("browser_run_id"));
+      return k.call(
+          "automation",
+          "run:resume",
+          owner,
+          run,
+          "POST",
+          "/internal/runs/" + run + "/resume",
+          Map.of());
+    }
     // Repeated clicks reuse the same logical Run; execution rechecks expiry,
     // connection rights and live epoch at Tools, not model-generated prose.
     return k.call(

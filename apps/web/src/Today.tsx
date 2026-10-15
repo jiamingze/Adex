@@ -458,7 +458,7 @@ export function Today({
                     <ShieldCheck size={17} />
                     <span className="attention-title">
                       <strong>
-                        {row.action.kind === "calendar.update"
+                        {row.action.kind === "browser.request" ? "网页操作待确认" : row.action.kind === "calendar.update"
                           ? "调整日历安排"
                           : row.action.kind === "gmail.send"
                             ? "发送邮件"

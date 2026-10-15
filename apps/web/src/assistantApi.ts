@@ -17,6 +17,7 @@ export type Action = {
     origin_conversation_id: string;
     payload: Record<string, unknown>;
     before?: Record<string, unknown>;
+    summary?: {kind:string;page_url:string;fields:{label:string;value:string}[];facts:string[]};
   };
   result?: Record<string, unknown>;
 };

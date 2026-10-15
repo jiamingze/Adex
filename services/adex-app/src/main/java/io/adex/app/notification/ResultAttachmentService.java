@@ -62,6 +62,11 @@ public class ResultAttachmentService {
 
     if (!owner.toString().equals(claims.get("owner"))) throw Kernel.error(403, "SCOPE_DENIED");
     String content = Kernel.text(b, "content", 64000);
+    String delivery = String.valueOf(b.getOrDefault("delivery_key", "result"));
+    String dedupe =
+        "run:"
+            + b.get("run_id")
+            + ("BROWSER".equals(b.get("kind")) && !"result".equals(delivery) ? ":" + delivery : "");
     return k.tx.execute(
         s -> {
           var u = k.row("SELECT memory_revision FROM users WHERE id=? FOR SHARE", owner);
@@ -80,15 +85,13 @@ public class ResultAttachmentService {
             return Map.of("ok", true, "discarded", "MEMORY_REVISION_CHANGED");
           if (!k.db
               .queryForList(
-                  "SELECT id FROM messages WHERE conversation_id=? AND dedupe_key=?",
-                  conv,
-                  "run:" + b.get("run_id"))
+                  "SELECT id FROM messages WHERE conversation_id=? AND dedupe_key=?", conv, dedupe)
               .isEmpty()) return Map.of("ok", true, "deduplicated", true);
           if ("CONNECTOR_SYNC".equals(b.get("kind"))
               && b.get("artifact") instanceof Map<?, ?> artifact
               && artifact.get("signals") instanceof List<?> signals) {
             int count = proactive.ingest(owner, conv, Kernel.uuid(b.get("run_id")), signals);
-            if (count > 0) chat.append(conv, "assistant", content, "run:" + b.get("run_id"));
+            if (count > 0) chat.append(conv, "assistant", content, dedupe);
             return Map.of("ok", true, "signals_created", count);
           }
           String kind = String.valueOf(b.getOrDefault("kind", "CHAT"));
@@ -139,7 +142,7 @@ public class ResultAttachmentService {
                 Kernel.hash(source),
                 Kernel.uuid(b.get("run_id")));
           }
-          UUID resultMessage = chat.append(conv, "assistant", content, "run:" + b.get("run_id"));
+          UUID resultMessage = chat.append(conv, "assistant", content, dedupe);
           if (Set.of("RESEARCH", "TRAVEL", "GAME", "DIAGRAM", "IMAGE", "AUDIO", "VIDEO")
               .contains(kind)) {
             var data = new LinkedHashMap<String, Object>();
@@ -192,8 +195,12 @@ public class ResultAttachmentService {
                       && b.get("artifact") instanceof Map<?, ?> art
                       && art.get("action") instanceof Map<?, ?> action
                   ? Kernel.uuid(action.get("action_id"))
-                  : null,
-              "任务已完成",
+                  : "BROWSER".equals(kind)
+                          && b.get("artifact") instanceof Map<?, ?> browser
+                          && browser.get("action_id") != null
+                      ? Kernel.uuid(browser.get("action_id"))
+                      : null,
+              "BROWSER".equals(kind) && !"result".equals(delivery) ? "网页任务需要你处理" : "任务已完成",
               content);
           return Map.of("ok", true);
         });

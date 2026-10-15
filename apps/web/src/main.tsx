@@ -81,6 +81,7 @@ const statusText: Record<string, string> = {
   COMPLETED: "已完成",
   RUNNING: "执行中",
   QUEUED: "等待执行",
+  WAITING_INPUT: "等待你处理",
   FAILED: "执行失败",
   UNKNOWN: "结果待核对",
 };
@@ -223,7 +224,8 @@ function App() {
   useEffect(() => {
     const handler = (event: Event) => {
       const value = (event as CustomEvent).detail;
-      if (isPage(value)) setPage(value);
+      if (value==="browser") { setAssistantTab("browser");setPage("assistant"); }
+      else if (isPage(value)) setPage(value);
     };
     window.addEventListener("adex:navigate", handler);
     return () => window.removeEventListener("adex:navigate", handler);

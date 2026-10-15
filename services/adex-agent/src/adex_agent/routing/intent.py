@@ -63,3 +63,14 @@ def image_intent(text):
             text,
         )
     ) and not bool(re.search(r"架构图|流程图|时序图", text))
+
+
+def browser_operation_intent(text):
+    if re.search(r"怎么|如何|原理|先讨论|不要操作|先不要|能不能|是否", text):
+        return False
+    return bool(
+        re.search(
+            r"(?:帮我|替我|请|我要你).*(?:发布|发表|下单|购买|订购|加入购物车|填写.{0,8}表单|操作.{0,8}(?:网站|网页))",
+            text,
+        )
+    )

@@ -51,6 +51,17 @@ class BackgroundWorker:
                     saved = cp["state"]
             if saved and saved.get("phase") == "result":
                 result = saved
+            elif run.get("kind") == "BROWSER":
+                from adex_agent.browser.workflow import BrowserWorkflow
+
+                result = await BrowserWorkflow(self).run(run, context)
+                if result["phase"] == "browser_waiting":
+                    ref = await self.checkpoints.save_checkpoint(
+                        run, f"browser-wait:{run['epoch']}", result, revision
+                    )
+                    await self.run_write(run, "checkpoint", {"checkpoint_ref": ref})
+                    await self.run_write(run, "suspend", {"checkpoint_ref": ref})
+                    return
             elif run.get("kind") in ("CONNECTOR_SYNC", "CONNECTOR_ACTION"):
                 request = run["request"]
                 action = run["kind"] == "CONNECTOR_ACTION"

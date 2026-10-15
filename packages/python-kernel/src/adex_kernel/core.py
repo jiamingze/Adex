@@ -102,8 +102,19 @@ class Core:
         self, audience, scope, method, path, body=None, owner="*", resource="*"
     ):
         async with httpx.AsyncClient(
-            timeout=960 if scope == "creative:write" else 90
-            if scope in ("search:read", "travel:read", "vision:read", "connector:sync", "action:execute")
+            timeout=960
+            if scope == "creative:write"
+            else 35
+            if scope in ("browser:operate", "browser:control", "browser:read")
+            else 90
+            if scope
+            in (
+                "search:read",
+                "travel:read",
+                "vision:read",
+                "connector:sync",
+                "action:execute",
+            )
             else 30
             if scope in ("creative:write", "artifact:write", "code:check")
             else 15,

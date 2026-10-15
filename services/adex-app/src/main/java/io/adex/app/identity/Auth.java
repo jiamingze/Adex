@@ -141,7 +141,7 @@ public class Auth extends OncePerRequestFilter {
         if (Boolean.TRUE.equals(rows.getFirst().get("is_guest"))
             && req.getRequestURI()
                 .matches(
-                    "/api/v1/(connectors|actions|signals|matrix|push|notification-preferences).*")) {
+                    "/api/v1/(connectors|actions|signals|matrix|push|notification-preferences|browser).*")) {
           res.setStatus(403);
           res.setContentType("application/json");
           res.getWriter().write("{\"code\":\"SIGN_IN_REQUIRED\"}");

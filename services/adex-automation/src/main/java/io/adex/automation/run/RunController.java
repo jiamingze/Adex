@@ -32,6 +32,11 @@ public class RunController {
     return service.run(k.require(r, "app", "run:read", id), id);
   }
 
+  @PostMapping("/internal/runs/{id}/resume")
+  public Object resume(HttpServletRequest r, @PathVariable UUID id) {
+    return service.resume(k.require(r, "app", "run:resume", id), id);
+  }
+
   @PostMapping("/internal/runs/{id}/cancel")
   public Object cancel(HttpServletRequest r, @PathVariable UUID id) {
     return service.cancel(k.require(r, "app", "run:cancel", id), id);

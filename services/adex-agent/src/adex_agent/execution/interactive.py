@@ -42,6 +42,17 @@ class InteractiveTurnService:
                         + "\n"
                     )
                 return
+            from adex_agent.routing.intent import browser_operation_intent
+
+            if browser_operation_intent(latest):
+                yield (
+                    json.dumps(
+                        {"type": "task.requested", "kind": "BROWSER", "instruction": latest, "request": {}},
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+                return
             from adex_agent.routing.intent import image_intent
 
             if image_intent(latest):

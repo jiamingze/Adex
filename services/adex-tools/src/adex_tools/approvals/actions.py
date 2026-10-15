@@ -67,6 +67,13 @@ class ActionService:
                 row = await cursor.fetchone()
                 if not row:
                     raise HTTPException(404, "ACTION_NOT_FOUND")
+                if (
+                    decision == "approve"
+                    and row["kind"] == "browser.request"
+                    and row["request"].get("payload", {}).get("reviewable") is False
+                    and not row["request"].get("payload", {}).get("additional_permission")
+                ):
+                    raise HTTPException(409, "BROWSER_OPAQUE_REQUEST_REQUIRES_HUMAN")
                 if decision == "revoke":
                     if row["state"] not in ("PENDING", "APPROVED", "REVOKED"):
                         raise HTTPException(409, "ACTION_ALREADY_DISPATCHED")
@@ -84,6 +91,11 @@ class ActionService:
     async def execute(self, owner, action, execution):
         # Authorization is checked before preparing a side effect, including on
         # recovery. Automation alone decides whether this attempt is still live.
+        initial = await self.own(owner, action)
+        if initial["kind"] == "browser.request":
+            from adex_tools.browser.service import BrowserService
+
+            return await BrowserService(self.core).dispatch(owner, action, execution.model_dump(mode="json"))
         await self.core.call(
             "automation",
             "effect:execute",
@@ -94,6 +106,10 @@ class ActionService:
             resource=execution.run_id,
         )
         row = await self.own(owner, action)
+        if row["kind"] == "browser.request":
+            from adex_tools.browser.service import BrowserService
+
+            return await BrowserService(self.core).dispatch(owner, action, execution.model_dump(mode="json"))
         if row["state"] == "SUCCEEDED":
             return row["result"]
         if row["state"] == "UNKNOWN":
@@ -181,6 +197,10 @@ class ActionService:
 
     async def reconcile(self, owner, action):
         row = await self.own(owner, action)
+        if row["kind"] == "browser.request":
+            from adex_tools.browser.service import BrowserService
+
+            return await BrowserService(self.core).reconcile(owner, action)
         if row["state"] == "SUCCEEDED":
             return row["result"]
         if row["state"] != "UNKNOWN":

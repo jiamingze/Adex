@@ -1,3 +1,4 @@
+import base64
 import secrets
 from config import ROOT
 
@@ -7,6 +8,7 @@ if path.exists():
 values = {
     "ADEX_OWNER_USERNAME": "owner",
     "ADEX_RUNNER_KEY": secrets.token_urlsafe(48),
+    "ADEX_BROWSER_ENCRYPTION_KEY": base64.b64encode(secrets.token_bytes(32)).decode(),
     "TAVILY_API_KEY": "",
     "ADEX_OWNER_PASSWORD": secrets.token_urlsafe(18),
     "ADEX_ADMIN_PASSWORD": secrets.token_urlsafe(32),

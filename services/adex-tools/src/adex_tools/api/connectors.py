@@ -79,6 +79,12 @@ async def actions(request: Request):
     return jsonable_encoder(await ActionService(core).list(UUID(c["owner"])))
 
 
+@router.get("/internal/actions/{action_id}")
+async def action_detail(request: Request, action_id: UUID):
+    c = core.require(request, "app", "approval:read", action_id)
+    return jsonable_encoder(await ActionService(core).own(UUID(c["owner"]), action_id))
+
+
 @router.post("/internal/actions")
 async def draft(request: Request, body: ActionDraft):
     c = core.require(request, "app", "approval:write")

@@ -1,0 +1,573 @@
+"""Credential-free controlled Chromium broker. JSON IPC is not exposed to models.
+
+Trusted fixed CDP operations only; handles refer to the current AX snapshot. Every
+Agent-mode mutating request is held before dispatch and can only be released by the
+parent after its durable approval/effect gate. Human takeover is explicit and exclusive.
+"""
+
+import asyncio
+import base64
+import hashlib
+import json
+import re
+import sys
+from uuid import uuid4
+from urllib.parse import urlsplit
+from adex_tools.browser.policy import SECRET, CRITICAL, request_digest, request_preview, receipt_id
+from adex_tools.runners.browser_policy import admitted_hosts, allowed_url, resolve_public_hosts
+from adex_tools.runners.browser_proxy import BrowserEgress
+
+
+class Broker:
+    def __init__(self):
+        self.mode = "AGENT"
+        self.human_authorized = False
+        self.human_until = 0
+        self.handles = {}
+        self.revision = ""
+        self.pending = None
+        self.last_receipt = None
+        self.private_values = set()
+        self.critical = False
+        self.dialog = None
+        self.dialog_id = None
+        self.last_view = None
+        self.tabs = {}
+        self.requests = 0
+        self.gesture = ""
+
+    def safe(self, value):
+        text = str(value)[:16000]
+        for secret in self.private_values:
+            if secret:
+                text = text.replace(secret, "[REDACTED]")
+        return text
+
+    async def admit(self, url):
+        host = urlsplit(url).hostname
+        if host in self.pinned:
+            return allowed_url(url, self.pinned)
+        try:
+            hosts = admitted_hosts(url)
+            values = await asyncio.wait_for(asyncio.to_thread(resolve_public_hosts, (host,)), 4)
+            if host not in hosts or host not in values or len(self.pinned) >= 32:
+                return False
+            self.pinned.update(values)
+            return True
+        except Exception:
+            return False
+
+    async def forward(self, route):
+        if self.test_fixture:
+            from adex_tools.browser.fixture import HTML
+
+            if route.request.method == "POST":
+                return await route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps(
+                        {"accepted": True}
+                        if "FIXTURE_UNKNOWN" in (route.request.post_data or "")
+                        else {"note_id": "TEST_FIXTURE_NOTE_001"}
+                    ),
+                )
+            return await route.fulfill(status=200, content_type="text/html", body=HTML)
+        return await route.continue_()
+
+    async def intercept(self, route):
+        request = route.request
+        if self.test_fixture and urlsplit(request.url).hostname != "example.com":
+            return await route.abort()
+        self.requests += 1
+        if self.requests > 1000 or not await self.admit(request.url):
+            return await route.abort()
+        if request.resource_type in ("media", "font"):
+            return await route.abort()
+        new_domain = urlsplit(request.url).hostname not in self.read_hosts and request.resource_type not in (
+            "image",
+            "stylesheet",
+            "script",
+        )
+        needs_approval = (
+            new_domain
+            or request.method not in ("GET", "HEAD", "OPTIONS")
+            or (self.critical and request.is_navigation_request())
+        )
+        if (
+            self.mode == "HUMAN"
+            and self.human_authorized
+            and asyncio.get_running_loop().time() < self.human_until
+        ) or not needs_approval:
+            return await self.forward(route)
+        if self.pending:
+            return await route.abort()
+        data = request.post_data_buffer or b""
+        if len(data) > 8 * 1024 * 1024:
+            return await route.abort()
+        future = asyncio.get_running_loop().create_future()
+        token = str(uuid4())
+        self.pending = {
+            "id": token,
+            "digest": request_digest(request.url, request.method, data),
+            "preview": request_preview(
+                request.url, request.method, data, request.headers.get("content-type", "")
+            ),
+            "gesture": self.safe(self.gesture),
+            "grant_read_host": urlsplit(request.url).hostname
+            if new_domain and request.method == "GET"
+            else None,
+            "transport_only": bool(
+                re.fullmatch(
+                    r"搜索|查询|上传(?:图片|文件)?|保存草稿|search|upload|save draft", self.gesture, re.I
+                )
+            ),
+            "future": future,
+            "request": request,
+        }
+        if self.pending.get("grant_read_host"):
+            self.pending["preview"]["additional_permission"] = {
+                "scope": "READ_HOST_FOR_THIS_TASK",
+                "host": self.pending["grant_read_host"],
+            }
+            self.pending["transport_only"] = True
+        try:
+            decision = await asyncio.wait_for(future, 900)
+            if decision:
+                if self.pending.get("grant_read_host"):
+                    self.read_hosts.add(self.pending["grant_read_host"])
+                await self.forward(route)
+            else:
+                await route.abort()
+        except Exception:
+            await route.abort()
+
+    async def response(self, response):
+        pending = self.pending
+        if not pending or response.request != pending["request"] or not pending.get("released"):
+            return
+        result = {
+            "request_id": pending["id"],
+            "status": response.status,
+            "url": response.url,
+            "verified": False,
+            "business_verified": False,
+            "test_fixture": self.test_fixture,
+            "state": "SUBMITTED_UNVERIFIED",
+        }
+        if 200 <= response.status < 300 and pending.get("transport_only"):
+            result.update(verified=True, provider_receipt="http:" + pending["digest"], state="HTTP_ACCEPTED")
+        try:
+            if int(response.headers.get("content-length", "0")) > 1000000:
+                raise ValueError()
+            value = await response.json()
+            receipt = receipt_id(value)
+            if (
+                receipt
+                and 200 <= response.status < 300
+                and urlsplit(response.url).hostname == urlsplit(self.page.url).hostname
+            ):
+                # Receipt in a response AND newly visible confirmation text. A model
+                # or HTTP 200 alone is never accepted as a business receipt.
+                await self.page.get_by_text(receipt, exact=False).first.wait_for(timeout=4000)
+                text = await self.page.locator("body").inner_text(timeout=2000)
+                if re.search(r"订单|发布|预订|order|published|reservation", text, re.I):
+                    result.update(
+                        verified=True, business_verified=True, provider_receipt=receipt, state="SUCCEEDED"
+                    )
+            elif 200 <= response.status < 300 and pending.get("transport_only"):
+                # This verifies only transport for a reviewed intermediate request,
+                # never publication/order/payment or the user's overall goal.
+                result.update(
+                    verified=True, provider_receipt="http:" + pending["digest"], state="HTTP_ACCEPTED"
+                )
+        except Exception:
+            pass
+        self.last_receipt = result
+
+    async def start(self, body):
+        from playwright.async_api import async_playwright
+
+        self.test_fixture = bool(body.get("_test_fixture"))
+        self.read_hosts = set(body.get("read_hosts") or [urlsplit(body["url"]).hostname])
+        self.pinned = (
+            {"example.com": "93.184.215.14"}
+            if self.test_fixture
+            else await asyncio.wait_for(
+                asyncio.to_thread(resolve_public_hosts, admitted_hosts(body["url"])), 6
+            )
+        )
+        if urlsplit(body["url"]).hostname not in self.pinned:
+            raise ValueError("BROWSER_DNS_BLOCKED")
+        self.proxy = await asyncio.start_server(BrowserEgress(self.pinned).handle, "127.0.0.1", 0, limit=8192)
+        port = self.proxy.sockets[0].getsockname()[1]
+        self.playwright = await async_playwright().start()
+        self.browser = await self.playwright.chromium.launch(
+            headless=True,
+            chromium_sandbox=True,
+            proxy={"server": f"http://127.0.0.1:{port}", "bypass": "<-loopback>"},
+            args=[
+                "--disable-background-networking",
+                "--disable-quic",
+                "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+            ],
+        )
+        self.context = await self.browser.new_context(
+            storage_state=body.get("storage"),
+            accept_downloads=False,
+            service_workers="block",
+            viewport={"width": 1100, "height": 780},
+        )
+        await self.context.route("**/*", self.intercept)
+        await self.context.route_web_socket("**/*", lambda ws: ws.close())
+        self.context.on("response", lambda response: asyncio.create_task(self.response(response)))
+        self.page = await self.context.new_page()
+        self.watch(self.page)
+        self.cdp = await self.context.new_cdp_session(self.page)
+        self.context.on("page", lambda page: asyncio.create_task(self.activate(page)))
+        await self.page.goto(body["url"], wait_until="commit", timeout=12000)
+        try:
+            await self.page.wait_for_load_state("domcontentloaded", timeout=2000)
+        except Exception:
+            pass
+        return await self.observe()
+
+    def watch(self, page):
+        self.tabs.setdefault(str(uuid4()), page) if page not in self.tabs.values() else None
+
+        def dialog_open(dialog):
+            self.dialog = dialog
+            self.dialog_id = str(uuid4())
+            self.dialog_url = urlsplit(page.url)._replace(query="", fragment="").geturl()
+
+        page.on("dialog", dialog_open)
+
+    async def activate(self, page):
+        if len(self.tabs) >= 6 and page not in self.tabs.values():
+            await page.close()
+            return
+        self.watch(page)
+        cdp = await self.context.new_cdp_session(page)
+        self.page, self.cdp = page, cdp
+
+    async def observe(self, screenshot=False):
+        if self.page.is_closed():
+            available = [page for page in self.context.pages if not page.is_closed()]
+            if not available:
+                raise ValueError("BROWSER_SESSION_LOST")
+            await self.activate(available[-1])
+        if self.dialog:
+            return {
+                **(
+                    self.last_view
+                    or {
+                        "url": self.page.url,
+                        "title": "网页需要确认",
+                        "observation_id": "dialog",
+                        "nodes": [],
+                    }
+                ),
+                "mode": self.mode,
+                "pending": None,
+                "dialog": {
+                    "id": self.dialog_id,
+                    "type": self.dialog.type,
+                    "message": self.safe(self.dialog.message),
+                    "url": self.dialog_url,
+                },
+            }
+        tree = (await self.cdp.send("Accessibility.getFullAXTree"))["nodes"]
+        nodes, handles = [], {}
+        for node in tree:
+            if node.get("ignored"):
+                continue
+            role = node.get("role", {}).get("value", "")
+            name = self.safe(node.get("name", {}).get("value", ""))[:400]
+            properties = {p["name"]: p["value"].get("value") for p in node.get("properties", [])}
+            protected = bool(properties.get("protected")) or bool(SECRET.search(name))
+            backend = node.get("backendDOMNodeId")
+            if (
+                properties.get("editable")
+                or role
+                in (
+                    "button",
+                    "link",
+                    "textbox",
+                    "combobox",
+                    "checkbox",
+                    "radio",
+                    "searchbox",
+                    "spinbutton",
+                    "slider",
+                )
+            ) and backend:
+                described = (await self.cdp.send("DOM.describeNode", {"backendNodeId": backend, "depth": 0}))[
+                    "node"
+                ]
+                attributes = described.get("attributes", [])
+                attrs = dict(zip(attributes[::2], attributes[1::2]))
+                protected = (
+                    protected
+                    or attrs.get("type", "").lower() == "password"
+                    or bool(SECRET.search(attrs.get("autocomplete", "")))
+                )
+                if properties.get("editable"):
+                    role = "textbox"
+                    name = name or "可编辑区域"
+                handle = str(backend)
+                handles[handle] = {"backend": backend, "role": role, "name": name, "protected": protected}
+                current_value = node.get("value", {}).get("value", "")
+                if not protected and properties.get("editable"):
+                    obj = (await self.cdp.send("DOM.resolveNode", {"backendNodeId": backend}))["object"][
+                        "objectId"
+                    ]
+                    result = await self.cdp.send(
+                        "Runtime.callFunctionOn",
+                        {
+                            "objectId": obj,
+                            "functionDeclaration": "function(){return String(this.value ?? this.innerText ?? '').slice(0,16000)}",
+                            "returnByValue": True,
+                        },
+                    )
+                    current_value = result.get("result", {}).get("value", current_value)
+                nodes.append(
+                    {
+                        "id": handle,
+                        "role": role,
+                        "name": name,
+                        "protected": protected,
+                        "value": "[REDACTED]" if protected else self.safe(current_value)[:5000],
+                    }
+                )
+            elif role in ("StaticText", "heading") and name:
+                nodes.append({"role": role, "name": name})
+            if len(nodes) >= 250:
+                break
+        revision = hashlib.sha256(
+            json.dumps({"nodes": nodes, "url": self.page.url}, sort_keys=True).encode()
+        ).hexdigest()[:24]
+        self.revision, self.handles = revision, handles
+        pending = None
+        if self.pending and not self.pending.get("released"):
+            self.pending.setdefault("observation_id", revision)
+            self.pending.setdefault(
+                "before",
+                {"url": urlsplit(self.page.url)._replace(query="", fragment="").geturl(), "nodes": nodes},
+            )
+            pending = {
+                k: v
+                for k, v in self.pending.items()
+                if k
+                in (
+                    "id",
+                    "digest",
+                    "preview",
+                    "gesture",
+                    "transport_only",
+                    "grant_read_host",
+                    "observation_id",
+                    "before",
+                )
+            }
+        result = {
+            "url": urlsplit(self.page.url)._replace(query="", fragment="").geturl(),
+            "title": self.safe(await self.page.title()),
+            "observation_id": revision,
+            "nodes": nodes,
+            "pending": pending,
+            "receipt": self.last_receipt,
+            "provider": "TEST_FIXTURE" if self.test_fixture else "chromium",
+            "mode": self.mode,
+            "read_hosts": sorted(self.read_hosts),
+            "_storage": await self.context.storage_state(),
+        }
+        if screenshot:
+            result["screenshot"] = base64.b64encode(
+                await self.page.screenshot(type="jpeg", quality=65)
+            ).decode()
+        result["tabs"] = [
+            {
+                "id": key,
+                "url": urlsplit(page.url)._replace(query="", fragment="").geturl(),
+                "active": page == self.page,
+            }
+            for key, page in list(self.tabs.items())
+            if not page.is_closed()
+        ]
+        self.last_view = {k: v for k, v in result.items() if k not in ("_storage", "screenshot")}
+        return result
+
+    async def operate(self, body):
+        action = body["action"]
+        human = body.get("human", False)
+        if action in ("dialog_accept", "dialog_dismiss"):
+            if (
+                not human
+                or self.mode != "HUMAN"
+                or not self.dialog
+                or body.get("dialog_id") != self.dialog_id
+            ):
+                raise ValueError("BROWSER_DIALOG_REQUIRES_HUMAN")
+            dialog = self.dialog
+            self.dialog = None
+            self.dialog_id = None
+            self.human_authorized = True
+            self.human_until = asyncio.get_running_loop().time() + 10
+            if action == "dialog_accept":
+                await dialog.accept()
+            else:
+                await dialog.dismiss()
+            return await self.observe(True)
+        if action == "mode":
+            if body["mode"] == "AGENT" and self.human_authorized:
+                self.read_hosts.add(urlsplit(self.page.url).hostname)
+            self.mode = body["mode"]
+            self.human_authorized = self.mode == "HUMAN" and bool(body.get("human"))
+            self.human_until = asyncio.get_running_loop().time() + 10 if self.human_authorized else 0
+            return await self.observe(True)
+        if action == "observe":
+            return await self.observe(body.get("screenshot", False))
+        if action in ("release", "validate_release"):
+            pending = self.pending
+            if (
+                not pending
+                or pending["id"] != body["request_id"]
+                or pending["digest"] != body["digest"]
+                or pending.get("released")
+                or (body.get("allow", True) and pending["future"].done())
+            ):
+                raise ValueError("BROWSER_REQUEST_LOST")
+            if body.get("allow", True):
+                current = await self.observe()
+                if current["observation_id"] != pending["observation_id"]:
+                    raise ValueError("BROWSER_APPROVAL_SNAPSHOT_CHANGED")
+            if action == "validate_release":
+                return {"valid": True}
+            pending["released"] = True
+            if not pending["future"].done():
+                pending["future"].set_result(bool(body["allow"]))
+            if not body["allow"]:
+                self.pending = None
+                self.last_receipt = None
+                return await self.observe(True)
+            for _ in range(60):
+                if self.last_receipt and self.last_receipt["request_id"] == pending["id"]:
+                    break
+                await asyncio.sleep(0.1)
+            return await self.observe()
+        if self.pending and not self.pending.get("released"):
+            raise ValueError("BROWSER_APPROVAL_REQUIRED")
+        if (self.mode == "HUMAN") != human:
+            raise ValueError("BROWSER_CONTROL_MODE_CHANGED")
+        if human and action != "observe":
+            self.human_authorized = True
+            self.human_until = asyncio.get_running_loop().time() + 10
+        if action not in ("navigate", "click", "type", "select", "scroll", "back", "upload", "key", "point"):
+            raise ValueError("BROWSER_ACTION_NOT_ALLOWED")
+        if not human:
+            await self.observe()
+        if not human and body.get("observation_id") != self.revision:
+            raise ValueError("STALE_BROWSER_OBSERVATION")
+        if self.pending and self.pending.get("released"):
+            if not self.last_receipt or not self.last_receipt.get("verified"):
+                raise ValueError("PROVIDER_UNKNOWN")
+            self.pending = None
+        self.critical = False
+        target = self.handles.get(body.get("element_id", ""))
+        if action in ("click", "type", "select", "upload") and not (
+            human and action == "type" and not body.get("element_id")
+        ):
+            if not target:
+                raise ValueError("STALE_BROWSER_ELEMENT")
+            if target["protected"] and not human:
+                raise ValueError("BROWSER_LOGIN_REQUIRED")
+            self.gesture = target["name"]
+            self.critical = bool(CRITICAL.search(self.gesture))
+        if human and action == "type":
+            self.private_values.add(body.get("text", ""))
+
+        async def perform():
+            if action == "switch_tab":
+                page = self.tabs.get(body.get("element_id"))
+                if page is None or page.is_closed():
+                    raise ValueError("BROWSER_TAB_NOT_FOUND")
+                await self.activate(page)
+            elif action == "navigate":
+                if not await self.admit(body["url"]):
+                    raise ValueError("BROWSER_URL_NOT_ALLOWED")
+                await self.page.goto(body["url"], wait_until="commit", timeout=10000)
+            elif action == "back":
+                await self.page.go_back(wait_until="commit", timeout=10000)
+            elif action == "scroll":
+                await self.page.mouse.wheel(0, -500 if body.get("text") == "up" else 500)
+            elif action == "type" and human and not body.get("element_id"):
+                await self.page.keyboard.insert_text(body.get("text", ""))
+            elif action == "key" and human:
+                if body.get("text") not in ("Enter", "Tab", "Backspace", "Escape", "ArrowDown", "ArrowUp"):
+                    raise ValueError("BROWSER_KEY_NOT_ALLOWED")
+                await self.page.keyboard.press(body["text"])
+            elif action == "point" and human:
+                await self.page.mouse.click(max(0, min(1099, body["x"])), max(0, min(779, body["y"])))
+            elif action in ("click", "type", "select", "upload"):
+                backend = target["backend"]
+                await self.cdp.send("DOM.scrollIntoViewIfNeeded", {"backendNodeId": backend})
+                if action in ("type", "select"):
+                    await self.cdp.send("DOM.focus", {"backendNodeId": backend})
+                    await self.page.keyboard.press("Meta+A" if sys.platform == "darwin" else "Control+A")
+                    await self.page.keyboard.insert_text(body.get("text", ""))
+                    if action == "select":
+                        await self.page.keyboard.press("Enter")
+                elif action == "click":
+                    box = (await self.cdp.send("DOM.getBoxModel", {"backendNodeId": backend}))["model"][
+                        "content"
+                    ]
+                    await self.page.mouse.click((box[0] + box[4]) / 2, (box[1] + box[5]) / 2)
+                else:
+                    obj = (await self.cdp.send("DOM.resolveNode", {"backendNodeId": backend}))["object"][
+                        "objectId"
+                    ]
+                    # Fixed trusted implementation, never code supplied by a model.
+                    await self.cdp.send(
+                        "Runtime.callFunctionOn",
+                        {
+                            "objectId": obj,
+                            "functionDeclaration": """function(b64,name,mime){const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));const d=new DataTransfer();d.items.add(new File([bytes],name,{type:mime}));this.files=d.files;this.dispatchEvent(new Event('change',{bubbles:true}));}""",
+                            "arguments": [
+                                {"value": body["file_base64"]},
+                                {"value": body["file_name"]},
+                                {"value": body["file_mime"]},
+                            ],
+                        },
+                    )
+
+        task = asyncio.create_task(perform())
+        try:
+            await asyncio.wait_for(asyncio.shield(task), 2)
+        except TimeoutError:
+            if not self.pending:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+        return await self.observe(human)
+
+
+async def main():
+    broker = Broker()
+    first = True
+    while raw := await asyncio.to_thread(sys.stdin.buffer.readline, 8 * 1024 * 1024):
+        try:
+            body = json.loads(raw)
+            if body.get("action") == "close":
+                break
+            result = await broker.start(body) if first else await broker.operate(body)
+            first = False
+        except Exception as error:
+            code = str(error)
+            result = {"error": code if re.fullmatch("[A-Z_]{3,80}", code) else "BROWSER_OPERATION_FAILED"}
+        print(json.dumps(result, ensure_ascii=False), flush=True)
+    if hasattr(broker, "browser"):
+        await broker.browser.close()
+        await broker.playwright.stop()
+        broker.proxy.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

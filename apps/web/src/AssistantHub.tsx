@@ -1,3 +1,4 @@
+import { BrowserPanel } from "./BrowserPanel";
 import { useEffect, useRef, useState } from "react";
 import {
   assistantApi,
@@ -12,11 +13,13 @@ import {
   Sparkles,
   ShieldCheck,
   Link2,
+  Globe2,
   Bell,
   RefreshCw,
   ArrowRight,
 } from "lucide-react";
 export type AssistantTab =
+  | "browser"
   | "suggestions"
   | "actions"
   | "connections"
@@ -177,6 +180,7 @@ export function AssistantHub({
             { id: "actions", label: "待确认", icon: ShieldCheck },
             { id: "connections", label: "连接服务", icon: Link2 },
             { id: "preferences", label: "通知", icon: Bell },
+            { id: "browser", label: "浏览器", icon: Globe2 },
           ] as const
         ).map((item) => (
           <button
@@ -213,6 +217,7 @@ export function AssistantHub({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {tab === "browser" && <BrowserPanel conversation={conversation} onConversationCreated={onConversationCreated} />}
       <section className="assistant-section" hidden={tab !== "connections"}>
         <h2>连接服务</h2>
         {availability === "BLOCKED_EXTERNAL" && (
@@ -546,7 +551,7 @@ export function AssistantHub({
         {actions.map((a) => (
           <article className="approval-card" key={a.id}>
             <strong>
-              {a.kind === "calendar.update" ? "调整日历事件" : "发送邮件"} ·{" "}
+              {a.kind === "browser.request" ? "网页操作" : a.kind === "calendar.update" ? "调整日历事件" : "发送邮件"} ·{" "}
               {{
                 PENDING: "待确认",
                 APPROVED: "已批准",
@@ -559,7 +564,7 @@ export function AssistantHub({
             </strong>
             <small>有效期：{new Date(a.expires_at).toLocaleString()}</small>
             <div className="action-summary">
-              {a.kind === "calendar.update" ? (
+              {a.kind === "browser.request" ? (<pre className="assistant-evidence">{JSON.stringify(a.request.payload,null,2)}</pre>) : a.kind === "calendar.update" ? (
                 <p>
                   调整为{" "}
                   {new Date(String(a.request.payload.start)).toLocaleString()} —{" "}
@@ -596,7 +601,7 @@ export function AssistantHub({
                   onClick={() => {
                     if (
                       window.confirm(
-                        "确认按以上具体内容修改日历或发送邮件？此操作会访问外部账户。",
+                        "确认按以上具体内容执行操作？此操作会访问外部账户或提交网页请求。",
                       )
                     )
                       act(async () => {

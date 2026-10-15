@@ -8,9 +8,9 @@ from fastapi import HTTPException
 
 
 class CredentialVault:
-    def __init__(self):
+    def __init__(self, key_env="ADEX_CONNECTOR_ENCRYPTION_KEY"):
         try:
-            self.key = base64.b64decode(os.environ["ADEX_CONNECTOR_ENCRYPTION_KEY"], validate=True)
+            self.key = base64.b64decode(os.environ[key_env], validate=True)
             if len(self.key) != 32:
                 raise ValueError()
         except (KeyError, ValueError):

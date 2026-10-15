@@ -40,6 +40,12 @@ public class RunExecutionController {
     return service.checkpoint(k.require(r, "agent", "run:write", id), id, b);
   }
 
+  @PostMapping("/internal/runs/{id}/suspend")
+  public Object suspend(
+      HttpServletRequest r, @PathVariable UUID id, @RequestBody Map<String, Object> b) {
+    return service.suspend(k.require(r, "agent", "run:write", id), id, b);
+  }
+
   @PostMapping("/internal/runs/{id}/complete")
   public Object complete(
       HttpServletRequest r, @PathVariable UUID id, @RequestBody Map<String, Object> b) {

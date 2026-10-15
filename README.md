@@ -189,3 +189,11 @@ Bug reports, reproducible device tests, provider adapters, and documentation imp
 Adex is independently developed and is not affiliated with OpenAI, Alibaba Cloud, or MiniMax. Provider names identify integrations. Dependencies and generated content retain their own applicable licenses and rights.
 
 Licensed under [MIT](LICENSE).
+
+## Generic browser operator
+
+A generic accessibility-based browser operator prepares web actions without per-site Skills. Secure login takeover, frozen-request approvals and receipt verification reuse existing Runs/checkpoints/effect ledgers. Assistant → Browser is the control surface. Real merchant publication/orders/payment remain **BLOCKED_EXTERNAL** until validated with an authorized account.
+
+[Architecture and operating guide](docs/architecture/browser-operator.md)
+
+<img src="docs/images/browser-operator-mobile.jpg" width="260" alt="Browser takeover — synthetic test data only" />

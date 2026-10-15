@@ -315,3 +315,11 @@ The signed app is prepared; actual installation requires reconnecting the phone.
 - Validation: `make test` (21 client, 35 Agent, 32 Tools, Java tests and 83 OpenAPI operations), `make test-integration` (44 passed, isolated real PG with explicitly mocked model), check-style/architecture, secret scan, Web/iOS builds. Model-format probe against real configured qwen3.8-max used only synthetic public technical text and returned valid title/body (663 characters); this was not a production-database test. Browser TEST_FIXTURE verifies paired badges, flat list, no agenda expander, correct module order, and reply action opens the saved synthetic note.
 - Initial integration failures were caused by rebuilding target JARs while test JVMs read them; test startup now copies immutable JARs per isolated run. Full rerun passed. Local app/018 applied, App/Agent restarted, four readiness endpoints 200. iPhone installation performed. Real phone calendar metadata visibility still depends on permission/provider; no external booking/calendar/email action was executed.
 - Example screenshots: [flat tasks](images/flat-tasks-mobile-fixture.jpg), [reply note](images/reply-to-note-mobile-fixture.jpg); synthetic data only.
+
+## Generic browser operator (2026-10-15)
+
+Implemented: constrained AX planner/broker, user takeover, encrypted opt-in login profiles,
+request-bound approval, same-Run WAITING_INPUT/resume, effect UNKNOWN reconciliation,
+mobile control panel and original-conversation result backfill. No per-site Skills.
+Actual website publishing, orders and payment: **BLOCKED_EXTERNAL**; fixture tests do
+not verify merchant compatibility. See [operator guide](architecture/browser-operator.md).

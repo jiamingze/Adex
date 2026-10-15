@@ -84,3 +84,10 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - Clear private snapshots on authentication changes, reject late old-session data,
   and invalidate reads after confirmed matrix mutations from every UI entry point.
 - Add four client regressions; no changes to durable state or write retry behavior.
+
+## 2026-10-15 — Generic browser operator
+
+- Add controlled accessibility-based browser tasks, secure login takeover and optional encrypted profiles.
+- Reuse action approvals/effects and Automation Run suspension/resumption; never replay uncertain writes.
+- Add mobile browser preview/control and contract/security/integration coverage.
+- Real merchant publishing, ordering and payments remain BLOCKED_EXTERNAL pending account validation.
