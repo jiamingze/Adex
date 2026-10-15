@@ -72,3 +72,4 @@ class BrowserRead(BaseModel):
     model_config = ConfigDict(extra="forbid")
     url: str = Field(min_length=1, max_length=2000)
     query: str = Field(default="", max_length=300)
+    max_pages: int = Field(default=3, ge=1, le=3)

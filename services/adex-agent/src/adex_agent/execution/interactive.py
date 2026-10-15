@@ -210,6 +210,8 @@ class InteractiveTurnService:
                         "type": "progress",
                         "text": "正在检索景点、预约要求与交通"
                         if searching and skill_plan
+                        else "正在打开网页并读取内容"
+                        if searching and re.search(r"https?://|官网|网站|网页|浏览", latest, re.I)
                         else "正在搜索最新资料"
                         if searching
                         else "正在理解你的问题",

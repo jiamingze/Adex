@@ -40,7 +40,7 @@ class ContextService:
         system += "\n当前日期（Asia/Shanghai）：" + datetime.now(ZoneInfo("Asia/Shanghai")).strftime(
             "%Y-%m-%d"
         )
-        system += "\n需要联网时由系统执行 Tavily 搜索或服务端 Chromium 浏览器读取公开网页。你具备只读浏览器能力，GitHub 仓库可读取；仅根据本轮实际证据回答，不得因旧回复曾声称无法访问就继续否认。不得输出工具调用 XML、invoke、minimax:tool_call 或虚构搜索工具；没有证据时明确无法核实。近期指当前日期附近，不得自行使用过去年份。"
+        system += "\n需要联网时由系统执行 Tavily 搜索或服务端 Chromium 浏览器读取公开网页。你具备只读浏览器能力，可读取公开 HTTPS 网页、渲染内容及相关链接；不能操作用户本机浏览器或读取其登录状态，不能提交表单或下单。仅根据本轮实际证据回答，不得因旧回复曾声称无法访问就继续否认。不得输出工具调用 XML、invoke、minimax:tool_call 或虚构搜索工具；没有证据时明确无法核实。近期指当前日期附近，不得自行使用过去年份。"
         system += (
             "\n使用规范 Markdown：表格每行独立换行，标题、列表和表格之间留空行；不把整个回答放进代码块。"
         )
@@ -132,23 +132,23 @@ class ContextService:
             if skill_plan:
                 query = skill_plan.search_queries[0]
             try:
-                from urllib.parse import urlsplit
-
                 url_match = re.search(r"https://[^\s<>\]\)）]+", latest)
                 browser_url = url_match.group(0).rstrip("。，,") if url_match else ""
+                if not browser_url and re.search(r"这个网页|该页面|这个网站|继续浏览", latest):
+                    for message in reversed(context.get("messages", [])[-8:]):
+                        if message["role"] != "user":
+                            continue
+                        previous = re.search(r"https://[^\s<>\]\)）]+", message["content"])
+                        if previous:
+                            browser_url = previous.group(0).rstrip("。，,")
+                            break
                 if (
                     not browser_url
                     and re.search(r"github", latest, re.I)
                     and re.search(r"adex", latest, re.I)
                 ):
                     browser_url = os.getenv("ADEX_PROJECT_URL", "https://github.com/jiamingze/Adex")
-                browser_read = bool(
-                    browser_url
-                    and urlsplit(browser_url).hostname
-                    in os.getenv("ADEX_BROWSER_ALLOWED_HOSTS", "github.com,raw.githubusercontent.com").split(
-                        ","
-                    )
-                )
+                browser_read = bool(browser_url)
                 result = await self.core.call(
                     "tools",
                     "search:read",
@@ -161,6 +161,29 @@ class ContextService:
                     {"url": browser_url, "query": query} if browser_read else {"query": query},
                     owner=context["owner_id"],
                 )
+                if (
+                    not browser_read
+                    and not research
+                    and re.search(r"打开|访问|浏览|网页|网站|官网|\b(browse|visit|website)\b", latest, re.I)
+                    and result.get("items")
+                ):
+                    candidate = result["items"][0].get("url", "")
+                    if candidate.startswith("https://"):
+                        try:
+                            rendered = await self.core.call(
+                                "tools",
+                                "search:read",
+                                "POST",
+                                "/internal/browser/read",
+                                {"url": candidate, "query": query, "max_pages": 2},
+                                owner=context["owner_id"],
+                            )
+                            if rendered.get("items"):
+                                result = rendered
+                            else:
+                                result = {**result, "browser_status": "UNAVAILABLE"}
+                        except Exception:
+                            result = {**result, "browser_status": "UNAVAILABLE"}
                 if skill_plan and not browser_read and not research:
                     # Preserve the first evidence batch if an optional second read
                     # fails. Failure is exposed, not interpreted as verified facts.
@@ -218,7 +241,7 @@ class ContextService:
             # Repeat trusted constraints after untrusted tool evidence.
             system += skill_plan.system_policy()
         if search:
-            system += "\n本轮搜索步骤已经结束。现在直接用自然语言汇总上面的实际搜索结果并引用URL；无需、也不能再调用任何工具。结果为空或搜索失败时直接说明无法核实。输出任何工具调用格式都是无效回答。"
+            system += "\n本轮联网步骤已经结束。现在直接用自然语言汇总上面的实际搜索或浏览结果并引用URL；无需、也不能再调用任何工具。结果为空或搜索失败时直接说明无法核实。输出任何工具调用格式都是无效回答。"
         messages = [{"role": "system", "content": system}]
         # Bound total input. Prefer recent context; do not silently retain an unbounded transcript.
         selected = []

@@ -31,3 +31,11 @@ SMTP 和需审批的 CalDAV 为可选能力，见 `.env.example` 和供应商接
 图片生成使用 `ADEX_IMAGE_PROVIDER=dashscope` 与 `DASHSCOPE_IMAGE_MODEL=qwen-image-3.0`，需配置同一地域的百炼 Key 和接口。生成结果会导入私有本地文件存储，并在原会话中展示。
 
 只读 Chromium 在不含服务凭据的临时子进程中读取公开 GitHub 页面。运行 `uv run --project services/adex-tools playwright install chromium` 安装浏览器，Linux 可增加 `--with-deps`。`ADEX_BROWSER_ALLOWED_HOSTS` 配置可信 HTTPS 域名；禁止私网目标、提交表单和下载。最多同时读取两页任务，子进程最长运行 45 秒。
+
+## 服务端浏览器
+
+默认 `ADEX_BROWSER_MODE=public`：允许读取用户指定的公开 HTTPS 域名，使用无登录状态的 Chromium 渲染正文，并最多读取三个同域页面。`allowlist` 模式则只允许 `ADEX_BROWSER_ALLOWED_HOSTS` 中的精确域名；public 模式下这些额外域名用于加载跨域静态资源。所有 DNS 地址必须为公网地址，通过每次运行独立的 CONNECT 出口代理固定解析结果，阻止私网重定向和任意端口访问。
+
+安装浏览器：`uv run --project services/adex-tools playwright install chromium`（Linux 加 `--with-deps`）。真实访问自检：`uv run --project services/adex-tools python scripts/verify_browser.py`，不使用用户账号、模型 Key 或数据库。
+
+支持公开网页阅读与来源引用；不读取用户 Chrome 登录状态、不登录、不提交表单、不下单。需要登录、验证码、跨域跳转或 POST 渲染的站点可能无法读取。详情见[浏览器架构](../architecture/browser-access.md)。

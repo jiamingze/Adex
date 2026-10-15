@@ -130,12 +130,15 @@ services:
       ADEX_DAILY_MODEL_CALL_LIMIT: "${ADEX_DAILY_MODEL_CALL_LIMIT:-50}"
       ADEX_MAX_OUTPUT_TOKENS: "${ADEX_MAX_OUTPUT_TOKENS:-4096}"
       ADEX_IMAGE_PROVIDER: "${ADEX_IMAGE_PROVIDER:-dashscope}"
+      ADEX_BROWSER_MODE: "${ADEX_BROWSER_MODE:-public}"
       ADEX_BROWSER_ALLOWED_HOSTS: "${ADEX_BROWSER_ALLOWED_HOSTS:-github.com,raw.githubusercontent.com,github.githubassets.com,avatars.githubusercontent.com}"
   adex-tools:
     <<: *runtime
+    mem_limit: 1g
+    cpus: 2
+    tmpfs: ["/tmp:size=256m"]
     build: {context: ../.., dockerfile: services/adex-tools/Dockerfile}
     depends_on: {migrate: {condition: service_completed_successfully}}
-    mem_limit: 512m
     environment:
       ADEX_SERVICE: "tools"
       BIND_ADDRESS: "0.0.0.0"
@@ -158,6 +161,7 @@ services:
       DASHSCOPE_API_KEY: "${DASHSCOPE_API_KEY:-}"
       DASHSCOPE_MEDIA_BASE_URL: "${DASHSCOPE_MEDIA_BASE_URL:-https://dashscope.aliyuncs.com/api/v1}"
       DASHSCOPE_IMAGE_MODEL: "${DASHSCOPE_IMAGE_MODEL:-qwen-image-3.0}"
+      ADEX_BROWSER_MODE: "${ADEX_BROWSER_MODE:-public}"
       ADEX_BROWSER_ALLOWED_HOSTS: "${ADEX_BROWSER_ALLOWED_HOSTS:-github.com,raw.githubusercontent.com,github.githubassets.com,avatars.githubusercontent.com}"
       ADEX_TOOLS_KEY: "${ADEX_TOOLS_KEY:?set issuer key}"
       ADEX_GOOGLE_CLIENT_ID: "${ADEX_GOOGLE_CLIENT_ID:-}"

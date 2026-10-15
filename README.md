@@ -45,6 +45,7 @@ Adex is an open-source, self-hosted AI application for multiple users, with Web 
 | Today | A daily overview of priority tasks, next automations, approvals, proactive suggestions, running work and recent artifacts; prepare an editable daily-planning chat draft |
 | Chat | Stream responses, switch Qwen / MiniMax, browse and delete history, render Markdown, retry and stop replies |
 | Search | Automatically retrieve current information through Tavily and show sources |
+| Browser | Open public HTTPS pages, render JavaScript content, inspect bounded same-host links, and cite actual URLs/timestamps; credential-free, read-only and private-network blocked |
 | Memory | Working, conversation, and long-term memory; inspect, correct, and delete saved facts |
 | Automation | Create daily schedules from chat; manage schedules, background tasks, and results returned to the original conversation |
 | Connectors | Google Calendar/Gmail OAuth adapters, encrypted credentials, incremental scopes, query and revocation; real connection requires your OAuth configuration |

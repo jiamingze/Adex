@@ -4,44 +4,31 @@ import asyncio
 import json
 import os
 import sys
-from urllib.parse import urlsplit
 from fastapi import HTTPException
-
-DEFAULT_HOSTS = (
-    "github.com",
-    "raw.githubusercontent.com",
-    "github.githubassets.com",
-    "avatars.githubusercontent.com",
-)
-
-
-def allowed_url(url, hosts=DEFAULT_HOSTS):
-    try:
-        value = urlsplit(url)
-        return (
-            value.scheme == "https"
-            and value.hostname in hosts
-            and value.port in (None, 443)
-            and not value.username
-            and not value.password
-            and not value.fragment
-        )
-    except ValueError:
-        return False
+from adex_tools.runners.browser_policy import (
+    allowed_url as allowed_url,
+    admitted_hosts,
+)  # allowed_url remains a compatible import
 
 
 _slots = asyncio.Semaphore(2)
 
 
-async def read_page(url, query=""):
-    async with _slots:
-        return await _read_page(url, query)
+async def read_page(url, query="", max_pages=3):
+    try:
+        await asyncio.wait_for(_slots.acquire(), 1)
+    except TimeoutError:
+        raise HTTPException(429, "BROWSER_BUSY") from None
+    try:
+        return await _read_page(url, query, max_pages)
+    finally:
+        _slots.release()
 
 
-async def _read_page(url, query=""):
-    hosts = tuple(os.getenv("ADEX_BROWSER_ALLOWED_HOSTS", ",".join(DEFAULT_HOSTS)).split(","))
-    if not allowed_url(url, hosts):
-        raise HTTPException(400, "BROWSER_URL_NOT_ALLOWED")
+async def _read_page(url, query="", max_pages=3):
+    hosts = admitted_hosts(url)
+    if not 1 <= max_pages <= 3:
+        raise HTTPException(400, "BROWSER_PAGE_LIMIT")
     environment = {
         k: v
         for k, v in os.environ.items()
@@ -59,7 +46,12 @@ async def _read_page(url, query=""):
     )
     try:
         output, _ = await asyncio.wait_for(
-            child.communicate(json.dumps({"url": url, "query": query[:300], "hosts": hosts}).encode()), 45
+            child.communicate(
+                json.dumps(
+                    {"url": url, "query": query[:300], "hosts": hosts, "max_pages": max_pages}
+                ).encode()
+            ),
+            45,
         )
         if child.returncode or len(output) > 160000:
             raise HTTPException(503, "BROWSER_UNAVAILABLE")

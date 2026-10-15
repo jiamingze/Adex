@@ -108,4 +108,4 @@ async def browser_read(request: Request, body: BrowserRead):
     claims = core.require(request, "agent", "search:read")
     UUID(claims["owner"])
     await reserve_search(claims["owner"])
-    return await read_page(body.url, body.query)
+    return await read_page(body.url, body.query, body.max_pages)

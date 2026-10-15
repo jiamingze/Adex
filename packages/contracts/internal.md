@@ -23,3 +23,6 @@ Agent NDJSON may emit `{"type":"progress","text":"正在整理资料与回答"}`
 
 ### Explicit reply-to-note conversion
 App → Agent `POST /internal/agent/note-compose`, scope `note:compose`, resource conversation UUID. Body: owner_id, conversation_id, message_id, content (authoritative App assistant reply, <=64000 chars). Response: validated JSON title (1–200 chars), content (1–100000 chars). Existing owner/message-keyed model invocation ledger is used; no tool actions or new worker/scheduler. App performs ownership checks before delegation and commits a source-message-unique note before acknowledging success. Scoped timeout 90 seconds; timeout is ambiguous and retry uses the same invocation/source key, not blind resubmission.
+
+### Public browser read
+Agent → Tools `POST /internal/browser/read`: owner-bound `search:read`, `{url, query?, max_pages?:1..3}`. Credential-free public HTTPS rendering, bounded same-host navigation, actual extracted text and source URLs/timestamps. Search snippets are not browser evidence. Invalid/private destinations fail closed; see [browser access](../../docs/architecture/browser-access.md). No DB migration or new scheduler.

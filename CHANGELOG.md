@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Extend the server-side Chromium reader from GitHub-only to public HTTPS pages, bounded same-host links and direct URL/follow-up chat routing.
+- Add per-run public-DNS-pinned CONNECT egress, read-only resource controls, explicit failure diagnostics and a live public-browser verification command; preserve existing retrieval quota and evidence persistence.
+
 - Fix Today card spacing on mobile/desktop and use a task-list icon for attention items.
 - Move the reply-to-note action after Copy, using an accessible icon with pending feedback.
 - Open confirmed cached notes immediately without a blocking detail fetch; fence stale opens when switching notes.
