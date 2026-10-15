@@ -198,3 +198,15 @@ document/body width stayed 390px. Web and signed iOS device builds passed. After
 `device process launch` succeeded for `io.adex.personal`; real merchant flows on device
 remain untested. Four local service
 readiness checks returned 200. Real merchant flows remain **BLOCKED_EXTERNAL**.
+
+### Follow-up operation routing (2026-10-16)
+
+Interactive turns use a bounded semantic routing proposal for browser action candidates,
+including prefixless follow-ups such as “到小红书上发表”. Negative/quoted/discussion
+requests remain ordinary dialogue. Invalid proposals fail closed. Recent dialogue/drafts
+are passed as untrusted data within the existing 16,000-character Run instruction contract;
+prior approvals and execution IDs are never reused. This creates an existing BROWSER Run,
+not permission to publish. No schema migration or new scheduler is introduced.
+A failed Run with a surviving WAITING_APPROVAL session is not publication evidence;
+never automatically replay that prior submission. Real Xiaohongshu publication remains
+BLOCKED_EXTERNAL until login, exact content review and verified business receipt complete.

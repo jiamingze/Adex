@@ -364,3 +364,10 @@ incidental memories. See [memory design and limits](architecture/conversational-
 - Ubuntu 24.04 一次性容器复现原有 `/var/run/postgresql` 锁文件权限失败；修复后以普通用户启动 PostgreSQL 16／Redis 并建库成功，无宿主业务数据参与。辅助脚本回归测试现为 12 项通过。
 - GitHub [run 38824689772](https://github.com/jiamingze/Adex/actions/runs/38824689772)，代码 `16e44bc`：verify 与四服务镜像全部成功，含完整集成测试门禁。未删除／跳过失败测试。
 - About 描述、预览入口与 `ai-assistants` 主题已由 GitHub 接口回读确认；未发布 Release 或外部推广。浏览器截图读取间歇异常，不伪造截图；其余候选主题尚未全部设置。详见 [审计记录](project/repository-audit.md)。
+
+### 2026-10-16 · Browser follow-up routing correction
+
+- Replaced polite-prefix browser routing with bounded model semantic proposals; carried recent drafts as untrusted, truncated-marked context into the existing BROWSER Run. Corrected chat capability wording to distinguish read-only lookup from approved browser operations.
+- No database migration. Existing approvals/effect ledger/fencing remain authoritative; failed prior submissions are not automatically replayed.
+- Verification: `make build`, `make check-style`; Agent 52 tests; isolated full integration 55 tests plus new chat-to-browser integration 1 test; Ruff, architecture and secrets checks. Live configured Qwen returned true for two prefixless operation requests and false for a discussion request (routing only, no external submission).
+- Real Xiaohongshu publication: **BLOCKED_EXTERNAL**, not verified by fixture execution. Requires current login, exact content approval and provider business receipt; a surviving approval card does not turn a FAILED Run into success.

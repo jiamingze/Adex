@@ -42,12 +42,23 @@ class InteractiveTurnService:
                         + "\n"
                     )
                 return
-            from adex_agent.routing.intent import browser_operation_intent
+            selected_runtime = copy.copy(self.runtime)
+            if body.model:
+                selected_runtime.provider_mode = "qwen" if body.model == "qwen3.8-max" else "minimax"
+                selected_runtime.provider = provider(selected_runtime.provider_mode)
+            from adex_agent.routing.browser import operation_requested, task_instruction
 
-            if browser_operation_intent(latest):
+            if await operation_requested(
+                selected_runtime, body.owner_id, body.invocation_key, body.context["messages"]
+            ):
                 yield (
                     json.dumps(
-                        {"type": "task.requested", "kind": "BROWSER", "instruction": latest, "request": {}},
+                        {
+                            "type": "task.requested",
+                            "kind": "BROWSER",
+                            "instruction": task_instruction(body.context["messages"], latest),
+                            "request": {},
+                        },
                         ensure_ascii=False,
                     )
                     + "\n"
@@ -204,10 +215,6 @@ class InteractiveTurnService:
                     + "\n"
                 )
                 return
-            selected_runtime = copy.copy(self.runtime)
-            if body.model:
-                selected_runtime.provider_mode = "qwen" if body.model == "qwen3.8-max" else "minimax"
-                selected_runtime.provider = provider(selected_runtime.provider_mode)
             context = await selected_runtime.working(body.context)
             from adex_agent.skills.registry import REGISTRY
 
