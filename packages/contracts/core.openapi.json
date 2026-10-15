@@ -3287,7 +3287,8 @@
                       "recover",
                       "switch_tab",
                       "dialog_accept",
-                      "dialog_dismiss"
+                      "dialog_dismiss",
+                      "secure_login"
                     ]
                   },
                   "element_id": {
@@ -3319,6 +3320,44 @@
                   "dialog_id": {
                     "type": "string",
                     "maxLength": 100
+                  },
+                  "origin": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "observation_id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "submit_element_id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "fields": {
+                    "type": "array",
+                    "maxItems": 6,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "element_id",
+                        "text"
+                      ],
+                      "properties": {
+                        "element_id": {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        "text": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      }
+                    }
+                  },
+                  "remember_login": {
+                    "type": "boolean",
+                    "default": false
                   }
                 }
               }
@@ -3497,6 +3536,35 @@
             }
           }
         ]
+      }
+    },
+    "/browser/runs/{id}": {
+      "get": {
+        "operationId": "browserRun",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped Run, session and active approval; transient screenshot, no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     }
   },

@@ -192,10 +192,10 @@ Licensed under [MIT](LICENSE).
 
 ## Generic browser operator
 
-A generic accessibility-based browser operator prepares web actions without per-site Skills. Secure login takeover, frozen-request approvals and receipt verification reuse existing Runs/checkpoints/effect ledgers. Assistant → Browser is the control surface. Real merchant publication/orders/payment remain **BLOCKED_EXTERNAL** until validated with an authorized account.
+A generic accessibility-based browser operator prepares web actions without per-site Skills. Secure login takeover, frozen-request approvals and receipt verification reuse existing Runs/checkpoints/effect ledgers. The originating chat now contains live progress, an actual-page-derived secure login card, frozen title/body approval and verified receipts. Optional encrypted seven-day login sessions can be revoked; passwords are not saved. QR/MFA can use the inline actual-page preview. Assistant → Browser remains available for full control. Real merchant publication/orders/payment remain **BLOCKED_EXTERNAL** until validated with an authorized account.
 
 [Architecture and operating guide](docs/architecture/browser-operator.md)
 
-<img src="docs/images/browser-operator-mobile.jpg" width="260" alt="Browser takeover — synthetic test data only" />
+<img src="docs/images/browser-chat-login.jpg" width="250" alt="In-chat secure login — synthetic data only" /> <img src="docs/images/browser-chat-review.jpg" width="250" alt="Frozen publication approval — synthetic data only" /> <img src="docs/images/browser-chat-result.jpg" width="250" alt="Verified local fixture receipt — not a real publication" />
 
 Memory is now selected and normalized by model semantics: stable preferences can be learned from ordinary conversation, informal wording becomes concise facts, and changed facts update existing memories. Temporary or quoted information is excluded; users retain inspection/correction/deletion and an opt-out. There is no required “remember:” command format. [Memory design and limits](docs/architecture/conversational-memory.md).

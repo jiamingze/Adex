@@ -66,15 +66,76 @@ public class BrowserGateway {
     return value;
   }
 
+  public Object run(UUID owner, UUID id) {
+    var run =
+        (Map<String, Object>)
+            k.call("automation", "run:read", owner, id, "GET", "/internal/runs/" + id, null);
+    if (!"BROWSER".equals(run.get("kind"))) throw Kernel.error(400, "NOT_BROWSER_RUN");
+    var lookup =
+        (Map<String, Object>)
+            k.call("tools", "browser:read", owner, id, "GET", "/internal/browser/runs/" + id, null);
+    var result = new LinkedHashMap<String, Object>();
+    result.put("run_id", id);
+    result.put("conversation_id", run.get("origin_conversation_id"));
+    result.put("status", run.get("status"));
+    result.put("error_code", run.get("error_code"));
+    result.put("result", run.get("result"));
+    result.put("session", lookup.get("session"));
+    if (lookup.get("session") instanceof Map<?, ?> session && session.get("action_id") != null) {
+      UUID action = Kernel.uuid(session.get("action_id"));
+      result.put(
+          "action",
+          k.call(
+              "tools", "approval:read", owner, action, "GET", "/internal/actions/" + action, null));
+    }
+    return result;
+  }
+
   public Object control(UUID owner, UUID id, Map<String, Object> body) {
-    return k.call(
-        "tools",
-        "browser:control",
-        owner,
-        id,
-        "POST",
-        "/internal/browser/sessions/" + id + "/control",
-        body);
+    boolean login = "secure_login".equals(body.get("action"));
+    if (login) {
+      var before = (Map<String, Object>) view(owner, id);
+      if (!"WAITING_INPUT".equals(before.get("run_status")))
+        throw Kernel.error(409, "BROWSER_AGENT_STILL_PAUSING");
+    }
+    var value =
+        (Map<String, Object>)
+            k.call(
+                "tools",
+                "browser:control",
+                owner,
+                id,
+                "POST",
+                "/internal/browser/sessions/" + id + "/control",
+                body);
+    if (login && value.get("login_form") == null) {
+      // Submission is not login proof. Resume the original Run to inspect the actual
+      // page; MFA or a rejected login hands control back without claiming success.
+      var result = new LinkedHashMap<String, Object>(value);
+      if (Boolean.TRUE.equals(body.get("remember_login"))) {
+        try {
+          var uri = java.net.URI.create(String.valueOf(value.get("url")));
+          String origin = uri.getScheme() + "://" + uri.getRawAuthority();
+          if (origin.equals(body.get("origin"))) {
+            control(
+                owner,
+                id,
+                Map.of(
+                    "action",
+                    "remember",
+                    "profile_revision",
+                    body.getOrDefault("profile_revision", 0)));
+            result.put("remembered", true);
+          } else result.put("remembered", false);
+        } catch (Kernel.Problem changed) {
+          result.put("remembered", false);
+        }
+      }
+      resume(owner, id);
+      result.put("auto_resumed", true);
+      return result;
+    }
+    return value;
   }
 
   public Object resume(UUID owner, UUID id) {

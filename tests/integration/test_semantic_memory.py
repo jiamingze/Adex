@@ -6,11 +6,24 @@ from test_reliability import BASE, client, db, sign, wait
 from test_conversational_memory import command
 
 
+_identity = {}
+
+
 @contextmanager
 def user():
-    c=httpx.Client(base_url=BASE,timeout=30,trust_env=False)
-    auth=c.post('/api/v1/auth/register',json={'username':'semantic-'+str(uuid4())[:8],'password':'fixture'})
-    auth.raise_for_status(); c.headers.update({'Authorization':'Bearer '+auth.json()['token']})
+    c = httpx.Client(base_url=BASE, timeout=30, trust_env=False)
+    if not _identity:
+        auth = c.post(
+            "/api/v1/auth/register",
+            json={"username": "semantic-" + str(uuid4())[:8], "password": "fixture"},
+        )
+        auth.raise_for_status()
+        _identity["token"] = auth.json()["token"]
+    c.headers.update({"Authorization": "Bearer " + _identity["token"]})
+    # Share one synthetic identity to respect the real registration limiter.
+    # Clean only its own isolated-test memories through the public API.
+    for memory in c.get("/api/v1/memories").json()["items"]:
+        c.delete("/api/v1/memories/" + memory["id"]).raise_for_status()
     try:
         yield c
     finally:

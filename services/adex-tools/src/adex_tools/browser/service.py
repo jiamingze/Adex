@@ -146,7 +146,14 @@ class BrowserService:
             if storage
             else row["storage_cipher"]
         )
+        from adex_tools.browser.login import login_form
+
+        value["login_form"] = login_form(value)
         snapshot = {k: v for k, v in value.items() if k != "screenshot"}
+        progress = list(row["snapshot"].get("progress_events", []))
+        if row.get("_progress"):
+            progress.append(row["_progress"])
+        snapshot["progress_events"] = progress[-20:]
         receipts = list(row["snapshot"].get("business_receipts", []))
         receipt = value.get("receipt")
         if (
@@ -255,6 +262,24 @@ class BrowserService:
                 raise HTTPException(409, "BROWSER_APPROVAL_OR_HANDOFF_REQUIRED")
             if row["steps"] >= 60:
                 raise HTTPException(409, "BROWSER_STEP_BUDGET_EXCEEDED")
+            from datetime import datetime, timezone
+
+            row["_progress"] = {
+                "step": row["steps"] + 1,
+                "at": datetime.now(timezone.utc).isoformat(),
+                "text": {
+                    "navigate": "打开目标网页",
+                    "click": "操作网页控件",
+                    "type": "整理并填写内容",
+                    "select": "选择网页选项",
+                    "scroll": "查看页面信息",
+                    "back": "返回上一步",
+                    "upload": "上传授权附件",
+                    "switch_tab": "切换网页标签",
+                    "handoff": "等待你登录或处理验证",
+                    "done": "核对执行结果",
+                }.get(step.action, "处理网页"),
+            }
             request_hash = digest({"step": step.model_dump(), "observation_id": body["observation_id"]})
             effect_key = f"browser-step:{session}:{key}"
             old = await self.core.query(
@@ -395,6 +420,7 @@ class BrowserService:
                     row, await actor.call({"action": "mode", "mode": "AGENT", "human": True}), mode="AGENT"
                 )
             if action not in (
+                "secure_login",
                 "observe",
                 "click",
                 "point",

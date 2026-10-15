@@ -16,6 +16,12 @@ public class BrowserController {
     this.browser = browser;
   }
 
+  @GetMapping("/api/v1/browser/runs/{id}")
+  public Object run(HttpServletRequest r, HttpServletResponse response, @PathVariable UUID id) {
+    response.setHeader("Cache-Control", "no-store");
+    return browser.run(auth.owner(r), id);
+  }
+
   @GetMapping("/api/v1/browser/accounts")
   public Object accounts(HttpServletRequest r) {
     return browser.accounts(auth.owner(r));

@@ -58,3 +58,12 @@ Image chat requests route to an Automation IMAGE task. DashScope Qwen-Image rece
 Stopping a chat commits CANCELLED and fencing epoch first. Each App replica polls active ownership and interrupts/closes stale streams, with an overall response deadline. A completed background media task has its own task cancellation control.
 
 Chat model budgets: `ADEX_DAILY_MODEL_CALL_LIMIT=0` disables the daily reply count cap while retaining durable usage accounting. Positive limits remain configurable for hosted deployments. Media and search budgets are separate.
+
+
+## In-chat browser controls (2026-10-16)
+
+- App `GET /api/v1/browser/runs/{run_id}` validates the owner and BROWSER Run, then returns `{run_id, conversation_id, status, error_code, result, session, action?}` with no-store caching. Tools `GET /internal/browser/runs/{run_id}` requires scoped `browser:read` and returns that owner's exact Run session.
+- Existing session control adds `secure_login`: `{action, origin, observation_id, submit_element_id, fields:[{element_id,text}], remember_login?, profile_revision?}`. At most six fields, 2,000 characters each. Only HUMAN mode and a paused original Run accept login controls. All field/button handles must belong to the observed HTTPS document origin. Credentials are transient control data, not tool effects or chat messages.
+- A disappeared login form triggers same-Run resume; it is not authentication proof. Still-visible MFA/login remains human-controlled. Remembered state uses existing encrypted, revocable session profiles and revision checks; passwords are not saved.
+- Publication uses the existing request-hash approval and stable effect key. Model prose is never success evidence. Return a business receipt and actual title/link only when supported by observed data; unknown outcomes reconcile without resubmission.
+- See [browser operator](architecture/browser-operator.md). No database migration is required for this extension.

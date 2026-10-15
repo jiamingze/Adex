@@ -28,6 +28,7 @@ class Broker:
         self.pending = None
         self.last_receipt = None
         self.private_values = set()
+        self.secret_values = set()
         self.critical = False
         self.dialog = None
         self.dialog_id = None
@@ -59,8 +60,23 @@ class Broker:
 
     async def forward(self, route):
         if self.test_fixture:
-            from adex_tools.browser.fixture import HTML
+            from adex_tools.browser.fixture import HTML, LOGIN_HTML
 
+            if (
+                route.request.method == "GET"
+                and urlsplit(route.request.url).path == "/fixture-login"
+                and "adex_fixture=TEST_FIXTURE_SESSION" in route.request.headers.get("cookie", "")
+            ):
+                return await route.fulfill(status=200, content_type="text/html", body=HTML)
+            if route.request.method == "POST" and urlsplit(route.request.url).path == "/login":
+                return await route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    headers={
+                        "Set-Cookie": "adex_fixture=TEST_FIXTURE_SESSION; Path=/; Secure; HttpOnly; SameSite=Lax"
+                    },
+                    body='{"authenticated":true}',
+                )
             if route.request.method == "POST":
                 return await route.fulfill(
                     status=200,
@@ -68,10 +84,31 @@ class Broker:
                     body=json.dumps(
                         {"accepted": True}
                         if "FIXTURE_UNKNOWN" in (route.request.post_data or "")
-                        else {"note_id": "TEST_FIXTURE_NOTE_001"}
+                        else {
+                            "note_id": "TEST_FIXTURE_NOTE_001",
+                            "note_url": "https://example.com/note/TEST_FIXTURE_NOTE_001",
+                        }
                     ),
                 )
-            return await route.fulfill(status=200, content_type="text/html", body=HTML)
+            return await route.fulfill(
+                status=200,
+                content_type="text/html",
+                body=LOGIN_HTML if urlsplit(route.request.url).path == "/fixture-login" else HTML,
+            )
+        if self.mode == "AGENT" and route.request.method not in ("GET", "HEAD", "OPTIONS"):
+            # Browser redirects can skip the original route handler. Dispatch one
+            # approved request only; never replay a POST body at another URL.
+            response = await route.fetch(max_redirects=0, max_retries=0, timeout=10000)
+            if 300 <= response.status < 400:
+                headers = {
+                    key: value
+                    for key, value in response.headers.items()
+                    if key.lower() not in ("location", "content-length", "content-encoding")
+                }
+                return await route.fulfill(
+                    status=response.status, headers=headers, body=await response.body()
+                )
+            return await route.fulfill(response=response)
         return await route.continue_()
 
     async def intercept(self, route):
@@ -164,7 +201,11 @@ class Broker:
             if (
                 receipt
                 and 200 <= response.status < 300
-                and urlsplit(response.url).hostname == urlsplit(self.page.url).hostname
+                and urlsplit(self.page.url).hostname
+                in (
+                    urlsplit(response.url).hostname,
+                    urlsplit(pending.get("before", {}).get("url", "")).hostname,
+                )
             ):
                 # Receipt in a response AND newly visible confirmation text. A model
                 # or HTTP 200 alone is never accepted as a business receipt.
@@ -174,6 +215,13 @@ class Broker:
                     result.update(
                         verified=True, business_verified=True, provider_receipt=receipt, state="SUCCEEDED"
                     )
+                    from adex_tools.browser.policy import publication_metadata
+
+                    details = publication_metadata(pending, value, self.page.url, receipt)
+                    if details.get("permalink") and not await self.admit(details["permalink"]):
+                        details.pop("permalink", None)
+                    result.update(details)
+
             elif 200 <= response.status < 300 and pending.get("transport_only"):
                 # This verifies only transport for a reviewed intermediate request,
                 # never publication/order/payment or the user's overall goal.
@@ -305,8 +353,18 @@ class Broker:
                 ]
                 attributes = described.get("attributes", [])
                 attrs = dict(zip(attributes[::2], attributes[1::2]))
+                name = (
+                    name
+                    or self.safe(
+                        attrs.get("aria-label")
+                        or attrs.get("placeholder")
+                        or attrs.get("data-placeholder")
+                        or ""
+                    )[:400]
+                )
                 protected = (
                     protected
+                    or bool(SECRET.search(name))
                     or attrs.get("type", "").lower() == "password"
                     or bool(SECRET.search(attrs.get("autocomplete", "")))
                 )
@@ -316,25 +374,33 @@ class Broker:
                 handle = str(backend)
                 handles[handle] = {"backend": backend, "role": role, "name": name, "protected": protected}
                 current_value = node.get("value", {}).get("value", "")
-                if not protected and properties.get("editable"):
+                frame_origin = ""
+                if role in ("textbox", "searchbox", "combobox"):
                     obj = (await self.cdp.send("DOM.resolveNode", {"backendNodeId": backend}))["object"][
                         "objectId"
                     ]
-                    result = await self.cdp.send(
+                    observed = await self.cdp.send(
                         "Runtime.callFunctionOn",
                         {
                             "objectId": obj,
-                            "functionDeclaration": "function(){return String(this.value ?? this.innerText ?? '').slice(0,16000)}",
+                            "functionDeclaration": "function(secret){return {origin:this.ownerDocument.location.origin,value:secret?'':String(this.value ?? this.innerText ?? '').slice(0,16000)}}",
+                            "arguments": [{"value": protected}],
                             "returnByValue": True,
                         },
                     )
-                    current_value = result.get("result", {}).get("value", current_value)
+                    observed = observed.get("result", {}).get("value", {})
+                    frame_origin = observed.get("origin", "")
+                    if not protected:
+                        current_value = observed.get("value", current_value)
                 nodes.append(
                     {
                         "id": handle,
                         "role": role,
                         "name": name,
                         "protected": protected,
+                        "frame_origin": frame_origin,
+                        "input_type": attrs.get("type", "text"),
+                        "autocomplete": attrs.get("autocomplete", ""),
                         "value": "[REDACTED]" if protected else self.safe(current_value)[:5000],
                     }
                 )
@@ -378,7 +444,7 @@ class Broker:
             "provider": "TEST_FIXTURE" if self.test_fixture else "chromium",
             "mode": self.mode,
             "read_hosts": sorted(self.read_hosts),
-            "_storage": await self.context.storage_state(),
+            "_storage": self.clean_storage(await self.context.storage_state()),
         }
         if screenshot:
             result["screenshot"] = base64.b64encode(
@@ -396,9 +462,95 @@ class Broker:
         self.last_view = {k: v for k, v in result.items() if k not in ("_storage", "screenshot")}
         return result
 
+    def clean_storage(self, state):
+        def contains_secret(value):
+            return any(secret and secret in str(value) for secret in self.secret_values)
+
+        state["cookies"] = [
+            cookie for cookie in state.get("cookies", []) if not contains_secret(cookie.get("value", ""))
+        ]
+        for origin in state.get("origins", []):
+            origin["localStorage"] = [
+                item
+                for item in origin.get("localStorage", [])
+                if not re.search(r"password|passwd|验证码|密码", item.get("name", ""), re.I)
+                and not contains_secret(item.get("value", ""))
+            ]
+        return state
+
+    async def secure_login(self, body):
+        from adex_tools.browser.login import login_form
+
+        if not body.get("human") or self.mode != "HUMAN":
+            raise ValueError("BROWSER_LOGIN_REQUIRES_HUMAN")
+        current = await self.observe()
+        form = login_form(current)
+        if (
+            not form
+            or form["origin"] != body.get("origin")
+            or form["observation_id"] != body.get("observation_id")
+        ):
+            raise ValueError("STALE_BROWSER_LOGIN_FORM")
+        permitted = {field["id"]: field for field in form["fields"]}
+        fields = body.get("fields", [])
+        submit = body.get("submit_element_id")
+        if (
+            not fields
+            or len(fields) > 6
+            or len({f["element_id"] for f in fields}) != len(fields)
+            or any(f["element_id"] not in permitted for f in fields)
+            or submit not in {b["id"] for b in form["buttons"]}
+        ):
+            raise ValueError("BROWSER_LOGIN_FIELDS_INVALID")
+        # Frame ownership comes from native CDP document metadata, not webpage
+        # JavaScript getters which an untrusted frame could override.
+        tree = (await self.cdp.send("DOM.getDocument", {"depth": -1, "pierce": True}))["root"]
+        origins = {}
+        stack = [(tree, "")]
+        while stack:
+            node, origin = stack.pop()
+            if node.get("nodeType") == 9:
+                parsed = urlsplit(node.get("documentURL", ""))
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+            if node.get("backendNodeId"):
+                origins[node["backendNodeId"]] = origin
+            children = node.get("children", []) + node.get("shadowRoots", [])
+            if node.get("contentDocument"):
+                children.append(node["contentDocument"])
+            stack.extend((child, origin) for child in children)
+        for handle in [field["element_id"] for field in fields] + [submit]:
+            if origins.get(self.handles[handle]["backend"]) != form["origin"]:
+                raise ValueError("BROWSER_LOGIN_FRAME_ORIGIN_MISMATCH")
+        self.human_authorized = True
+        self.human_until = asyncio.get_running_loop().time() + 10
+        # Validate all handles before typing; no secrets enter snapshots or effects.
+        for field in fields:
+            if f"{urlsplit(self.page.url).scheme}://{urlsplit(self.page.url).netloc}" != form["origin"]:
+                raise ValueError("STALE_BROWSER_LOGIN_FORM")
+            value = field["text"]
+            self.private_values.add(value)
+            if permitted[field["element_id"]]["secret"]:
+                self.secret_values.add(value)
+            await self.cdp.send("DOM.focus", {"backendNodeId": self.handles[field["element_id"]]["backend"]})
+            await self.page.keyboard.press("Meta+A" if sys.platform == "darwin" else "Control+A")
+            await self.page.keyboard.insert_text(value)
+        await self.cdp.send("DOM.scrollIntoViewIfNeeded", {"backendNodeId": self.handles[submit]["backend"]})
+        box = (await self.cdp.send("DOM.getBoxModel", {"backendNodeId": self.handles[submit]["backend"]}))[
+            "model"
+        ]["content"]
+        await self.page.mouse.click((box[0] + box[4]) / 2, (box[1] + box[5]) / 2)
+        for _ in range(30):
+            await asyncio.sleep(0.1)
+            current = await self.observe()
+            if not login_form(current):
+                break
+        return {**(await self.observe(True)), "login_submitted": True}
+
     async def operate(self, body):
         action = body["action"]
         human = body.get("human", False)
+        if action == "secure_login":
+            return await self.secure_login(body)
         if action in ("dialog_accept", "dialog_dismiss"):
             if (
                 not human
@@ -461,7 +613,18 @@ class Broker:
         if human and action != "observe":
             self.human_authorized = True
             self.human_until = asyncio.get_running_loop().time() + 10
-        if action not in ("navigate", "click", "type", "select", "scroll", "back", "upload", "key", "point"):
+        if action not in (
+            "navigate",
+            "click",
+            "type",
+            "select",
+            "scroll",
+            "back",
+            "upload",
+            "key",
+            "point",
+            "switch_tab",
+        ):
             raise ValueError("BROWSER_ACTION_NOT_ALLOWED")
         if not human:
             await self.observe()
@@ -484,6 +647,8 @@ class Broker:
             self.critical = bool(CRITICAL.search(self.gesture))
         if human and action == "type":
             self.private_values.add(body.get("text", ""))
+            if target and target.get("protected"):
+                self.secret_values.add(body.get("text", ""))
 
         async def perform():
             if action == "switch_tab":

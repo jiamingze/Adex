@@ -25,15 +25,57 @@ class BrowserProfiles:
             (owner, host),
             one=True,
         )
-        if not row:
-            return None
-        state = CredentialVault("ADEX_BROWSER_ENCRYPTION_KEY").open(
-            row["cipher"], f"browser-profile:{owner}:{host}"
-        )
-        await self.core.query(
-            "INSERT INTO browser_session_profiles(session_id,profile_id) VALUES(%s,%s) ON CONFLICT DO NOTHING",
-            (session, row["id"]),
-        )
+        if row:
+            state = CredentialVault("ADEX_BROWSER_ENCRYPTION_KEY").open(
+                row["cipher"], f"browser-profile:{owner}:{row['host']}"
+            )
+        else:
+            # A website may set a parent-domain cookie while login lives on a
+            # subdomain. Reuse only cookies whose own browser scope admits the
+            # new host; never inject unrelated domains or origin-local storage.
+            candidates = await self.core.query(
+                "SELECT * FROM browser_profiles WHERE owner_id=%s AND cipher IS NOT NULL AND expires_at>clock_timestamp() ORDER BY updated_at DESC LIMIT 30",
+                (owner,),
+            )
+            for candidate in candidates:
+                stored = CredentialVault("ADEX_BROWSER_ENCRYPTION_KEY").open(
+                    candidate["cipher"], f"browser-profile:{owner}:{candidate['host']}"
+                )
+                cookies = [
+                    c
+                    for c in stored.get("cookies", [])
+                    if host == c.get("domain", "").lstrip(".")
+                    or (c.get("domain", "").startswith(".") and host.endswith(c["domain"]))
+                ]
+                if cookies:
+                    row = candidate
+                    state = {
+                        "cookies": cookies,
+                        "origins": [
+                            o
+                            for o in stored.get("origins", [])
+                            if urlsplit(o.get("origin", "")).hostname == host
+                        ],
+                    }
+                    break
+            else:
+                return None
+        # Recheck under a profile share lock before linking a new session. A
+        # concurrent revoke must either invalidate this load or see the new link.
+        async with self.core.pool.connection() as conn:
+            async with conn.transaction():
+                current = await (
+                    await conn.execute(
+                        "SELECT revision FROM browser_profiles WHERE id=%s AND owner_id=%s AND cipher IS NOT NULL AND expires_at>clock_timestamp() FOR SHARE",
+                        (row["id"], owner),
+                    )
+                ).fetchone()
+                if not current or current["revision"] != row["revision"]:
+                    return None
+                await conn.execute(
+                    "INSERT INTO browser_session_profiles(session_id,profile_id) VALUES(%s,%s) ON CONFLICT DO NOTHING",
+                    (session, row["id"]),
+                )
         return state
 
     async def remember(self, owner, session, url, state, expected_revision=0):

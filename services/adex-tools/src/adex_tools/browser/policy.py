@@ -135,6 +135,19 @@ def approval_summary(pending):
         and node.get("value")
         and not node.get("protected")
     ][:20]
+    # Some rich editors expose both a labelled parent and an editable child.
+    # Keep every distinct labelled field, but do not show the same draft twice.
+    generic = {"可编辑区域", "输入内容"}
+    named_values = {field["value"] for field in fields if field["label"] not in generic}
+    seen = set()
+    unique = []
+    for field in fields:
+        key = (field["label"], field["value"])
+        if key in seen or (field["label"] in generic and field["value"] in named_values):
+            continue
+        seen.add(key)
+        unique.append(field)
+    fields = unique
     texts = [node.get("name", "") for node in nodes if node.get("role") in ("StaticText", "heading")]
     facts = []
     for index, text in enumerate(texts):
@@ -150,3 +163,51 @@ def approval_summary(pending):
         "fields": fields,
         "facts": facts[:12],
     }
+
+
+def publication_metadata(pending, response, readback_url, receipt):
+    """Evidence metadata only. Never infer a permalink from an ID or model prose."""
+    from urllib.parse import urlsplit, unquote
+
+    def find(value, keys, depth=0):
+        if not isinstance(value, dict) or depth > 2:
+            return None
+        for key in keys:
+            if isinstance(value.get(key), str) and value[key].strip():
+                return value[key].strip()[:2000]
+        for key in ("data", "result"):
+            found = find(value.get(key), keys, depth + 1)
+            if found:
+                return found
+        return None
+
+    title = next(
+        (
+            n.get("value", "")
+            for n in pending.get("before", {}).get("nodes", [])
+            if n.get("role") == "textbox"
+            and re.search(r"标题|title", n.get("name", ""), re.I)
+            and n.get("value")
+            and not n.get("protected")
+        ),
+        None,
+    )
+    result = {
+        "kind": "publication"
+        if re.search(r"发布|发表|publish", pending.get("gesture", ""), re.I)
+        else "operation"
+    }
+    if title:
+        result.update(title=title[:2000], title_source="approved_form")
+    else:
+        title = find(response, ("note_title", "post_title", "article_title", "title"))
+        if title:
+            result.update(title=title, title_source="provider_response")
+    candidate = find(response, ("note_url", "post_url", "article_url", "permalink", "share_url", "url"))
+    if candidate:
+        parsed = urlsplit(candidate)
+        if parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password:
+            result.update(permalink=candidate, permalink_source="provider_response", permalink_verified=False)
+    if not result.get("permalink") and str(receipt) in unquote(urlsplit(readback_url).path):
+        result.update(permalink=readback_url, permalink_source="observed_page", permalink_verified=True)
+    return result

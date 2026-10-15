@@ -301,7 +301,8 @@ public class ChatWorker {
                     + "），关闭页面后会继续处理。结果将回到当前对话，并保存到作品空间。任务 ID："
                     + task.get("id");
             if ("BROWSER".equals(e.get("kind")))
-              finalContent = "已开始网页操作任务。需要登录或确认提交时会暂停，请到主动助手的浏览器面板查看、接管或审批。任务 ID：" + task.get("id");
+              finalContent =
+                  "已开始网页操作任务。需要登录或确认提交时会暂停，请直接在下方网页任务卡片登录、查看进度和审核内容。任务 ID：" + task.get("id");
             if ("IMAGE".equals(e.get("kind"))) finalContent = "正在生成图片，完成后会直接显示在当前对话，并保存到作品空间。";
             if ("AUDIO".equals(e.get("kind")))
               finalContent = "正在创作原创音乐，完成后会在当前对话提供播放器和下载。你可以离开页面，稍后回来查看。";

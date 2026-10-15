@@ -30,9 +30,16 @@ class Step(Execution):
     step: BrowserStep
 
 
+class SecureField(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    element_id: str = Field(min_length=1, max_length=100)
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class Control(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: Literal[
+        "secure_login",
         "dialog_accept",
         "dialog_dismiss",
         "switch_tab",
@@ -50,6 +57,11 @@ class Control(BaseModel):
         "back",
         "resume",
     ]
+    remember_login: bool = False
+    origin: str = Field(default="", max_length=2000)
+    observation_id: str = Field(default="", max_length=100)
+    submit_element_id: str = Field(default="", max_length=100)
+    fields: list[SecureField] = Field(default_factory=list, max_length=6)
     dialog_id: str = Field(default="", max_length=100)
     profile_revision: int = Field(default=0, ge=0)
     element_id: str = Field(default="", max_length=100)
@@ -137,3 +149,13 @@ async def revoke_profile(request: Request, profile: UUID):
     for row in rows:
         await BrowserService(core).close(owner, row["id"])
     return {"revoked": True, "runs": [str(row["run_id"]) for row in rows]}
+
+
+@router.get("/internal/browser/runs/{run}")
+async def run_session(request: Request, run: UUID):
+    c = core.require(request, "app", "browser:read", run)
+    owner = UUID(c["owner"])
+    row = await core.query(
+        "SELECT id FROM browser_sessions WHERE run_id=%s AND owner_id=%s", (run, owner), one=True
+    )
+    return jsonable_encoder({"session": await BrowserService(core).view(owner, row["id"]) if row else None})

@@ -338,3 +338,14 @@ proposals, normalized facts and App-validated atomic commits (App migration 019)
 Ordinary durable preferences can be learned without fixed command syntax. Sensitive,
 transient, quoted and uncertain candidates are excluded; cancelled answers do not save
 incidental memories. See [memory design and limits](architecture/conversational-memory.md).
+
+## 会话内网页操作（2026-10-16）
+
+- 原会话的网页任务卡片承载进度、真实页面衍生的安全登录、扫码／验证码接管、冻结稿件确认与回执。新增 owner-scoped Run 查询，不需要离开聊天到另一个面板。
+- 输入凭据经 App→Tools→隔离 Broker 瞬时转交，原生 CDP 文档元数据校验字段来源；不进入模型、聊天、Checkpoint 或效果账本。可选保存七天可撤销加密会话，不保存输入密码；再次任务可复用。
+- 登录提交后复用原 Run 暂停／恢复；发表走现有 Action Approval、effect_key 和 outbox。禁止自动跟随写请求重定向／重试，UNKNOWN 不盲目重发；没有实际链接时明确缺失，不拼接站点 URL。
+- 无数据库迁移、无新增业务服务或调度系统。接口与局限见 [浏览器设计](architecture/browser-operator.md) 和 [服务契约](SERVICE_CONTRACTS.md)。
+- 实测命令：`make build`、`make test`、`make check-style`、`make test-integration`；Java 9、Agent 45、Tools 67 项通过，OpenAPI 91 operations；隔离集成 **55 passed in 178.29s**。新增流程覆盖登录→同 Run 恢复→审批→回执→登录状态复用；修正测试身份复用以遵守注册限流，未放宽生产限流。
+- `uv run ruff check services/adex-tools/src/adex_tools/browser services/adex-tools/src/adex_tools/api/browser.py services/adex-agent/src/adex_agent/browser`、新增测试文件 Ruff、`uv run python scripts/check_secrets.py`、`git diff --check` 通过。`uv run python scripts/prepare_ios.py` 与签名 `xcodebuild ... -destination generic/platform=iOS ... build` 成功；当前设备状态 unavailable，本轮尚未安装。
+- 本机 App／Automation／Agent／Tools 就绪端点均 200。移动端 390×844 合成 UI 实测登录、确认、完成回执及放大预览；body/document 宽度均保持 390。README 截图仅合成数据。
+- **BLOCKED_EXTERNAL：真实小红书／淘宝登录、发表、下单兼容性尚未授权实测。** 本地 Chromium／PG 测试不代表真实网站成功执行；验证码、嵌入身份提供商或自定义控件可能需要接管，通用回执识别不等于支付结算核验。

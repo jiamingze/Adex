@@ -1078,6 +1078,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/browser/runs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["browserRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5024,7 +5040,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    action: "takeover" | "observe" | "click" | "point" | "type" | "key" | "scroll" | "navigate" | "back" | "resume" | "remember" | "recover" | "switch_tab" | "dialog_accept" | "dialog_dismiss";
+                    action: "takeover" | "observe" | "click" | "point" | "type" | "key" | "scroll" | "navigate" | "back" | "resume" | "remember" | "recover" | "switch_tab" | "dialog_accept" | "dialog_dismiss" | "secure_login";
                     element_id?: string;
                     text?: string;
                     url?: string;
@@ -5032,6 +5048,15 @@ export interface operations {
                     y?: number;
                     profile_revision?: number;
                     dialog_id?: string;
+                    origin?: string;
+                    observation_id?: string;
+                    submit_element_id?: string;
+                    fields?: {
+                        element_id: string;
+                        text: string;
+                    }[];
+                    /** @default false */
+                    remember_login?: boolean;
                 };
             };
         };
@@ -5305,6 +5330,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    browserRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owner-scoped Run, session and active approval; transient screenshot, no-store */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };

@@ -131,3 +131,69 @@ Reproduce the synthetic screenshot UI without private data:
 Open `http://127.0.0.1:18118/assistant` → Browser → synthetic session.
 
 ![Synthetic mobile browser takeover](../images/browser-operator-mobile.jpg)
+
+## In-conversation operator (2026-10-16 implementation contract)
+
+Browser task cards become the control surface in the originating conversation:
+progress, real-page-derived secure login, QR/MFA takeover, frozen draft approval,
+and verified publication receipts. No lookalike site UI or invented login fields.
+The current HTTPS destination is displayed; credentials are transient App→Tools→
+Broker controls and never chat messages/model prompts/checkpoints. “Remember” stores
+an encrypted, revocable seven-day session profile, not the typed password.
+
+No migration or new scheduler: existing session snapshot carries bounded progress;
+existing Run/lease/checkpoint/outbox and approvals/effects remain authoritative.
+New App GET `/browser/runs/{run_id}` returns owner-checked Run state, exact session
+and current approval (not a paginated list lookup). Tools provides its scoped Run
+session lookup. Control extends `secure_login` with current origin/observation ID,
+real field handles/values and an observed login-submit handle. Broker validates all
+handles before typing, requires HUMAN mode, rejects publish/payment controls, and
+clears user-entered values from exported state. Login remains human until the visible
+login form is gone; resuming the same Run can then continue the model automatically.
+QR/CAPTCHA/MFA remain actual website interactions in the inline page preview.
+
+Publish approval shows full frozen title/body and destination; edits or navigation
+invalidate the request digest/snapshot. Success requires existing response/readback
+verification, not model prose. Return the submitted title and a provider-returned or
+actually observed public permalink when available; never construct site URL templates
+from an ID. If no permalink is available, say so rather than inventing one. Actual
+Xiaohongshu/Taobao account flows remain BLOCKED_EXTERNAL until authorized end-to-end
+validation; a local login/publisher fixture does not count as real external execution.
+
+
+### Login and execution limits
+
+Login field ownership is checked against native CDP document metadata before typing;
+unavailable or cross-origin frame handles are rejected rather than guessed. Sites
+with unsupported embedded identity providers, custom widgets or CAPTCHA can require
+manual takeover. Credentials are cleared from client component memory after submit;
+password-containing cookies/localStorage are removed before profile export. Session
+tokens are still sensitive and encrypted at rest; revocation is revision-fenced.
+
+Agent-approved mutating requests disable automatic HTTP redirects/retries. A redirect
+or ambiguous result is not a reason to replay a write; the existing effect ledger
+retains uncertainty for reconciliation. A platform-returned permalink is labelled as
+not independently opened unless actual readback provides that evidence. These generic
+heuristics do not prove every site's business semantics or payment settlement.
+
+### Reproduce the chat UI
+
+Build Web, run `uv run --project services/adex-tools python tests/fixtures/browser_chat_server.py`,
+and open `http://127.0.0.1:18119/demo/login`, `/demo/review` or `/demo/done`.
+This loopback-only gallery uses synthetic data and never publishes to a real account.
+Screenshots in the README are from this gallery, not external execution evidence.
+
+### Observed validation (2026-10-16)
+
+`make build`, `make test` (Java 9 / Agent 45 / Tools 67 / OpenAPI 91),
+`make check-style` and `make test-integration` passed; isolated integration suite:
+**55 passed in 178.29 seconds**. Login→same-Run continuation→approval→verified local
+receipt→new-task profile reuse is covered with synthetic credentials and an explicitly
+labelled local Chromium fixture. Owner isolation, stale-origin rejection and credential
+redaction are asserted. Registration tests reuse a synthetic identity rather than
+weakening the production limiter. Ruff and secret/whitespace checks passed.
+
+Mobile UI at 390×844 was exercised through login/review/completion and zoomed preview;
+document/body width stayed 390px. Web and signed iOS device builds passed. Physical
+installation was blocked by unavailable iPhone at verification time. Four local service
+readiness checks returned 200. Real merchant flows remain **BLOCKED_EXTERNAL**.

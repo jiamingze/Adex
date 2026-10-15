@@ -1,0 +1,222 @@
+.browser-chat-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  background: var(--bg);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.browser-chat-card header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.browser-chat-card header > div {
+  flex: 1;
+  min-width: 0;
+}
+.browser-chat-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.browser-chat-card header small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.browser-chat-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 7px;
+  background: var(--hover);
+  border-radius: 12px;
+}
+.browser-chat-card button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.browser-chat-card button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.browser-chat-card button.browser-chat-primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+.browser-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.browser-chat-card input:not([type="checkbox"]),
+.browser-chat-card select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: inherit;
+  border-radius: 10px;
+  padding: 11px;
+  font: inherit;
+  font-size: 16px;
+}
+.browser-chat-card label {
+  display: grid;
+  gap: 5px;
+}
+.browser-chat-login {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 13px;
+  background: var(--hover);
+  display: grid;
+  gap: 12px;
+}
+.browser-chat-login-title {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.browser-chat-remember {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+  font-size: 11px;
+  color: var(--muted);
+}
+.browser-chat-remember input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.browser-chat-progress {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.browser-chat-progress ol {
+  padding-left: 19px;
+  margin: 8px 0;
+}
+.browser-chat-card summary {
+  cursor: pointer;
+}
+.browser-chat-approval {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.browser-chat-draft {
+  margin: 10px 0;
+  background: var(--hover);
+  border-radius: 10px;
+  padding: 10px;
+}
+.browser-chat-card pre {
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-height: 320px;
+  overflow: auto;
+  margin: 5px 0;
+  touch-action: pan-y;
+}
+.browser-chat-page {
+  margin-top: 14px;
+}
+.browser-chat-page img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 10px 0;
+  touch-action: pan-y;
+}
+.browser-chat-continue {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.browser-chat-receipt {
+  display: flex;
+  gap: 10px;
+  background: var(--hover);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 14px;
+}
+.browser-chat-receipt > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.browser-chat-receipt p {
+  margin: 6px 0;
+}
+.browser-chat-receipt a {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: inherit;
+}
+.browser-chat-error {
+  color: #a52a36;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.browser-chat-notice,
+.browser-chat-muted {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 10px 0;
+}
+.browser-chat-card .spin {
+  animation: browser-chat-spin 1s linear infinite;
+}
+@keyframes browser-chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .browser-chat-card .spin {
+    animation: none;
+  }
+}
+
+.browser-chat-page-frame {
+  width: 100%;
+  max-width: 100%;
+  max-height: 420px;
+  overflow: auto;
+  touch-action: pan-x pan-y;
+}
+@media (max-width: 600px) {
+  .browser-chat-draft pre {
+    max-height: 210px;
+  }
+}

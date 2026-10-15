@@ -291,3 +291,137 @@ def test_browser_uncertain_submission_does_not_resubmit(client, db):
     ).raise_for_status()
 
     cleanup_notifications(db, run)
+
+
+def test_inline_login_approval_and_publication_receipt_in_origin_conversation(
+    client, db
+):
+    conv = client.post(
+        "/api/v1/conversations", json={"title": "TEST_FIXTURE inline login"}
+    ).json()["id"]
+    response = client.post(
+        "/api/v1/tasks",
+        headers={"Idempotency-Key": str(uuid4())},
+        json={
+            "kind": "BROWSER",
+            "instruction": "TEST_FIXTURE 发布介绍文章",
+            "origin_conversation_id": conv,
+            "browser_url": "https://example.com/fixture-login",
+        },
+    )
+    response.raise_for_status()
+    run = response.json()["id"]
+    execute(claim())
+    assert state(db, run)["status"] == "WAITING_INPUT"
+    scoped = client.get("/api/v1/browser/runs/" + run)
+    scoped.raise_for_status()
+    initial = scoped.json()
+    view = initial["session"]
+    form = view["login_form"]
+    assert (
+        initial["conversation_id"] == conv and form["origin"] == "https://example.com"
+    )
+    fields = [
+        {
+            "element_id": f["id"],
+            "text": "fixture-only-password" if f["secret"] else "fixture-account",
+        }
+        for f in form["fields"]
+    ]
+    bad = client.post(
+        "/api/v1/browser/sessions/" + view["id"] + "/control",
+        json={
+            "action": "secure_login",
+            "origin": "https://other.example.com",
+            "observation_id": form["observation_id"],
+            "submit_element_id": form["buttons"][0]["id"],
+            "fields": fields,
+        },
+    )
+    assert bad.status_code == 409
+    response = client.post(
+        "/api/v1/browser/sessions/" + view["id"] + "/control",
+        json={
+            "action": "secure_login",
+            "origin": form["origin"],
+            "observation_id": form["observation_id"],
+            "submit_element_id": form["buttons"][0]["id"],
+            "fields": fields,
+            "remember_login": True,
+            "profile_revision": view.get("profile_revision", 0),
+        },
+    )
+    response.raise_for_status()
+    assert (
+        response.json()["auto_resumed"] is True
+        and response.json()["remembered"] is True
+    )
+    assert state(db, run)["status"] == "QUEUED"
+    assert client.get("/api/v1/browser/accounts").json()["items"]
+    execute(claim())
+    pending = client.get("/api/v1/browser/runs/" + run).json()
+    assert (
+        pending["status"] == "WAITING_INPUT" and pending["action"]["state"] == "PENDING"
+    )
+    assert any(
+        f["label"] == "标题" for f in pending["action"]["request"]["summary"]["fields"]
+    )
+    action = pending["action"]
+    client.post(
+        "/api/v1/actions/" + action["id"] + "/approve",
+        json={"request_hash": action["request_hash"]},
+    ).raise_for_status()
+    execute(claim())
+    finished = client.get("/api/v1/browser/runs/" + run).json()
+    assert finished["status"] == "COMPLETED"
+    receipt = finished["session"]["business_receipts"][-1]
+    assert receipt["business_verified"] and receipt["title"] == "TEST_FIXTURE 标题"
+    assert receipt["permalink"] == "https://example.com/note/TEST_FIXTURE_NOTE_001"
+    assert receipt["test_fixture"] is True
+    owner = client.get("/api/v1/me").json()["id"]
+    checkpoints = db.execute(
+        "SELECT state FROM agent.checkpoints WHERE run_id=%s", (run,)
+    ).fetchall()
+    snapshot = db.execute(
+        "SELECT snapshot FROM tools.browser_sessions WHERE run_id=%s", (run,)
+    ).fetchone()
+    assert "fixture-only-password" not in json.dumps(
+        [checkpoints, snapshot], default=str
+    )
+    wait(
+        lambda: db.execute(
+            "SELECT count(*) AS n FROM app.messages WHERE conversation_id=%s AND role='assistant' AND content LIKE '%%提交标题%%'",
+            (conv,),
+        ).fetchone()["n"]
+        == 1
+    )
+    with httpx.Client(base_url=str(client.base_url), trust_env=False) as other:
+        auth = other.post(
+            "/api/v1/auth/register",
+            json={"username": "inline-" + str(uuid4())[:8], "password": "fixture"},
+        ).json()
+        other.headers.update({"Authorization": "Bearer " + auth["token"]})
+        assert other.get("/api/v1/browser/runs/" + run).status_code == 404
+    again = client.post(
+        "/api/v1/tasks",
+        headers={"Idempotency-Key": str(uuid4())},
+        json={
+            "kind": "BROWSER",
+            "instruction": "TEST_FIXTURE 再次发布演练",
+            "origin_conversation_id": conv,
+            "browser_url": "https://example.com/fixture-login",
+        },
+    )
+    again.raise_for_status()
+    again_id = again.json()["id"]
+    execute(claim())
+    repeated = client.get("/api/v1/browser/runs/" + again_id).json()
+    assert (
+        repeated["session"].get("login_form") is None
+        and repeated.get("action", {}).get("state") == "PENDING"
+    ), {key: repeated.get(key) for key in ("status", "error_code", "result")}
+    client.post(
+        "/api/v1/browser/sessions/" + repeated["session"]["id"] + "/close", json={}
+    ).raise_for_status()
+    cleanup_notifications(db, again_id)
+    cleanup_notifications(db, run)

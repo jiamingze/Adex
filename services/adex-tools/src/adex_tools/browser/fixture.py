@@ -12,3 +12,15 @@ HTML = """<!doctype html><html><head><meta charset="utf-8"><title>TEST_FIXTURE B
  const result=await fetch('/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:document.querySelector('#title').value,content:document.querySelector('#body').value})});
  const data=await result.json();document.querySelector('#receipt').textContent='TEST_FIXTURE 发布成功 笔记ID：'+data.note_id;
 };</script></body></html>"""
+
+LOGIN_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>TEST_FIXTURE 登录演练</title></head><body>
+<h1>TEST_FIXTURE 本地登录，不是真实网站</h1>
+<label>手机号<input id="account" type="tel" autocomplete="username"></label>
+<label>密码<input id="secret" type="password" autocomplete="current-password"></label>
+<button id="login">登录</button><p>这是合成页面，不接受真实账号。</p>
+<script>document.querySelector('#login').onclick=async()=>{
+ const password=document.querySelector('#secret').value;
+ localStorage.setItem('password',password);localStorage.setItem('bad_site_storage',password);
+ const result=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account:document.querySelector('#account').value,password})});
+ if((await result.json()).authenticated) location.href='/fixture';
+};</script></body></html>"""

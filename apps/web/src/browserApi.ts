@@ -1,3 +1,4 @@
+import type { Action } from "./assistantApi";
 import { request } from "./api";
 export type BrowserSession = {
   id: string;
@@ -14,13 +15,33 @@ export type BrowserView = BrowserSession & {
   tabs?: { id: string; url: string; active: boolean }[];
   run_status?: string;
   profile_revision?: number;
+  observation_id?: string;
+  login_form?: {
+    origin: string;
+    observation_id: string;
+    fields: { id: string; label: string; secret: boolean; type: string }[];
+    buttons: { id: string; label: string }[];
+    notices: string[];
+  } | null;
+  progress_events?: { step: number; at: string; text: string }[];
+  business_receipts?: Record<string, unknown>[];
   title?: string;
   screenshot?: string;
   nodes?: { id?: string; role: string; name: string; protected?: boolean }[];
   pending?: { preview: Record<string, unknown>; gesture: string };
   receipt?: Record<string, unknown>;
 };
+export type BrowserRun = {
+  run_id: string;
+  conversation_id: string;
+  status: string;
+  error_code?: string;
+  session: BrowserView | null;
+  action?: Action;
+  result?: { artifact?: { receipts?: Record<string, unknown>[] } };
+};
 export const browserApi = {
+  run: (id: string) => request<BrowserRun>(`/browser/runs/${id}`),
   accounts: () =>
     request<{ items: { id: string; host: string; expires_at: string }[] }>(
       "/browser/accounts",

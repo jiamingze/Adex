@@ -166,3 +166,94 @@ def test_opaque_or_malformed_body_is_not_automatically_reviewable():
     )
     assert value["reviewable"] is True
     assert value["fields"]["title"] == "TEST_FIXTURE"
+
+
+def test_login_form_uses_real_page_fields_and_never_turns_publish_into_login():
+    from adex_tools.browser.login import login_form
+
+    nodes = [
+        {"id": "1", "role": "textbox", "name": "手机号", "input_type": "tel"},
+        {"id": "2", "role": "textbox", "name": "密码", "protected": True},
+        {"id": "3", "role": "button", "name": "登录"},
+    ]
+    view = {"url": "https://example.com/login", "nodes": nodes, "observation_id": "v1"}
+    form = login_form(view)
+    assert form["origin"] == "https://example.com" and form["fields"][1]["secret"]
+    assert (
+        login_form({**view, "nodes": nodes[:2] + [{"id": "3", "role": "button", "name": "登录并发布"}]})
+        is None
+    )
+    assert login_form({**view, "url": "http://example.com/login"}) is None
+
+
+def test_publication_metadata_uses_frozen_title_and_never_invents_a_link():
+    from adex_tools.browser.policy import publication_metadata
+
+    before = {
+        "gesture": "发布",
+        "before": {"nodes": [{"role": "textbox", "name": "标题", "value": "TEST_FIXTURE Adex"}]},
+    }
+    result = publication_metadata(before, {"note_id": "NOTE_1"}, "https://example.com/editor", "NOTE_1")
+    assert result["title"] == "TEST_FIXTURE Adex" and "permalink" not in result
+    result = publication_metadata(
+        before, {"note_url": "https://example.com/article/NOTE_1"}, "https://example.com/editor", "NOTE_1"
+    )
+    assert result["permalink_source"] == "provider_response" and result["permalink_verified"] is False
+    assert "permalink" not in publication_metadata(
+        before, {"note_url": "javascript:alert(1)"}, "https://example.com/editor", "NOTE_1"
+    )
+
+
+async def test_real_chromium_inline_login_origin_fence_and_password_nonpersistence():
+    from adex_tools.browser.process import BrowserProcess
+    from adex_tools.browser.login import login_form
+    from fastapi import HTTPException
+
+    actor = await BrowserProcess.start()
+    try:
+        value = await actor.call({"url": "https://example.com/fixture-login", "_test_fixture": True})
+        await actor.call({"action": "mode", "mode": "HUMAN", "human": True})
+        value = await actor.call({"action": "observe"})
+        form = login_form(value)
+        assert form and len(form["fields"]) == 2
+        fields = [
+            {"element_id": f["id"], "text": "fixture-only-password" if f["secret"] else "fixture-account"}
+            for f in form["fields"]
+        ]
+        command = {
+            "action": "secure_login",
+            "human": True,
+            "origin": form["origin"],
+            "observation_id": form["observation_id"],
+            "fields": fields,
+            "submit_element_id": form["buttons"][0]["id"],
+        }
+        with pytest.raises(HTTPException):
+            await actor.call({**command, "origin": "https://other.example.com"})
+        value = await actor.call(command)
+        assert value["login_submitted"] is True and not login_form(value)
+        assert "fixture-only-password" not in str(value)
+        assert any(c["name"] == "adex_fixture" for c in value["_storage"]["cookies"])
+        assert not any(o.get("localStorage") for o in value["_storage"]["origins"])
+    finally:
+        await actor.close()
+
+
+async def test_approved_write_does_not_follow_server_redirect_or_replay_body():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.runner import Broker
+
+    broker = Broker()
+    broker.test_fixture = False
+    response = SimpleNamespace(
+        status=307,
+        headers={"location": "https://example.com/second-write"},
+        body=AsyncMock(return_value=b"{}"),
+    )
+    route = SimpleNamespace(
+        request=SimpleNamespace(method="POST"), fetch=AsyncMock(return_value=response), fulfill=AsyncMock()
+    )
+    await broker.forward(route)
+    route.fetch.assert_awaited_once_with(max_redirects=0, max_retries=0, timeout=10000)
+    assert "location" not in route.fulfill.await_args.kwargs["headers"]

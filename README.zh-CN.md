@@ -180,10 +180,10 @@ Adex 独立开发，不隶属于 OpenAI、阿里云或 MiniMax。供应商名称
 
 ## 通用网页操作
 
-基于网页可访问性树操作，无需为每个站点维护 Skill。支持登录接管、请求冻结与审批、执行回执核验，复用 Run、Checkpoint 和效果账本。入口为「助手 → 浏览器」。真实商家发布、下单及支付仍为 **BLOCKED_EXTERNAL**，需用授权账户完成验证。
+基于网页可访问性树操作，无需为每个站点维护 Skill。支持登录接管、请求冻结与审批、执行回执核验，复用 Run、Checkpoint 和效果账本。当前会话直接展示进度、安全登录、发表前的标题／正文确认及核验回执；按真实网页生成输入项，密码不进入聊天或模型。可选记住七天加密登录会话，支持撤销；二维码／多因素验证可使用实际页面预览。「助手 → 浏览器」仍保留完整接管入口。真实商家发布、下单及支付仍为 **BLOCKED_EXTERNAL**，需用授权账户完成验证。
 
 [Architecture and operating guide](docs/architecture/browser-operator.md)
 
-<img src="docs/images/browser-operator-mobile.jpg" width="260" alt="Browser takeover — synthetic test data only" />
+<img src="docs/images/browser-chat-login.jpg" width="250" alt="会话内安全登录，仅合成数据" /> <img src="docs/images/browser-chat-review.jpg" width="250" alt="发表前确认，仅合成数据" /> <img src="docs/images/browser-chat-result.jpg" width="250" alt="本地测试回执，非真实发表" />
 
 记忆由模型根据语义决定：普通聊天中的稳定偏好可自动整理保存，口语表达会改写成独立、简洁的事实，新信息可以纠正已有记忆；无需固定“记住：”格式。临时事项、引文和敏感画像不自动写入，并支持查看、修改、遗忘和关闭记忆。[设计与边界](docs/architecture/conversational-memory.md)。

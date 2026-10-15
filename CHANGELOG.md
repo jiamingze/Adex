@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 2026-10-16 — In-chat website actions
+
+- Put browser progress, secure login, actual-page takeover, frozen publication approval and verified title/link receipts in the originating chat.
+- Derive login fields from actual HTTPS page controls; keep credentials out of chat, model context and checkpoints. Opt-in encrypted session profiles expire after seven days and support revocation and reuse.
+- Validate credential field ownership through native browser document metadata; refuse cross-origin credential controls. Dispatch approved writes without automatic redirects or retries.
+- Reuse existing Run/checkpoint/approval/effect/outbox mechanisms; no schema migration or second scheduler.
+- Add explicitly labelled synthetic mobile examples and isolated login→approval→receipt/profile-reuse tests. Real Xiaohongshu/Taobao execution remains BLOCKED_EXTERNAL pending authorized external validation.
+
+
 - Extend the server-side Chromium reader from GitHub-only to public HTTPS pages, bounded same-host links and direct URL/follow-up chat routing.
 - Add per-run public-DNS-pinned CONNECT egress, read-only resource controls, explicit failure diagnostics and a live public-browser verification command; preserve existing retrieval quota and evidence persistence.
 

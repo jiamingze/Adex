@@ -105,6 +105,20 @@ class BrowserWorkflow:
                         "浏览器执行环境已变化。请打开浏览器面板，选择恢复并接管；待核实的提交不会自动重发。",
                     )
                 raise
+            if value.get("login_form") and value.get("status") == "AGENT":
+                await call(
+                    base + "/step",
+                    {
+                        **execution,
+                        "step": {"action": "handoff"},
+                        "observation_id": value["observation_id"],
+                        "command_key": f"{run['epoch']}:{index}:login",
+                    },
+                )
+                return self.wait(
+                    session_id,
+                    "网站需要登录，请直接在本条会话的网页任务卡片填写。登录信息不会进入聊天或模型。",
+                )
             if value.get("dialog"):
                 await call(
                     base + "/step",
@@ -119,11 +133,12 @@ class BrowserWorkflow:
             status = value["status"]
             if status == "HUMAN":
                 return self.wait(
-                    session_id, "网页任务已暂停，请打开浏览器接管登录或处理页面，完成后点击交还 Adex。"
+                    session_id, "网页任务已暂停，请在当前会话的网页卡片登录或处理验证，完成后继续任务。"
                 )
             if status == "UNKNOWN":
                 return self.wait(
-                    session_id, "网页请求的执行结果尚未核实，请打开浏览器核对；系统不会自动重复提交。"
+                    session_id,
+                    "网页请求的执行结果尚未核实，请在当前会话的网页卡片核对；系统不会自动重复提交。",
                 )
             if value.get("action_id"):
                 if value.get("approval_state") == "APPROVED":
@@ -139,7 +154,7 @@ class BrowserWorkflow:
                     continue
                 return self.wait(
                     session_id,
-                    "网页操作已准备好，尚未提交。请在浏览器面板审核具体请求并确认。",
+                    "网页操作已准备好，尚未提交。请在当前会话的网页卡片里核对文章和目标网站，确认后才会提交。",
                     value["action_id"],
                 )
             step = await self.plan(run, value, context, index)
@@ -168,15 +183,7 @@ class BrowserWorkflow:
                 return {
                     "schema_version": 1,
                     "phase": "result",
-                    "content": (
-                        "【TEST_FIXTURE 本地浏览器演练，非真实发布/购买】"
-                        if receipts[-1].get("test_fixture")
-                        else ""
-                    )
-                    + "网页操作已取得可核实回执："
-                    + str(receipts[-1]["provider_receipt"])
-                    if receipts
-                    else "网页浏览或内容准备步骤已结束。尚未取得发布、订单或付款的可核实回执，不能确认这些操作成功。",
+                    "content": completed_message(receipts),
                     "artifact": {"browser_session_id": session_id, "receipts": receipts},
                     "completed_steps": ["browser"],
                     "pending_effects": [],
@@ -206,7 +213,8 @@ class BrowserWorkflow:
                             },
                         )
                     return self.wait(
-                        session_id, "需要登录或人工处理，请打开浏览器接管；输入的凭据不会发送给模型。"
+                        session_id,
+                        "需要登录或人工处理，请在当前会话的网页卡片登录或接管验证；输入的凭据不会发送给模型。",
                     )
                 if code in ("STALE_BROWSER_OBSERVATION", "STALE_BROWSER_ELEMENT"):
                     continue
@@ -223,3 +231,20 @@ class BrowserWorkflow:
             "completed_steps": [],
             "usage": {},
         }
+
+
+def completed_message(receipts):
+    if not receipts:
+        return "网页浏览或准备步骤已结束，尚未取得发布、订单或付款回执。"
+    receipt = receipts[-1]
+    prefix = "【TEST_FIXTURE 本地演练，非真实发表/购买】\n" if receipt.get("test_fixture") else ""
+    text = prefix + "网页操作已完成，并取得独立核验的回执。"
+    if receipt.get("title"):
+        text += "\n\n提交标题：" + str(receipt["title"])
+    if receipt.get("permalink"):
+        text += "\n平台返回的结果链接：" + str(receipt["permalink"])
+        if not receipt.get("permalink_verified"):
+            text += "（链接未单独打开核验）"
+    else:
+        text += "\n网站没有返回文章/结果的具体链接，不能为你编造。"
+    return text + "\n回执：" + str(receipt["provider_receipt"])
