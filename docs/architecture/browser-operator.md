@@ -194,6 +194,7 @@ redaction are asserted. Registration tests reuse a synthetic identity rather tha
 weakening the production limiter. Ruff and secret/whitespace checks passed.
 
 Mobile UI at 390×844 was exercised through login/review/completion and zoomed preview;
-document/body width stayed 390px. Web and signed iOS device builds passed. Physical
-installation was blocked by unavailable iPhone at verification time. Four local service
+document/body width stayed 390px. Web and signed iOS device builds passed. After the user reconnected/unlocked the iPhone, `devicectl device install app` and
+`device process launch` succeeded for `io.adex.personal`; real merchant flows on device
+remain untested. Four local service
 readiness checks returned 200. Real merchant flows remain **BLOCKED_EXTERNAL**.
