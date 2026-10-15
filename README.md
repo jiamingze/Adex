@@ -197,3 +197,5 @@ A generic accessibility-based browser operator prepares web actions without per-
 [Architecture and operating guide](docs/architecture/browser-operator.md)
 
 <img src="docs/images/browser-operator-mobile.jpg" width="260" alt="Browser takeover — synthetic test data only" />
+
+You can manage long-term memory directly in chat: `记住：我喜欢清淡饮食`, `把记忆“我住在上海”更新为“我住在杭州”`, `忘记关于上海的记忆`, or `你记住了什么`. Saved facts apply across conversations; ambiguous edits ask for clarification. [Memory guide](docs/architecture/conversational-memory.md).

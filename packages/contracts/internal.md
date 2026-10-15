@@ -39,3 +39,12 @@ Browser requests use existing `browser.request` approvals and `action:<id>` effe
 Automation suspend validates committed `browser_waiting` checkpoint, emits waiting
 outbox delivery, fences attempt; resume queues the original Run with a new epoch.
 See [full contract](../../docs/architecture/browser-operator.md).
+
+### Explicit chat memory commands
+
+App handles explicit save/correct/forget/list user messages before Agent routing.
+The existing message/Turn API and SSE `turn.completed` contract are unchanged.
+Memory operation and durable assistant receipt share a live-attempt-fenced transaction.
+No model-provided memory write event is accepted. Existing memory CRUD, source_refs,
+tombstones, revision-aware contexts and search outbox remain authoritative. No migration.
+See [command grammar and safety](../../docs/architecture/conversational-memory.md).

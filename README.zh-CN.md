@@ -185,3 +185,5 @@ Adex 独立开发，不隶属于 OpenAI、阿里云或 MiniMax。供应商名称
 [Architecture and operating guide](docs/architecture/browser-operator.md)
 
 <img src="docs/images/browser-operator-mobile.jpg" width="260" alt="Browser takeover — synthetic test data only" />
+
+支持直接在聊天中管理长期记忆，例如“记住：我喜欢清淡饮食”“把记忆‘我住在上海’更新为‘我住在杭州’”“忘记关于上海的记忆”“你记住了什么”。保存后可跨会话使用；修改对象不明确时先澄清。[记忆说明](docs/architecture/conversational-memory.md)。

@@ -323,3 +323,10 @@ request-bound approval, same-Run WAITING_INPUT/resume, effect UNKNOWN reconcilia
 mobile control panel and original-conversation result backfill. No per-site Skills.
 Actual website publishing, orders and payment: **BLOCKED_EXTERNAL**; fixture tests do
 not verify merchant compatibility. See [operator guide](architecture/browser-operator.md).
+
+## Explicit conversational memory (2026-10-16)
+
+App now executes explicit chat memory commands with atomic Turn receipts, source refs,
+owner isolation and existing forgetting/revision invariants. No schema change or new
+scheduler. This is persistent user-directed personalization, not model-weight training.
+See [supported grammar and constraints](architecture/conversational-memory.md).

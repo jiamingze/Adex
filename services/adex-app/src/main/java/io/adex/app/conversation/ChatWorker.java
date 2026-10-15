@@ -1,5 +1,6 @@
 package io.adex.app.conversation;
 
+import io.adex.app.memory.MemoryChatService;
 import io.adex.kernel.Kernel;
 import java.io.*;
 import java.net.URI;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 public class ChatWorker {
   final Kernel k;
   final ConversationStore chat;
+  final MemoryChatService memoryChat;
   final Semaphore slots = new Semaphore(4);
   final ConcurrentHashMap<UUID, Map<String, Object>> active = new ConcurrentHashMap<>();
 
@@ -68,9 +70,10 @@ public class ChatWorker {
     }
   }
 
-  public ChatWorker(Kernel k, ConversationStore chat) {
+  public ChatWorker(Kernel k, ConversationStore chat, MemoryChatService memoryChat) {
     this.k = k;
     this.chat = chat;
+    this.memoryChat = memoryChat;
   }
 
   @Scheduled(fixedDelay = 1000)
@@ -143,6 +146,7 @@ public class ChatWorker {
         conv = (UUID) t.get("conversation_id"),
         id = (UUID) t.get("id");
     try {
+      if (memoryChat.handle(t)) return;
       long upto = k.db.queryForObject("SELECT seq FROM messages WHERE id=?", Long.class, id);
       var ctx = chat.context(owner, conv, upto);
       t.put("memory_revision", ctx.get("memory_revision"));

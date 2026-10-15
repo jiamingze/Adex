@@ -91,3 +91,11 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - Reuse action approvals/effects and Automation Run suspension/resumption; never replay uncertain writes.
 - Add mobile browser preview/control and contract/security/integration coverage.
 - Real merchant publishing, ordering and payments remain BLOCKED_EXTERNAL pending account validation.
+
+## 2026-10-16 — Explicit conversational memory
+
+- Save, correct, forget and inspect long-term memory through explicit chat commands.
+- Commit memory changes and assistant receipts atomically under the live Turn fence.
+- Preserve source provenance, revision invalidation and non-resurrection tombstones;
+  ambiguous edits, disabled memory, guests and credential content do not write.
+- Keep asynchronous extraction summary-only to avoid duplicate delayed writes.

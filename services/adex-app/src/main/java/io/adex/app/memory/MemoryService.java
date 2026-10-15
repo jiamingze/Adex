@@ -127,24 +127,8 @@ public class MemoryService {
                 if (u.get("forgotten_before") == null
                     || ((java.sql.Timestamp) t.get("message_created"))
                         .after((java.sql.Timestamp) u.get("forgotten_before"))) {
-                  String content = String.valueOf(t.get("content"));
-                  String fact =
-                      content.startsWith("记住：")
-                          ? content.substring(3)
-                          : content.startsWith("记住:") ? content.substring(3) : null;
-                  if (!Boolean.FALSE.equals(
-                          k.decode(String.valueOf(u.get("settings"))).get("memory_enabled"))
-                      && fact != null
-                      && !fact.isBlank()
-                      && fact.length() <= 2000) {
-                    try {
-                      save(
-                          owner,
-                          Map.of("content", fact, "source_message_id", t.get("id").toString()));
-                    } catch (Kernel.Problem e) {
-                      if (!e.code.equals("MEMORY_TOMBSTONED")) throw e;
-                    }
-                  }
+                  // Explicit commands commit synchronously with their Turn receipt.
+                  // This worker builds summaries only; delayed jobs cannot repeat memory writes.
                   var all =
                       k.db.queryForList(
                           "SELECT id,seq,role,content FROM messages WHERE conversation_id=? AND"
