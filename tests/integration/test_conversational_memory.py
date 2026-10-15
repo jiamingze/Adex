@@ -58,7 +58,7 @@ def test_ambiguous_disabled_secret_and_guest_memory_commands(client, db):
     try:
         db.execute("UPDATE app.users SET settings=jsonb_set(settings,'{memory_enabled}','false') WHERE id=%s",(owner,))
         _,reply=command(client,db,conv,"记住："+marker+"丙")
-        assert "关闭记忆" in reply
+        assert not any(m["content"] == marker+"丙" for m in client.get("/api/v1/memories").json()["items"])
     finally:
         db.execute("UPDATE app.users SET settings=%s::jsonb WHERE id=%s",(json.dumps(original),owner))
         for ident in ids: client.delete("/api/v1/memories/"+ident).raise_for_status()
@@ -67,7 +67,7 @@ def test_ambiguous_disabled_secret_and_guest_memory_commands(client, db):
         guest.headers.update({"Authorization":"Bearer "+auth.json()["token"]})
         conv=guest.post("/api/v1/conversations",json={"title":"guest memory fixture"}).json()["id"]
         _,reply=command(guest,db,conv,"记住："+marker)
-        assert "登录后" in reply
+        assert guest.get("/api/v1/memories").json()["items"] == []
 
 
 def test_clear_memory_is_owner_scoped_and_list_reflects_commit(client, db):

@@ -216,7 +216,7 @@ public class Kernel {
                   Duration.ofSeconds(
                       scope.equals("schedule:draft")
                           ? 150
-                          : scope.equals("note:compose")
+                          : scope.equals("note:compose") || scope.equals("memory:plan")
                               ? 90
                               : scope.startsWith("browser:")
                                   ? 35

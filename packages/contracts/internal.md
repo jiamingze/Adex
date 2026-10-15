@@ -40,11 +40,13 @@ Automation suspend validates committed `browser_waiting` checkpoint, emits waiti
 outbox delivery, fences attempt; resume queues the original Run with a new epoch.
 See [full contract](../../docs/architecture/browser-operator.md).
 
-### Explicit chat memory commands
+### Semantic conversational memory
 
-App handles explicit save/correct/forget/list user messages before Agent routing.
-The existing message/Turn API and SSE `turn.completed` contract are unchanged.
-Memory operation and durable assistant receipt share a live-attempt-fenced transaction.
-No model-provided memory write event is accepted. Existing memory CRUD, source_refs,
-tombstones, revision-aware contexts and search outbox remain authoritative. No migration.
-See [command grammar and safety](../../docs/architecture/conversational-memory.md).
+App → Agent POST `/internal/agent/memory-plan`, `memory:plan` scoped to owner/Turn.
+Strict request `{owner_id,turn_id,snapshot,model}`; response mode none/learn/manage,
+up to three normalized operations with evidence, confidence, category and target
+ID/revision. App 019 freezes input/proposal/receipt by Turn; App alone validates and
+commits. Management receipts commit atomically; learning commits only with a completed
+normal answer. Existing public message/SSE contracts are unchanged. No raw-text fallback,
+keyword production router, new scheduler or model-authorized write.
+See [design and limits](../../docs/architecture/conversational-memory.md).

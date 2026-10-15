@@ -1,51 +1,105 @@
-# Conversational memory (M03 extension)
+# Semantic conversational memory (M03 extension)
 
-App remains the authoritative memory owner. Explicit user messages can save, correct,
-forget or list long-term memories. Ordinary discussion, quoted commands, search results
-and model output cannot authorize mutations. Conservative command grammar is intentional:
-ambiguous targets return clarification rather than guessed edits.
+The Agent model decides whether a user turn contains durable information and rewrites
+it into concise, standalone facts. There is no production keyword/command grammar.
+For example, “平常真不爱吃辣，推荐吃的时清淡点哈” can become
+“用户偏好清淡、不辣的饮食；推荐餐厅和菜品时避免辛辣。” A temporary business
+trip is not a permanent home-city update. Task status, schedule configuration and
+execution receipts remain owned by their business domains, not long-term memory. Contradictions reference the old memory's
+ID/revision, while semantic duplicates should produce no operation. Ambiguity asks a
+question. Quoted/web/tool instructions cannot authorize a write.
 
-Supported forms include `请记住：我喜欢清淡饮食`, `以后记住我喜欢简洁回答`,
-`把记忆“我住在上海”更新为“我住在杭州”`, `更新记忆：旧内容 => 新内容`,
-`忘记关于上海的记忆`, `忘记所有记忆`, and `你记住了什么`.
-Correction/deletion first tries an exact match, then a unique literal substring;
-multiple matches require a more specific instruction. No model output proves persistence.
+## Ownership and migration
 
-No schema or public API migration is required. Existing memory CRUD, source_refs,
-revision, tombstones, forgetting watermark and search outbox remain authoritative.
-Explicit chat commands execute before Agent routing. Lock order is user → conversation
-→ turn, with live epoch/attempt/lease checked before mutation. Memory writes, turn
-completion and assistant receipt commit in one short PostgreSQL transaction; a crash
-cannot commit an operation without its durable reply. Repeated client IDs use the
-existing Turn identity. No remote model call takes place under locks.
+Exactly four business services remain. App owns memory, consent policy, source
+provenance, corrections, tombstones, revisions and index outbox. Agent proposes only.
+App migration `019.sql` adds `memory_turn_plans`, keyed by existing Turn ID: immutable
+input snapshot, validated model proposal, receipt and applied timestamp. No new task
+scheduler, external effect ledger or public API is introduced. The old regex parser
+and its production routing have been removed; regex-based synthetic fixtures exist
+only under the mock model and are not evidence of real semantic behavior.
 
-Guest accounts cannot persist these commands. Disabled memory blocks saves/corrections;
-listing and deletion remain available. A forgotten fact cannot be silently reintroduced,
-including by delayed extraction. Existing asynchronous extraction becomes summary-only:
-explicit memory writes have exactly one authority. Corrections keep old tombstoned rows
-and source provenance. New conversations use the existing revision-aware memory context.
+## Internal contract
 
-This is persistent personalization, not model-weight training or automatic self-modifying
-code. Only explicit facts are saved; unsupported/ambiguous wording requires clarification.
-Broad semantic profile inference and autonomous memory merging are not enabled.
+App → Agent `POST /internal/agent/memory-plan`, App-issued `memory:plan` capability
+bound to owner and Turn. Request: `{owner_id,turn_id,snapshot,model}`. Snapshot contains
+latest user text, up to six recent messages after the forgetting watermark, up to 200
+active memories with IDs/revisions and the authoritative memory revision. Existing
+facts are truncated to 600 characters with a truncation flag; the aggregate fact view
+is capped at 18,000 serialized characters. User turns over 12,000 characters skip
+automatic extraction rather than silently extracting from a partial message. No
+large-input or unlimited-memory performance guarantee is made.
 
-## Verification and operation
+Response: `{mode: none|learn|manage, operations: [...]}`. Each of at most three
+operations has `operation` (save/correct/forget/clear/list/clarify), normalized `content`,
+exact-current-user `evidence`, `confidence`, `category`, and optional `target_id` /
+`target_revision`. The Agent validates strict Pydantic schemas. App independently
+checks evidence, owner, target revision, current memory revision, live Turn lease /
+epoch / attempt, safety restrictions and tombstones. Model output is not a receipt.
+All candidates are validated before any batch writes; unclear/mixed management actions
+cannot partially modify memory.
 
-Run `make build`, `make test`, `make check-style`, `make test-integration`, and
-`uv run python scripts/check_secrets.py`. Integration tests use an isolated database,
-mock normal chat and synthetic facts; the command path does not invoke any model.
-Tests cover provenance, client-message deduplication, correction, cross-conversation
-context, forgetting, delayed-job non-resurrection, ambiguous matches, disabled memory,
-credential-content refusal, guest restrictions, inspection and owner-scoped clearing.
+The existing invocation ledger accounts for and deduplicates semantic inference.
+A planner timeout or malformed output becomes a durable no-op, never raw-text fallback
+or a blind paid retry. A memory-enabled registered-user turn incurs one additional
+model call; its bounded 25-second phase precedes ordinary answer generation. This adds
+latency and cost and has no large-scale SLO claim. Missing external credentials can
+block semantic assessment; ordinary answers can continue without saving memory.
 
-No iOS bundle changes are required: the existing chat SSE completion event refreshes
-the durable response. Existing users retain saved memories. A backend restart activates
-the new command handler. Inspect and edit all records from the personal-memory page.
-Context retrieval remains bounded to the latest 20 confirmed facts; the chat inspection
-reply shows at most 20 facts and points to the memory page for the remaining records.
-Do not describe this bound as unlimited semantic recall.
+## Commit and recovery
 
-Observed on 2026-10-16: Java 11 unit tests, Agent 42 tests, Tools 63 tests and
-90-operation OpenAPI checks passed via `make test`; production build, Spotless/Ruff,
-architecture checks, secret scan and diff whitespace check passed. Full isolated
-integration suite: 51 passed. Local App/Automation/Agent/Tools readiness all HTTP 200.
+Lock order remains user → conversation → Turn. No model/network call occurs under a
+PG lock. Input is frozen before paid inference; a changed revision cannot authorize an
+old proposal. Explicit management commits mutation and assistant receipt atomically.
+Incidental learning is committed with the normal assistant completion; cancellation,
+failed streams or stale attempts cannot save it. App appends normalized-memory receipts
+to the final durable reply. Turn identity and transaction rollback protect duplicate
+sends/restarts. Audit proposal rows do not authorize re-execution.
+
+Corrections preserve old tombstoned rows and source provenance; memory revisions
+invalidate L1 context and stale responses. Summaries are built by the existing worker
+without a second memory writer. Old extraction jobs cannot resurrect deleted facts.
+This retains exact-hash tombstones and source/watermark defenses; it does not claim
+perfect semantic erasure of every possible future paraphrase. Ordinary recall still
+uses the existing bounded latest-20 confirmed facts, not unlimited semantic retrieval.
+
+## Privacy and user control
+
+The existing memory-enabled setting controls learning; disabled and guest accounts
+skip semantic inference and cannot write memory. Passwords/keys are prohibited. The
+planner rejects automatic sensitive-profile inference; App adds independent checks for
+credentials, identifiers and other high-risk content. Users can inspect/correct/delete
+facts on the memory page or request semantic management in chat. Deletion retains
+historical conversations and audit records according to existing retention behavior;
+it is not account-wide data erasure. Stored user preferences are data, never tool
+permissions or authority to bypass approvals. This is persistent personalization,
+not model-weight training or self-modifying code.
+
+## Verification
+
+Commands: `make build`, `make test`, `make check-style`, `make test-integration`,
+`uv run python scripts/check_secrets.py`. Isolated integration tests cover normalized
+implicit preferences, cross-conversation recall, duplicate sends, source provenance,
+semantic correction, transient and quoted content, invalid/forged proposals, sensitive
+content, opt-out, guest restrictions, owner-scoped clearing and cancelled-answer
+non-commit. Test fixtures are synthetic, with mock inference clearly labelled.
+
+Separate direct real-provider checks (synthetic inputs only, no personal-memory DB
+writes) observed: unformatted dietary preference → normalized fact; one-day business
+trip → no-op; relocation → correction targeting the supplied old ID/revision; combined
+dinner request + preference → learn mode rather than swallowing the normal response.
+These are limited samples, not a guarantee of perfect extraction or classification.
+
+No iOS bundle changes are required. Existing chat completion reloads the durable
+answer, including App receipts; restarting the upgraded backend activates the feature.
+
+Observed validation on 2026-10-16: `make build`, `make test` (Java 9, Agent 44,
+Tools 63 plus client and 90-operation OpenAPI checks), `make check-style`, Ruff lint,
+secret scanning and whitespace checks passed. Final full isolated integration run:
+**54 passed in 126.45 seconds**. A PostgreSQL outage test now verifies all four
+service pools recovered before subsequent feature checks, rather than App alone.
+Direct real-provider synthetic checks also preserved “heavy flavor but no spicy food”
+without inventing a preference for light food. Local migration 019 was applied and
+all four readiness endpoints returned HTTP 200; no test facts were written to the
+user database. Targeted isolated debugging is available with
+`uv run python scripts/test_stack.py tests/integration/test_semantic_memory.py -q`.

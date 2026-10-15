@@ -127,7 +127,7 @@ public class MemoryService {
                 if (u.get("forgotten_before") == null
                     || ((java.sql.Timestamp) t.get("message_created"))
                         .after((java.sql.Timestamp) u.get("forgotten_before"))) {
-                  // Explicit commands commit synchronously with their Turn receipt.
+                  // Semantic proposals commit with their Turn receipt in MemoryChatService.
                   // This worker builds summaries only; delayed jobs cannot repeat memory writes.
                   var all =
                       k.db.queryForList(

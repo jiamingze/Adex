@@ -146,6 +146,7 @@ public class ChatWorker {
         conv = (UUID) t.get("conversation_id"),
         id = (UUID) t.get("id");
     try {
+      emit(t, "正在理解你的问题", "turn.progress");
       if (memoryChat.handle(t)) return;
       long upto = k.db.queryForObject("SELECT seq FROM messages WHERE id=?", Long.class, id);
       var ctx = chat.context(owner, conv, upto);
@@ -313,7 +314,7 @@ public class ChatWorker {
       }
       if (finalContent == null) throw Kernel.error(502, "INCOMPLETE_STREAM");
       if (!delta.isEmpty()) emit(t, delta.toString());
-      chat.finish(t, finalContent, cards);
+      memoryChat.finish(t, finalContent, cards);
     } catch (Exception e) {
       String code = e instanceof Kernel.Problem p ? p.code : "AGENT_UNAVAILABLE";
       try {

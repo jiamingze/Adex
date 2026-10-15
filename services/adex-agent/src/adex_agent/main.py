@@ -6,7 +6,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from adex_agent.dependencies import core, runtime
-from adex_agent.api import health, chat, checkpoints, schedules, usage, notes
+from adex_agent.api import health, chat, checkpoints, schedules, usage, notes, memory
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ def create_app():
     app.include_router(schedules.router)
     app.include_router(usage.router)
     app.include_router(notes.router)
+    app.include_router(memory.router)
     return app
 
 

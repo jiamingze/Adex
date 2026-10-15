@@ -1,6 +1,7 @@
 """Isolated real-PG stack: 3 schedulers, mock model, explicit SIGKILL recovery tests."""
 
 import os
+import sys
 import signal
 import shutil
 import subprocess
@@ -183,7 +184,7 @@ try:
         flush=True,
     )
     result = subprocess.run(
-        ["uv", "run", "pytest", "tests/integration", "-q"], cwd=ROOT, env=e
+        ["uv", "run", "pytest", *(sys.argv[1:] or ["tests/integration", "-q"])], cwd=ROOT, env=e
     )
 finally:
     for child in children:

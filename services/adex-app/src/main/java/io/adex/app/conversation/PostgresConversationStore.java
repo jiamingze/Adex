@@ -167,7 +167,7 @@ public class PostgresConversationStore implements ConversationStore {
         s -> {
           var user =
               k.row(
-                  "SELECT memory_revision,forgotten_before,settings FROM users WHERE id=? FOR SHARE",
+                  "SELECT memory_revision,forgotten_before,settings,is_guest FROM users WHERE id=? FOR SHARE",
                   owner);
           own(owner, conv);
           var messages =
@@ -196,6 +196,11 @@ public class PostgresConversationStore implements ConversationStore {
           result.put("conversation_id", conv);
           result.put("memory_revision", user.get("memory_revision"));
           result.put("messages", messages);
+          result.put(
+              "memory_enabled",
+              !Boolean.FALSE.equals(
+                  k.decode(String.valueOf(user.get("settings"))).get("memory_enabled")));
+          result.put("is_guest", user.get("is_guest"));
           var attachments = new ArrayList<Object>();
           for (var message : messages)
             attachments.addAll(

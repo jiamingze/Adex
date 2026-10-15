@@ -186,7 +186,17 @@ class MockProvider:
 
     async def stream(self, messages):
         latest = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
-        if latest == "fixture:slow-stream":
+        if any(
+            m.get("role") == "system" and m.get("content", "").startswith("SEMANTIC_MEMORY_V1")
+            for m in messages
+        ):
+            from adex_agent.memory.fixture import proposal
+
+            planned = proposal(json.loads(latest))
+            text = planned if isinstance(planned, str) else json.dumps(planned, ensure_ascii=False)
+            yield {"type": "completed", "content": text, "usage": {}, "provider": "mock"}
+            return
+        if latest in ("fixture:slow-stream", "TEST_FIXTURE 偏好清淡但后续回复阻塞"):
             await asyncio.sleep(30)
         text = "【测试模型，非真实 AI】已收到：" + latest[:200]
         if any(

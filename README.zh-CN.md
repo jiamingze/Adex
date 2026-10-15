@@ -186,4 +186,4 @@ Adex 独立开发，不隶属于 OpenAI、阿里云或 MiniMax。供应商名称
 
 <img src="docs/images/browser-operator-mobile.jpg" width="260" alt="Browser takeover — synthetic test data only" />
 
-支持直接在聊天中管理长期记忆，例如“记住：我喜欢清淡饮食”“把记忆‘我住在上海’更新为‘我住在杭州’”“忘记关于上海的记忆”“你记住了什么”。保存后可跨会话使用；修改对象不明确时先澄清。[记忆说明](docs/architecture/conversational-memory.md)。
+记忆由模型根据语义决定：普通聊天中的稳定偏好可自动整理保存，口语表达会改写成独立、简洁的事实，新信息可以纠正已有记忆；无需固定“记住：”格式。临时事项、引文和敏感画像不自动写入，并支持查看、修改、遗忘和关闭记忆。[设计与边界](docs/architecture/conversational-memory.md)。

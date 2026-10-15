@@ -559,8 +559,13 @@ def test_z_postgres_unavailable_rejects_authoritative_writes(client):
                     sql.Identifier(name)
                 )
             )
-        wait(
-            lambda: httpx.get(BASE + "/health/ready", trust_env=False).status_code
-            == 200,
-            timeout=30,
-        )
+        # The fault terminates every service's PG pool, so App readiness alone
+        # does not prove Agent/Tools have reconnected before later feature tests.
+        for service in ("APP", "AGENT", "TOOLS", "AUTOMATION"):
+            wait(
+                lambda service=service: httpx.get(
+                    os.environ["ADEX_" + service + "_URL"] + "/health/ready",
+                    trust_env=False,
+                ).status_code == 200,
+                timeout=30,
+            )

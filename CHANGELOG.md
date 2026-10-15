@@ -99,3 +99,12 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - Preserve source provenance, revision invalidation and non-resurrection tombstones;
   ambiguous edits, disabled memory, guests and credential content do not write.
 - Keep asynchronous extraction summary-only to avoid duplicate delayed writes.
+
+## 2026-10-16 — Semantic memory and normalization
+
+- Replace production memory command matching with model semantic assessment and rewriting.
+- Learn durable preferences from normal conversation, deduplicate and correct existing facts.
+- Freeze proposals by Turn; validate provenance/revisions/safety and commit learning with
+  successful answers, preserving cancellation and forgetting invariants.
+- Add App migration 019, scoped Agent planning endpoint, deterministic regression tests
+  and separate synthetic real-provider checks.

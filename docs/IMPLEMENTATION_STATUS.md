@@ -330,3 +330,11 @@ App now executes explicit chat memory commands with atomic Turn receipts, source
 owner isolation and existing forgetting/revision invariants. No schema change or new
 scheduler. This is persistent user-directed personalization, not model-weight training.
 See [supported grammar and constraints](architecture/conversational-memory.md).
+
+## Semantic memory supersedes command routing (2026-10-16)
+
+The previous explicit regex command implementation has been replaced by Agent model
+proposals, normalized facts and App-validated atomic commits (App migration 019).
+Ordinary durable preferences can be learned without fixed command syntax. Sensitive,
+transient, quoted and uncertain candidates are excluded; cancelled answers do not save
+incidental memories. See [memory design and limits](architecture/conversational-memory.md).
