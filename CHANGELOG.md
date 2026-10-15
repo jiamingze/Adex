@@ -8,7 +8,8 @@
 - Add `make demo-ui` for a synthetic, loopback-only interface tour without Java, databases, provider keys or signing.
 - Reorganize both README languages around product workflows, mobile screenshots, preview versus deployment, and contribution entry points. Preserve external execution limits.
 - Add bounded starter tasks, community guidelines and setup/security issue links; document the repository audit and measurement limits.
-- Supply FFmpeg and Chromium OS dependencies in Linux CI; keep existing build/style/unit/integration gates.
+- Supply FFmpeg and Chromium OS dependencies in Linux CI; allow only exact installed Chromium paths to create sandbox namespaces while retaining the global AppArmor restriction and browser sandbox.
+- Fix normal-user Ubuntu PostgreSQL startup with a private project socket directory; surface bounded CI failure context without hiding exit status. Preserve build/style/unit/integration gates.
 
 
 ### 2026-10-16 — In-chat website actions

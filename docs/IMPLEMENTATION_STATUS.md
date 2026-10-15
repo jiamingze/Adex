@@ -356,3 +356,11 @@ incidental memories. See [memory design and limits](architecture/conversational-
 - 全新归档目录中，无 `.env`／`.local-data`／Xcode／签名，`pnpm install --frozen-lockfile` 与 Web 构建通过。新增 6 项 bootstrap 回归测试；`make demo-ui` 提供只监听 loopback 的合成 UI 预览，不调用真实模型、不做第三方操作。
 - 中英文 README 调整产品定位、截图、预览／完整部署入口；补充入门贡献任务、社区规范与 Issue 引导，修正本文开头将历史快照误作当前状态的问题。
 - `make build`、`make test`、`make check-style` 均通过；Java 9／Agent 45／Tools 67／bootstrap 6 项，OpenAPI 91。`make test-integration`：55 passed in 180.45s。Ruff、97 个本地文档链接目标、secret scan、diff whitespace 通过。外部仓库配置及 GitHub Linux CI 状态另行核验，见 [审计记录](project/repository-audit.md)。
+
+
+### GitHub Linux 验收补充
+
+- 后续实际 Linux CI 暴露并修复 Chromium 沙箱 user namespace 权限，以及普通用户 PostgreSQL 默认 socket 目录权限。保留 `chromium_sandbox=True` 和全局 AppArmor 限制，只为 CI 已安装的精确二进制路径配置规则；数据库 socket 使用项目私有 0700 目录。
+- Ubuntu 24.04 一次性容器复现原有 `/var/run/postgresql` 锁文件权限失败；修复后以普通用户启动 PostgreSQL 16／Redis 并建库成功，无宿主业务数据参与。辅助脚本回归测试现为 12 项通过。
+- GitHub [run 38824689772](https://github.com/jiamingze/Adex/actions/runs/38824689772)，代码 `16e44bc`：verify 与四服务镜像全部成功，含完整集成测试门禁。未删除／跳过失败测试。
+- About 描述、预览入口与 `ai-assistants` 主题已由 GitHub 接口回读确认；未发布 Release 或外部推广。浏览器截图读取间歇异常，不伪造截图；其余候选主题尚未全部设置。详见 [审计记录](project/repository-audit.md)。

@@ -44,7 +44,7 @@ make up-dev
 make status
 ```
 
-`up-dev` starts a project-local PostgreSQL cluster on 55432 and Redis on 56379, applies migrations, and launches App (8080), Automation (8081), Agent (8105), Tools (8107), and Web (5173). Runtime data lives in ignored `.local-data/`. Open http://127.0.0.1:5173.
+`up-dev` starts a project-local PostgreSQL cluster on 55432 and Redis on 56379, applies migrations, and launches App (8080), Automation (8081), Agent (8105), Tools (8107), and Web (5173). Runtime data lives in ignored `.local-data/`; PostgreSQL uses a private `postgres-socket/` directory so normal-user Ubuntu startup does not require writing `/var/run/postgresql`. Open http://127.0.0.1:5173.
 
 `make down-dev` stops application processes. It does not delete persisted data or shut down infrastructure. After changing server code, rebuild and restart the affected services; rebuilding a JAR alone does not replace a running process.
 
@@ -95,3 +95,13 @@ The bundled API URL is a build-time setting. Rebuild after changing it. Temporar
 | Task waiting | `make status`, worker enabled, lease status; never bypass state with direct production DB edits |
 
 Before sharing logs, redact keys, cookies, bearer tokens, media tickets, personal content and device identifiers.
+
+
+## Ubuntu Chromium sandbox
+
+Ubuntu 24.04 restricts unprivileged user namespaces. Browser operation requires a
+working Chromium sandbox and the Chromium OS libraries. Review the
+[official per-application AppArmor guidance](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md)
+for your installed binary paths; do not turn off the global restriction or use
+`--no-sandbox` for untrusted sites. The repository's CI helper is only for ephemeral
+GitHub runners, not a production-host configuration script.

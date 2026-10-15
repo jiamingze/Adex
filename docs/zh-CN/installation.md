@@ -42,7 +42,7 @@ make status
 
 打开 http://127.0.0.1:5173。访客可聊天，注册或登录后使用附件、自动化和创作。初始化账户信息只保存在自己的 `.env`。
 
-本地 PostgreSQL 为 55432，Redis 为 56379；App / Automation / Agent / Tools 分别为 8080 / 8081 / 8105 / 8107，Web 为 5173。数据与日志在忽略提交的 `.local-data/`。`make down-dev` 停止业务服务，不删除数据，也不会停止基础设施。后端代码修改后须重新构建并重启服务，单独编译不会更新运行中的 JAR。
+本地 PostgreSQL 为 55432，Redis 为 56379；App / Automation / Agent / Tools 分别为 8080 / 8081 / 8105 / 8107，Web 为 5173。数据与日志在忽略提交的 `.local-data/`；PostgreSQL socket 位于权限为 0700 的 `postgres-socket/`，普通 Ubuntu 用户无需写入 `/var/run/postgresql`。`make down-dev` 停止业务服务，不删除数据，也不会停止基础设施。后端代码修改后须重新构建并重启服务，单独编译不会更新运行中的 JAR。
 
 ## Docker Compose
 
@@ -81,3 +81,11 @@ open apps/ios/ios/App/App.xcodeproj
 - 任务等待：检查四服务与 Worker，不要直接修改生产数据库绕过状态机。
 
 分享日志前移除密钥、Cookie、Token、媒体票据、个人内容和设备标识。
+
+
+## Ubuntu 的 Chromium 沙箱
+
+Ubuntu 24.04 对非特权 user namespace 有额外限制。网页操作需要正常启用的 Chromium 沙箱与系统依赖。
+请参考 [Chromium 官方的逐应用 AppArmor 配置说明](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md)，
+按实际安装的二进制路径配置；不要关闭全局限制，也不要使用 `--no-sandbox` 浏览不受信任的网站。
+本仓库的 CI 辅助脚本只适用于临时 GitHub Runner，不是生产主机配置脚本。
