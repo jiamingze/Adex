@@ -24,23 +24,12 @@ jobs:
           sudo apparmor_parser -r /tmp/adex-chromium.apparmor
       - run: make build
       - name: Unit and contract tests
-        run: |
-          if make test > /tmp/adex-unit.log 2>&1; then
-            cat /tmp/adex-unit.log
-          else
-            cat /tmp/adex-unit.log
-            python3 - <<'PYLOG'
-          from pathlib import Path
-          tail = "\n".join(Path("/tmp/adex-unit.log").read_text().splitlines()[-180:])
-          escaped = tail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-          print("::error title=Unit test failure context::" + escaped)
-          PYLOG
-            exit 1
-          fi
+        run: python3 scripts/ci_run.py make test
       - run: make check-style
       - run: uv run ruff check services/adex-agent/src services/adex-tools/src packages/python-kernel/src
-      - run: python3 scripts/init_env.py && python3 scripts/local_infra.py
-      - run: make test-integration
+      - run: python3 scripts/ci_run.py python3 scripts/init_env.py
+      - run: python3 scripts/ci_run.py python3 scripts/local_infra.py
+      - run: python3 scripts/ci_run.py make test-integration
       - run: git diff --exit-code packages/contracts/core.generated.ts
   images:
     runs-on: ubuntu-24.04
