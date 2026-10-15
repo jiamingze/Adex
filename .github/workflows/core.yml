@@ -18,6 +18,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y postgresql-16 redis-server ffmpeg
       - run: make setup
       - run: uv run --project services/adex-tools playwright install-deps chromium
+      - name: Allow the installed Chromium sandbox on Ubuntu
+        run: |
+          python3 scripts/ci_chromium_profile.py > /tmp/adex-chromium.apparmor
+          sudo apparmor_parser -r /tmp/adex-chromium.apparmor
       - run: make build
       - name: Unit and contract tests
         run: |
