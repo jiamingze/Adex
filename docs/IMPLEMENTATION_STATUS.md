@@ -382,3 +382,12 @@ incidental memories. See [memory design and limits](architecture/conversational-
 - Real Taobao lookup reached site/network risk verification. No authenticated merchant session, verified iPhone price, purchase or Xiaohongshu publication is claimed; those external outcomes remain **BLOCKED_EXTERNAL** pending user verification.
 - Verification: `make build`, `make test`, `make check-style`, `make test-client`; Agent **61 passed**, Tools **70 passed**, OpenAPI **91 operations**, client **21 passed**; full isolated integration **59 passed in 223.16s**, final routing/core/guest regression **9 passed in 14.32s**. Secrets, architecture and diff checks passed. One earlier test-stack startup hit a transient PostgreSQL connection timeout; reruns passed against isolated databases.
 - iOS: bundle/sync and signed `xcodebuild` device build succeeded. An earlier browser update installed/launched successfully; installing the latest composer/guest package is **BLOCKED_EXTERNAL** while the phone is disconnected. Do not treat the earlier installation as proof the newest package is installed.
+
+### 2026-10-17 · Latest iPhone installation
+
+The signed package containing the composer and guest-browser fixes from `3e60147`
+was installed successfully on the connected iPhone. `devicectl device install app`
+and `device process launch` both returned exit code 0 for `io.adex.personal`.
+All four local service readiness checks returned HTTP 200. This supersedes the
+latest-package installation blocker above; merchant risk verification and physical
+microphone interaction remain separate acceptance steps.
