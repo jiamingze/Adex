@@ -25,6 +25,27 @@ export function VoiceInput({
     held = useRef(false),
     mounted = useRef(true);
   useEffect(() => {
+    if (phase === "idle") return;
+    // The sheet lets pointer events reach the held control. Suppress selection
+    // on the underlying page only for this capture, and restore it on teardown.
+    const clearSelection = () => {
+      const selection = window.getSelection();
+      if (selection?.rangeCount) selection.removeAllRanges();
+    };
+    const preventSelection = (event: Event) => event.preventDefault();
+    document.documentElement.classList.add("voice-capture-active");
+    clearSelection();
+    document.addEventListener("selectstart", preventSelection, true);
+    document.addEventListener("contextmenu", preventSelection, true);
+    document.addEventListener("selectionchange", clearSelection);
+    return () => {
+      document.documentElement.classList.remove("voice-capture-active");
+      document.removeEventListener("selectstart", preventSelection, true);
+      document.removeEventListener("contextmenu", preventSelection, true);
+      document.removeEventListener("selectionchange", clearSelection);
+    };
+  }, [phase]);
+  useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;

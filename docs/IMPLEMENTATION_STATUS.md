@@ -409,3 +409,24 @@ The updated signed package was installed and launched on the connected iPhone;
 both device commands returned exit code 0. Web build, 21 client tests, native gesture
 regression, architecture/style and secrets checks passed. Short microphone-button
 tap produced no recording-state change in the browser UI.
+
+### 2026-10-17 · Recording selection guard and contrast
+
+Recording/transcription temporarily disables selection and iOS touch callouts,
+clears existing page selection, and removes the guard on completion/unmount.
+The empty hold surface also disables selection; typed drafts retain normal editing.
+The full-width recording sheet uses saturated indigo waveform bars and a red cancel
+state, with a static reduced-motion alternative. The waveform is a recording-state
+animation, not a microphone amplitude measurement.
+
+After reboot, persistent PostgreSQL/Redis, all four services, Web, the existing
+Elasticsearch container and the public phone gateway were restarted. Four service
+readiness endpoints and local/public Web returned HTTP 200. Elasticsearch is yellow
+on the single-node development cluster (replica unassigned, primaries active).
+Validation: Web/iOS bundle, signed Xcode build, 21 client tests, native speech
+gesture regression, `make check-style`, secrets scan and `git diff --check` passed.
+The browser automation surface rejected access to the local tab, so physical iOS
+callout/visual acceptance is still required; builds are not reported as UI proof.
+The signed update was subsequently installed and launched on the paired iPhone;
+both device commands returned exit code 0. Its bundled public API origin was
+refreshed to the gateway created after reboot (endpoint kept out of Git).

@@ -120,3 +120,31 @@ html.native-app input,html.native-app select,html.native-app textarea{font-size:
 .voice-bottom-sheet .voice-wave { height: 64px; gap: 6px; }
 .voice-bottom-sheet strong { font-size: 19px; }
 .voice-bottom-sheet span { font-size: 14px; color: #707580; }
+
+/* Keep iOS's selection loupe/copy callout out of the hold-to-talk gesture.
+   Typed drafts and conversation text remain selectable after capture ends. */
+html.voice-capture-active,
+html.voice-capture-active *,
+.voice-bottom-sheet,
+.voice-bottom-sheet *,
+.composer-empty textarea:placeholder-shown {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.voice-bottom-sheet .voice-wave i {
+  width: 5px;
+  height: 18px;
+  background: #4f46e5;
+  animation-name: voice-sheet-pulse;
+}
+.voice-bottom-sheet.cancelling .voice-wave i { background: #c73545; }
+.voice-bottom-sheet.cancelling span { color: #96313b; }
+@keyframes voice-sheet-pulse {
+  from { height: 18px; opacity: .85; }
+  to { height: 48px; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-bottom-sheet .voice-wave i { animation: none; height: 24px; }
+  .voice-bottom-sheet .voice-wave i:nth-child(2n) { height: 42px; }
+}
