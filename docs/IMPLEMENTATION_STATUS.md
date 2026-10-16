@@ -467,3 +467,14 @@ the bottom safe area, giving the waveform and release/cancel hints more space.
 Speech and gesture behaviour is unchanged. Web/iOS builds and diff/secrets checks
 validate this CSS-only adjustment; physical-device visual review remains separate.
 The signed update was installed and launched on the paired iPhone (both exit 0).
+
+### 2026-10-17 · Voice capture tactile confirmation
+
+iOS speech capture emits one light UIKit impact only after the audio engine has
+successfully started on the guarded main-thread permission path. Short taps,
+permission denial and released-before-start gestures never reach this feedback.
+Recording-session haptics are enabled best-effort; unsupported feedback must not
+prevent recording. Web has no new vibration dependency. Native gesture regression,
+signed iOS build, style/architecture and secrets/diff checks validate the change;
+actual tactile feel requires a physical-device check and system haptic support.
+The signed update was installed and launched on the paired iPhone (both exit 0).

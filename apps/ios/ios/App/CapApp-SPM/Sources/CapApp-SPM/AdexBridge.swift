@@ -75,13 +75,21 @@ public class AdexSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
                     do {
                         let session = AVAudioSession.sharedInstance()
                         try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+                        // Recording suppresses haptics by default. This is optional:
+                        // lack of tactile feedback must never block microphone use.
+                        try? session.setAllowHapticsAndSystemSoundsDuringRecording(true)
                         try session.setActive(true, options: .notifyOthersOnDeactivation)
                         let request = SFSpeechAudioBufferRecognitionRequest(); request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition; request.shouldReportPartialResults = true
                         self.pending = call; self.request = request; self.text = ""
                         let node = self.engine.inputNode
                         node.installTap(onBus: 0, bufferSize: 1024, format: node.outputFormat(forBus: 0)) { buffer, _ in request.append(buffer) }
                         self.tapInstalled = true
+                        let feedback = UIImpactFeedbackGenerator(style: .light)
+                        feedback.prepare()
                         self.engine.prepare(); try self.engine.start()
+                        // Confirm actual capture, not pointer-down or permission prompts.
+                        // This path runs once on main, after the gesture identity guard.
+                        feedback.impactOccurred()
                         self.task = recognizer.recognitionTask(with: request) { result, error in
                             if let result = result { self.text = result.bestTranscription.formattedString }
                             DispatchQueue.main.async {
