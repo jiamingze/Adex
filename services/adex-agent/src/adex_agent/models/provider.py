@@ -203,10 +203,18 @@ class MockProvider:
             # Deterministic fixture only, never evidence of real semantic/external execution.
             value = json.loads(latest)
             query = value["recent"][-1]["content"]
-            operate = not any(word in query for word in ("怎么", "如何", "先讨论", "不要", "能不能"))
+            mode = "none"
+            if any(w in query for w in ("价格", "多少钱", "库存")) or (
+                any(w in query for w in ("淘宝", "京东", "商品")) and "搜" in query
+            ):
+                mode = "lookup"
+            elif any(w in query for w in ("发表", "发布", "发出去", "下单", "购买")) and not any(
+                w in query for w in ("怎么", "如何", "先讨论", "不要", "能不能")
+            ):
+                mode = "operate"
             yield {
                 "type": "completed",
-                "content": json.dumps({"operate": operate}),
+                "content": json.dumps({"mode": mode}),
                 "usage": {},
                 "provider": "mock",
             }
@@ -258,6 +266,12 @@ class MockProvider:
                         )
                         if node:
                             step = {"action": "click", "element_id": node["id"]}
+            if value["observation"].get("url") != "about:blank" and any(
+                "本次为商品查价/网页查询" in m.get("content", "")
+                for m in messages
+                if m.get("role") == "system"
+            ):
+                step = {"action": "done", "text": "TEST_FIXTURE：当前演练页面没有商品报价，无法核实价格。"}
             text = json.dumps(step, ensure_ascii=False)
         for index in range(0, len(text), 8):
             await asyncio.sleep(0.02)

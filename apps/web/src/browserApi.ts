@@ -16,6 +16,7 @@ export type BrowserView = BrowserSession & {
   run_status?: string;
   profile_revision?: number;
   observation_id?: string;
+  embedded_login?: { id: string; origin: string } | null;
   login_form?: {
     origin: string;
     observation_id: string;
@@ -32,6 +33,7 @@ export type BrowserView = BrowserSession & {
   receipt?: Record<string, unknown>;
 };
 export type BrowserRun = {
+  is_guest?: boolean;
   run_id: string;
   conversation_id: string;
   status: string;

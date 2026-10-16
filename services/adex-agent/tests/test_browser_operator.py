@@ -32,3 +32,94 @@ def test_completion_reports_only_verified_receipt_fields_not_invented_links():
         ]
     )
     assert "未单独打开核验" in text
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["BROWSER_APPROVAL_REQUIRED", "BROWSER_APPROVAL_OR_HANDOFF_REQUIRED", "BROWSER_CONTROL_MODE_CHANGED"],
+)
+async def test_network_approval_race_suspends_same_run_without_retrying_step(code):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from fastapi import HTTPException
+    from adex_agent.browser.workflow import BrowserWorkflow
+
+    observations = iter(
+        [
+            {"status": "AGENT", "observation_id": "before", "nodes": []},
+            {"status": "WAITING_APPROVAL", "observation_id": "after", "action_id": "approval"},
+        ]
+    )
+    calls = []
+
+    async def call(service, scope, method, path, body, **kwargs):
+        calls.append(path)
+        if path.endswith("/ensure"):
+            return {"id": "session"}
+        if path.endswith("/observe"):
+            return next(observations)
+        raise HTTPException(409, code)
+
+    worker = SimpleNamespace(
+        core=SimpleNamespace(call=call),
+        runtime=None,
+        checkpoints=SimpleNamespace(save_checkpoint=AsyncMock(return_value="checkpoint")),
+        run_write=AsyncMock(),
+    )
+    workflow = BrowserWorkflow(worker)
+    workflow.plan = AsyncMock(return_value={"action": "click", "element_id": "observed-button"})
+    result = await workflow.run(
+        {
+            "id": "run",
+            "owner_id": "owner",
+            "origin_conversation_id": "conversation",
+            "epoch": 2,
+            "attempt_id": "attempt",
+            "instruction": "publish",
+            "request": {"browser_url": "https://example.com/"},
+        },
+        {"memory_revision": 1},
+    )
+    assert result["phase"] == "browser_waiting"
+    assert result["artifact"]["action_id"] == "approval"
+    assert calls.count("/internal/browser/operator/session/step") == 1
+
+
+async def test_unchanged_page_stops_repeated_clicks_even_if_model_reason_changes():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_agent.browser.workflow import BrowserWorkflow
+
+    steps = []
+
+    async def call(service, scope, method, path, body, **kwargs):
+        if path.endswith("/ensure"):
+            return {"id": "session"}
+        if path.endswith("/step"):
+            steps.append(body["step"]["action"])
+        return {"status": "AGENT", "observation_id": "unchanged", "nodes": []}
+
+    worker = SimpleNamespace(
+        core=SimpleNamespace(call=call),
+        runtime=None,
+        checkpoints=SimpleNamespace(save_checkpoint=AsyncMock(return_value="checkpoint")),
+        run_write=AsyncMock(),
+    )
+    workflow = BrowserWorkflow(worker)
+    workflow.plan = AsyncMock(
+        side_effect=[{"action": "click", "element_id": "button", "reason": str(i)} for i in range(3)]
+    )
+    result = await workflow.run(
+        {
+            "id": "run",
+            "owner_id": "owner",
+            "origin_conversation_id": "conv",
+            "epoch": 1,
+            "attempt_id": "attempt",
+            "instruction": "lookup",
+            "request": {"browser_url": "https://example.com/"},
+        },
+        {"memory_revision": 1},
+    )
+    assert steps == ["click", "click", "handoff"]
+    assert result["phase"] == "browser_waiting"

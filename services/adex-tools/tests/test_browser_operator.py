@@ -257,3 +257,98 @@ async def test_approved_write_does_not_follow_server_redirect_or_replay_body():
     await broker.forward(route)
     route.fetch.assert_awaited_once_with(max_redirects=0, max_retries=0, timeout=10000)
     assert "location" not in route.fulfill.await_args.kwargs["headers"]
+
+
+async def test_unprompted_cross_origin_post_is_denied_not_sent_or_approved():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.runner import Broker
+
+    broker = Broker()
+    broker.mode = "AGENT"
+    broker.test_fixture = False
+    broker.page = SimpleNamespace(url="https://example.com/")
+    broker.admit = AsyncMock(return_value=True)
+    request = SimpleNamespace(
+        url="https://telemetry.example.net/collect", method="POST", resource_type="fetch"
+    )
+    route = SimpleNamespace(request=request, abort=AsyncMock(), continue_=AsyncMock())
+    await broker.intercept(route)
+    route.abort.assert_awaited_once()
+    assert broker.pending is None
+    route.continue_.assert_not_awaited()
+
+
+async def test_transport_read_approval_does_not_cancel_actual_login_handoff():
+    from types import SimpleNamespace
+    from adex_tools.browser.service import BrowserService
+
+    states = []
+
+    async def query(sql, params, **kwargs):
+        if sql.startswith("UPDATE browser_sessions"):
+            states.append(params[3])
+            return {"id": "session", "revision": 1}
+        return None
+
+    row = {
+        "id": "session",
+        "owner_id": "owner",
+        "run_id": "run",
+        "status": "AGENT",
+        "snapshot": {},
+        "storage_cipher": None,
+        "pending_cipher": None,
+        "action_id": None,
+        "active_command": "command",
+    }
+    service = BrowserService(SimpleNamespace(query=query))
+    result = await service.record(row, {"url": "https://example.com/login", "nodes": [], "mode": "HUMAN"})
+    assert result["status"] == "HUMAN" and states == ["HUMAN"]
+    row["status"] = "UNKNOWN"
+    result = await service.record(row, {"url": "https://example.com/login", "nodes": [], "mode": "HUMAN"})
+    assert result["status"] == "UNKNOWN"
+
+
+async def test_visible_embedded_login_opens_real_form_only_on_bound_human_command():
+    from adex_tools.browser.process import BrowserProcess
+    from fastapi import HTTPException
+    from adex_tools.browser.login import login_form
+
+    actor = await BrowserProcess.start()
+    try:
+        value = await actor.call({"url": "https://example.com/fixture-login-frame", "_test_fixture": True})
+        for _ in range(5):
+            if value.get("embedded_login"):
+                break
+            value = await actor.call({"action": "observe", "screenshot": True})
+        embedded = value["embedded_login"]
+        assert embedded and embedded["origin"] == "https://example.com"
+        assert "url" not in embedded
+        with pytest.raises(HTTPException):
+            await actor.call(
+                {"action": "open_login_frame", "frame_id": embedded["id"], "origin": embedded["origin"]}
+            )
+        await actor.call({"action": "mode", "mode": "HUMAN"})
+        with pytest.raises(HTTPException):
+            await actor.call(
+                {
+                    "action": "open_login_frame",
+                    "human": True,
+                    "frame_id": embedded["id"],
+                    "origin": "https://other.example",
+                }
+            )
+        value = await actor.call(
+            {
+                "action": "open_login_frame",
+                "human": True,
+                "frame_id": embedded["id"],
+                "origin": embedded["origin"],
+            }
+        )
+        form = login_form(value)
+        assert form and form["origin"] == "https://example.com"
+        assert any(field["secret"] for field in form["fields"])
+    finally:
+        await actor.close()

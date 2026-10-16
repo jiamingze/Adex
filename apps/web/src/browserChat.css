@@ -220,3 +220,13 @@
     max-height: 210px;
   }
 }
+
+.browser-chat-login-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.browser-chat-login-actions button {
+  min-height: 44px;
+  flex: 1 1 120px;
+}

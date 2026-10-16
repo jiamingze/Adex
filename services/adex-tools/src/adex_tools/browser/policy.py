@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
 SECRET = re.compile(
-    r"password|passwd|secret|token|cookie|authorization|captcha|credential|signature|csrf|xsrf|session|otp|one.time|验证码|密码|cvv|card.?number",
+    r"^sign$|password|passwd|secret|token|cookie|authorization|captcha|credential|signature|csrf|xsrf|session|otp|one.time|验证码|密码|cvv|card.?number",
     re.I,
 )
 CRITICAL = re.compile(
@@ -125,6 +125,8 @@ def approval_summary(pending):
         if re.search("付款|支付|pay", gesture, re.I)
         else "访问新网站"
         if pending.get("grant_read_host")
+        else "查询网站"
+        if re.search(r"搜索|查询|search", gesture, re.I) and not CRITICAL.search(gesture)
         else "网页请求"
     )
     nodes = pending.get("before", {}).get("nodes", [])
@@ -161,7 +163,7 @@ def approval_summary(pending):
         "kind": kind,
         "page_url": pending.get("before", {}).get("url", ""),
         "fields": fields,
-        "facts": facts[:12],
+        "facts": [] if kind in ("查询网站", "访问新网站") else facts[:12],
     }
 
 

@@ -75,6 +75,7 @@ public class BrowserGateway {
         (Map<String, Object>)
             k.call("tools", "browser:read", owner, id, "GET", "/internal/browser/runs/" + id, null);
     var result = new LinkedHashMap<String, Object>();
+    result.put("is_guest", k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest"));
     result.put("run_id", id);
     result.put("conversation_id", run.get("origin_conversation_id"));
     result.put("status", run.get("status"));
@@ -92,6 +93,12 @@ public class BrowserGateway {
   }
 
   public Object control(UUID owner, UUID id, Map<String, Object> body) {
+    if (Boolean.TRUE.equals(
+        k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest"))) {
+      if ("remember".equals(body.get("action"))) throw Kernel.error(403, "SIGN_IN_REQUIRED");
+      body = new LinkedHashMap<>(body);
+      body.put("remember_login", false);
+    }
     boolean login = "secure_login".equals(body.get("action"));
     if (login) {
       var before = (Map<String, Object>) view(owner, id);

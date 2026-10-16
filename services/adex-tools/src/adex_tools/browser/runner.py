@@ -93,7 +93,13 @@ class Broker:
             return await route.fulfill(
                 status=200,
                 content_type="text/html",
-                body=LOGIN_HTML if urlsplit(route.request.url).path == "/fixture-login" else HTML,
+                body=(
+                    '<html><iframe title="登录" style="width:600px;height:500px" src="https://example.com/fixture-login"></iframe></html>'
+                    if urlsplit(route.request.url).path == "/fixture-login-frame"
+                    else LOGIN_HTML
+                    if urlsplit(route.request.url).path == "/fixture-login"
+                    else HTML
+                ),
             )
         if self.mode == "AGENT" and route.request.method not in ("GET", "HEAD", "OPTIONS"):
             # Browser redirects can skip the original route handler. Dispatch one
@@ -118,7 +124,19 @@ class Broker:
         self.requests += 1
         if self.requests > 1000 or not await self.admit(request.url):
             return await route.abort()
-        if request.resource_type in ("media", "font"):
+        if request.resource_type in ("media", "font") or (
+            self.mode == "AGENT" and request.resource_type == "ping"
+        ):
+            return await route.abort()
+        # An unsolicited cross-origin write on page load is not a user action.
+        # Deny it rather than turning telemetry/bootstrap traffic into a publish
+        # approval. Never grant a write or treat the denied request as success.
+        if (
+            self.mode == "AGENT"
+            and not self.gesture
+            and request.method not in ("GET", "HEAD", "OPTIONS")
+            and urlsplit(request.url).hostname != urlsplit(self.page.url).hostname
+        ):
             return await route.abort()
         new_domain = urlsplit(request.url).hostname not in self.read_hosts and request.resource_type not in (
             "image",
@@ -153,8 +171,9 @@ class Broker:
             "grant_read_host": urlsplit(request.url).hostname
             if new_domain and request.method == "GET"
             else None,
-            "transport_only": bool(
-                re.fullmatch(
+            "transport_only": not CRITICAL.search(self.gesture)
+            and bool(
+                re.search(
                     r"搜索|查询|上传(?:图片|文件)?|保存草稿|search|upload|save draft", self.gesture, re.I
                 )
             ),
@@ -434,11 +453,35 @@ class Broker:
                     "before",
                 )
             }
+        # Cross-origin login widgets often have no accessible nodes in the main
+        # CDP tree. Offer their actual visible frame as a user-opened login page;
+        # never invent fields or expose token-bearing frame URLs to the model.
+        self.embedded_login = None
+        for frame in self.page.frames:
+            if frame == self.page.main_frame or not re.search(r"login|signin|sign-in|登录", frame.url, re.I):
+                continue
+            parsed_frame = urlsplit(frame.url)
+            if parsed_frame.scheme != "https" or parsed_frame.username or parsed_frame.password:
+                continue
+            try:
+                if not await (await frame.frame_element()).is_visible():
+                    continue
+            except Exception:
+                continue
+            self.embedded_login = {
+                "id": hashlib.sha256(frame.url.encode()).hexdigest()[:24],
+                "origin": f"https://{parsed_frame.netloc}",
+                "url": frame.url,
+            }
+            break
         result = {
             "url": urlsplit(self.page.url)._replace(query="", fragment="").geturl(),
             "title": self.safe(await self.page.title()),
             "observation_id": revision,
             "nodes": nodes,
+            "embedded_login": {k: v for k, v in self.embedded_login.items() if k != "url"}
+            if self.embedded_login
+            else None,
             "pending": pending,
             "receipt": self.last_receipt,
             "provider": "TEST_FIXTURE" if self.test_fixture else "chromium",
@@ -549,6 +592,23 @@ class Broker:
     async def operate(self, body):
         action = body["action"]
         human = body.get("human", False)
+        if action == "open_login_frame":
+            if not human or self.mode != "HUMAN":
+                raise ValueError("BROWSER_LOGIN_REQUIRES_HUMAN")
+            await self.observe()
+            frame = self.embedded_login
+            if not frame or body.get("frame_id") != frame["id"] or body.get("origin") != frame["origin"]:
+                raise ValueError("STALE_BROWSER_LOGIN_FORM")
+            if not await self.admit(frame["url"]):
+                raise ValueError("BROWSER_URL_DENIED")
+            self.human_authorized = True
+            self.human_until = asyncio.get_running_loop().time() + 10
+            try:
+                await self.page.goto(frame["url"], wait_until="domcontentloaded", timeout=12000)
+            except Exception:
+                # Playwright errors can contain the full token-bearing iframe URL.
+                raise ValueError("BROWSER_EMBEDDED_LOGIN_UNAVAILABLE") from None
+            return await self.observe(True)
         if action == "secure_login":
             return await self.secure_login(body)
         if action in ("dialog_accept", "dialog_dismiss"):
@@ -635,6 +695,7 @@ class Broker:
                 raise ValueError("PROVIDER_UNKNOWN")
             self.pending = None
         self.critical = False
+        self.gesture = ""
         target = self.handles.get(body.get("element_id", ""))
         if action in ("click", "type", "select", "upload") and not (
             human and action == "type" and not body.get("element_id")

@@ -49,13 +49,11 @@ export function BrowserTaskCard({
     [busy, setBusy] = useState(false),
     [values, setValues] = useState<Record<string, string>>({}),
     [remember, setRemember] = useState(false),
-    [submitId, setSubmitId] = useState(""),
     [manual, setManual] = useState(""),
     [zoom, setZoom] = useState(false);
   const root = useRef<HTMLElement>(null),
     live = useRef(true),
     pending = useRef(false),
-    inView = useRef(true),
     generation = useRef(0);
   async function refresh() {
     const token = generation.current;
@@ -70,18 +68,10 @@ export function BrowserTaskCard({
   useEffect(() => {
     live.current = true;
     let timer: ReturnType<typeof setTimeout>;
-    const observer = new IntersectionObserver((entries) => {
-      inView.current = entries.some((e) => e.isIntersecting);
-    });
-    if (root.current) observer.observe(root.current);
     const tick = async () => {
       let next: BrowserRun | undefined;
       try {
-        if (
-          !pending.current &&
-          document.visibilityState !== "hidden" &&
-          inView.current
-        )
+        if (!pending.current && document.visibilityState !== "hidden")
           next = await refresh();
       } catch {
         if (live.current) setError("状态暂时无法同步，请刷新重试。");
@@ -102,7 +92,6 @@ export function BrowserTaskCard({
       live.current = false;
       generation.current++;
       clearTimeout(timer);
-      observer.disconnect();
       window.removeEventListener("adex:session-changed", clear);
     };
   }, [runId, conversationId]);
@@ -112,11 +101,12 @@ export function BrowserTaskCard({
     human = view?.status === "HUMAN",
     waiting = data?.status === "WAITING_INPUT";
   const signature = form
-    ? form.origin + form.fields.map((f) => f.id).join(",")
+    ? form.origin +
+      form.fields.map((f) => f.id).join(",") +
+      form.buttons.map((b) => b.id + b.label).join(",")
     : "";
   useEffect(() => {
     setValues({});
-    setSubmitId(form?.buttons[0]?.id || "");
   }, [signature]);
   async function act(work: () => Promise<unknown>) {
     if (pending.current) return;
@@ -140,6 +130,14 @@ export function BrowserTaskCard({
     .reverse()
     .find((r) => r.business_verified === true);
   const summary = action?.request.summary;
+  const readAccess =
+    action?.request.payload.method === "GET" &&
+    (
+      action.request.payload.additional_permission as
+        | { scope?: string }
+        | undefined
+    )?.scope === "READ_HOST_FOR_THIS_TASK";
+  const searchRequest = summary?.kind === "查询网站";
   const draftFields = summary?.fields.filter(
     (f) =>
       !["可编辑区域", "输入内容"].includes(f.label) ||
@@ -171,25 +169,27 @@ export function BrowserTaskCard({
     <section
       className="browser-chat-card"
       ref={root}
-      aria-label="会话内网页任务"
+      aria-label="会话内网页助手"
     >
       <header>
         <Globe2 size={19} />
         <div>
           <strong>网页助手</strong>
           <small>
-            {view?.url || view?.current_url || "任务将在当前会话持续更新"}
+            {view?.url || view?.current_url || "网站操作将在这里持续更新"}
           </small>
         </div>
         <span className="browser-chat-status">
           {busy ? <LoaderCircle size={14} className="spin" /> : null}
-          {statusLabels[data?.status || "QUEUED"] || data?.status}
+          {data?.status === "WAITING_INPUT" && human
+            ? "等待登录或验证"
+            : statusLabels[data?.status || "QUEUED"] || data?.status}
         </span>
       </header>
       {error && (
         <p role="alert" className="browser-chat-error">
           {error}
-          <button aria-label="刷新网页任务" onClick={() => void act(refresh)}>
+          <button aria-label="刷新网页状态" onClick={() => void act(refresh)}>
             <RefreshCw size={14} />
           </button>
         </p>
@@ -214,11 +214,38 @@ export function BrowserTaskCard({
       ) : !terminal.has(data?.status || "") && !human && !action ? (
         <p className="browser-chat-muted">正在打开网站、检查页面并准备内容…</p>
       ) : null}
+      {human && !form && view?.embedded_login && (
+        <div className="browser-chat-login">
+          <strong>网站使用嵌入式登录</strong>
+          <small>
+            将打开实际登录页面：{host(view.embedded_login.origin)}
+            ，然后在这里填写。
+          </small>
+          <button
+            className="browser-chat-primary"
+            disabled={busy || !waiting}
+            onClick={() =>
+              void act(() =>
+                browserApi.control(view.id, {
+                  action: "open_login_frame",
+                  frame_id: view.embedded_login!.id,
+                  origin: view.embedded_login!.origin,
+                }),
+              )
+            }
+          >
+            打开登录表单
+          </button>
+        </div>
+      )}
       {human && form && (
         <form
           className="browser-chat-login"
           onSubmit={(event) => {
             event.preventDefault();
+            const submitter = (event.nativeEvent as SubmitEvent)
+              .submitter as HTMLButtonElement | null;
+            const submitId = submitter?.value || form.buttons[0]?.id;
             const submitted = Object.entries(values)
               .filter(([, text]) => text)
               .map(([element_id, text]) => ({ element_id, text }));
@@ -282,43 +309,35 @@ export function BrowserTaskCard({
               />
             </label>
           ))}
-          {form.buttons.length > 1 && (
-            <label>
-              网站操作
-              <select
-                aria-label="选择登录操作"
-                value={submitId}
-                onChange={(e) => setSubmitId(e.target.value)}
-              >
-                {form.buttons.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           {form.notices.map((n, i) => (
             <small key={i}>{n}</small>
           ))}
-          <label className="browser-chat-remember">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-            />
-            记住本站登录状态 7 天（不保存输入密码）
-          </label>
-          <button
-            className="browser-chat-primary"
-            disabled={busy || !waiting || !Object.values(values).some(Boolean)}
-            type="submit"
-          >
-            {busy
-              ? "正在提交…"
-              : `${form.buttons.find((b) => b.id === submitId)?.label || "登录"}并继续`}
-          </button>
-          {!waiting && <small>正在安全暂停网页任务，稍后即可操作。</small>}
+          {!data?.is_guest && (
+            <label className="browser-chat-remember">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              记住本站登录状态 7 天（不保存输入密码）
+            </label>
+          )}
+          <div className="browser-chat-login-actions">
+            {form.buttons.map((button, index) => (
+              <button
+                key={button.id}
+                className={index === 0 ? "browser-chat-primary" : undefined}
+                disabled={
+                  busy || !waiting || !Object.values(values).some(Boolean)
+                }
+                type="submit"
+                value={button.id}
+              >
+                {busy ? "正在提交…" : button.label}
+              </button>
+            ))}
+          </div>
+          {!waiting && <small>正在准备安全登录，稍后即可填写。</small>}
         </form>
       )}
       {action && (
@@ -332,16 +351,21 @@ export function BrowserTaskCard({
               ),
             )}
           </small>
-          <p>请核对下面的标题、正文与网站，确认后才会提交。</p>
-          {draftFields?.map((f, i) => (
-            <div className="browser-chat-draft" key={i}>
-              <small>{f.label}</small>
-              <pre>{f.value}</pre>
-            </div>
-          ))}
-          {summary?.facts.map((f, i) => (
-            <p key={i}>{f}</p>
-          ))}
+          <p>
+            {readAccess
+              ? "网站需要加载这个域名的只读内容，允许后会继续查询，不会发表或下单。"
+              : searchRequest
+                ? "这是网站搜索请求，请核对搜索词后继续。不会创建订单。"
+                : "请核对下面的标题、正文与网站，确认后才会提交。"}
+          </p>
+          {!readAccess &&
+            draftFields?.map((f, i) => (
+              <div className="browser-chat-draft" key={i}>
+                <small>{f.label}</small>
+                <pre>{f.value}</pre>
+              </div>
+            ))}
+          {!readAccess && summary?.facts.map((f, i) => <p key={i}>{f}</p>)}
           <details>
             <summary>目标与请求详情</summary>
             <pre>{JSON.stringify(action.request.payload, null, 2)}</pre>
@@ -367,7 +391,11 @@ export function BrowserTaskCard({
                   void act(() => assistantApi.decide(action, "approve"))
                 }
               >
-                {summary?.kind === "发布内容" ? "确认发表" : "确认并继续"}
+                {readAccess
+                  ? "允许读取并继续"
+                  : summary?.kind === "发布内容"
+                    ? "确认发表"
+                    : "确认并继续"}
               </button>
               <button
                 disabled={
@@ -534,14 +562,16 @@ export function BrowserTaskCard({
       )}
       {human && !form && (
         <div className="browser-chat-continue">
-          <label className="browser-chat-remember">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-            />
-            记住当前站点会话状态 7 天
-          </label>
+          {!data?.is_guest && (
+            <label className="browser-chat-remember">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              记住当前站点会话状态 7 天
+            </label>
+          )}
           <button
             className="browser-chat-primary"
             disabled={busy || !waiting}

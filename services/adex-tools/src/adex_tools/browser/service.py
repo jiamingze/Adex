@@ -166,6 +166,10 @@ class BrowserService:
         action = row["action_id"]
         pending_cipher = row["pending_cipher"]
         state = mode or row["status"]
+        # A request may need approval while login handoff has already switched
+        # Chromium to HUMAN. A verified transport read does not end that handoff.
+        if state in ("AGENT", "HUMAN") and value.get("mode") in ("AGENT", "HUMAN"):
+            state = value["mode"]
         if value.get("pending"):
             pending = value["pending"]
             action = uuid5(NAMESPACE_URL, f"browser-request:{row['id']}:{pending['id']}")
@@ -421,6 +425,7 @@ class BrowserService:
                 )
             if action not in (
                 "secure_login",
+                "open_login_frame",
                 "observe",
                 "click",
                 "point",
@@ -538,7 +543,7 @@ class BrowserService:
             raise HTTPException(404, "ACTION_NOT_FOUND")
         if row["state"] == "SUCCEEDED":
             await self.core.query(
-                "UPDATE browser_sessions SET status='AGENT',action_id=NULL,pending_cipher=NULL WHERE id=%s AND owner_id=%s AND status<>'CLOSED'",
+                "UPDATE browser_sessions SET status=CASE WHEN snapshot->>'mode'='HUMAN' THEN 'HUMAN' ELSE 'AGENT' END,action_id=NULL,pending_cipher=NULL WHERE id=%s AND owner_id=%s AND status<>'CLOSED'",
                 (row["request"]["browser_session_id"], owner),
             )
             return row["result"]
@@ -549,7 +554,7 @@ class BrowserService:
         result = await self.finish_receipt(owner, action, value.get("receipt"))
         if result.get("verified"):
             await self.core.query(
-                "UPDATE browser_sessions SET status='AGENT',action_id=NULL,pending_cipher=NULL WHERE id=%s AND owner_id=%s",
+                "UPDATE browser_sessions SET status=CASE WHEN snapshot->>'mode'='HUMAN' THEN 'HUMAN' ELSE 'AGENT' END,action_id=NULL,pending_cipher=NULL WHERE id=%s AND owner_id=%s",
                 (session, owner),
             )
         return result

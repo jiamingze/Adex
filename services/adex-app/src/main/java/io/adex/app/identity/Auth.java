@@ -138,7 +138,16 @@ public class Auth extends OncePerRequestFilter {
           return;
         }
         req.setAttribute("owner", rows.getFirst().get("owner_id"));
+        // Guest sessions still carry an owner identity. These exact routes keep
+        // ownership checks; account profiles and connector mutations stay gated.
+        boolean guestBrowserPath =
+            req.getRequestURI()
+                    .matches(
+                        "/api/v1/browser/(runs/[0-9a-f-]+|sessions/[0-9a-f-]+(/control|/resume|/close)?)")
+                || req.getRequestURI()
+                    .matches("/api/v1/actions/[0-9a-f-]+/(approve|revoke|reconcile)");
         if (Boolean.TRUE.equals(rows.getFirst().get("is_guest"))
+            && !guestBrowserPath
             && req.getRequestURI()
                 .matches(
                     "/api/v1/(connectors|actions|signals|matrix|push|notification-preferences|browser).*")) {
@@ -149,6 +158,7 @@ public class Auth extends OncePerRequestFilter {
         }
 
         if (Boolean.TRUE.equals(rows.getFirst().get("is_guest"))
+            && !guestBrowserPath
             && !Set.of("GET", "HEAD").contains(req.getMethod())
             && !req.getRequestURI()
                 .matches(

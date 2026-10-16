@@ -46,18 +46,19 @@ class InteractiveTurnService:
             if body.model:
                 selected_runtime.provider_mode = "qwen" if body.model == "qwen3.8-max" else "minimax"
                 selected_runtime.provider = provider(selected_runtime.provider_mode)
-            from adex_agent.routing.browser import operation_requested, task_instruction
+            from adex_agent.routing.browser import route_request, task_instruction
 
-            if await operation_requested(
+            browser_mode = await route_request(
                 selected_runtime, body.owner_id, body.invocation_key, body.context["messages"]
-            ):
+            )
+            if browser_mode != "none":
                 yield (
                     json.dumps(
                         {
                             "type": "task.requested",
                             "kind": "BROWSER",
                             "instruction": task_instruction(body.context["messages"], latest),
-                            "request": {},
+                            "request": {"params": {"browser_mode": browser_mode}},
                         },
                         ensure_ascii=False,
                     )

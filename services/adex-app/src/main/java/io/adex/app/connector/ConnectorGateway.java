@@ -157,6 +157,10 @@ public class ConnectorGateway {
             k.call("tools", "approval:read", owner, id, "GET", "/internal/actions/" + id, null);
     var browserRequest = (Map<String, Object>) existing.get("request");
     boolean browser = "browser.request".equals(existing.get("kind"));
+    if (!browser
+        && Boolean.TRUE.equals(
+            k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest")))
+      throw Kernel.error(403, "SIGN_IN_REQUIRED");
     if (browser && decision.equals("approve") && "PENDING".equals(existing.get("state"))) {
       UUID run = Kernel.uuid(browserRequest.get("browser_run_id"));
       var current =

@@ -210,3 +210,43 @@ not permission to publish. No schema migration or new scheduler is introduced.
 A failed Run with a surviving WAITING_APPROVAL session is not publication evidence;
 never automatically replay that prior submission. Real Xiaohongshu publication remains
 BLOCKED_EXTERNAL until login, exact content review and verified business receipt complete.
+
+### In-conversation commerce lookup contract
+
+Browser semantic routing distinguishes `none`, `lookup` and `operate`. Price/stock
+queries for a concrete shopping website enter the same in-conversation browser card
+as operations, allowing real login handoff; generic web knowledge remains interactive.
+`request.params.browser_mode=lookup` tells the planner to search/read and stop before
+purchase/publication. Lookup completion includes actual observed URL/title, UTC
+observation time and bounded visible page text, not a fabricated business receipt.
+It must explain SKU, region, shipping, coupons/login conditions and unverifiable price
+rather than interpreting a search snippet as a live quote. Tools migration 008 replaces the
+legacy one-approval-per-Run unique index with a non-browser partial unique index;
+browser requests retain per-approval hashes and stable individual effect keys.
+All writes still use existing approval/effect reconciliation; durable Runs remain an
+internal implementation detail, not a separate user-facing workflow.
+
+Actual-page regressions: pending approval/control-mode races suspend the same Run;
+verified transport reads preserve HUMAN login handoff. Cross-origin unsolicited
+page-load writes and beacons are denied, not silently approved. Query transport
+receipts permit continued browsing but never count as purchase/publication receipts.
+
+Embedded login handling exposes only the origin and opaque ID of an actually visible
+HTTPS login iframe. A human-bound `open_login_frame` command checks the current frame,
+origin and egress policy, opens the real form in the isolated page, then reuses existing
+secure login validation. Token-bearing iframe URLs remain inside the broker. Hidden,
+stale, non-HTTPS and mismatched frames cannot authorize credential entry. Captchas and
+site risk checks remain human work; this does not bypass merchant access controls.
+Repeated identical steps against an unchanged observation hand off after three proposals.
+
+Real Taobao lookup observation (2026-10-16): the same Run passed multiple independent
+read/search approvals after migration 008. The site displayed an unusual-network-traffic
+risk check; no verified iPhone price, login, order or publication was obtained.
+Merchant end-to-end completion remains **BLOCKED_EXTERNAL**, pending user verification.
+
+Guest chat browser access uses the existing guest owner/session identity. Only exact
+owner-scoped browser Run/session controls and browser-request approval decisions are
+allowed; connector drafts, account profiles and unrelated guest mutations remain
+blocked. Browser requests emitted by chat no longer require an Adex registration.
+Guest website login state stays in the isolated session; remember-profile requests
+are disabled at the App boundary. Site login and Adex registration are separate flows.

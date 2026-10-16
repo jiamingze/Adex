@@ -266,8 +266,9 @@ public class ChatWorker {
           }
           if (type.equals("task.requested")) {
             emit(t, "正在创建任务", "turn.progress");
-            if (Boolean.TRUE.equals(
-                k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest")))
+            if (!"BROWSER".equals(e.get("kind"))
+                && Boolean.TRUE.equals(
+                    k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest")))
               throw Kernel.error(403, "SIGN_IN_REQUIRED");
             var request = new LinkedHashMap<String, Object>();
             request.put("kind", e.get("kind"));
@@ -301,8 +302,7 @@ public class ChatWorker {
                     + "），关闭页面后会继续处理。结果将回到当前对话，并保存到作品空间。任务 ID："
                     + task.get("id");
             if ("BROWSER".equals(e.get("kind")))
-              finalContent =
-                  "已开始网页操作任务。需要登录或确认提交时会暂停，请直接在下方网页任务卡片登录、查看进度和审核内容。任务 ID：" + task.get("id");
+              finalContent = "我会在这里打开网站并处理。需要登录时，请在下方填写；发布或下单前会请你确认。";
             if ("IMAGE".equals(e.get("kind"))) finalContent = "正在生成图片，完成后会直接显示在当前对话，并保存到作品空间。";
             if ("AUDIO".equals(e.get("kind")))
               finalContent = "正在创作原创音乐，完成后会在当前对话提供播放器和下载。你可以离开页面，稍后回来查看。";

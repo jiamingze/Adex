@@ -1174,13 +1174,13 @@ function App() {
               )}
             </div>
             <div className="composer-wrap">
-              <div className="composer">
+              <div className={`composer ${!draft && !attachments.length ? "composer-empty" : ""} ${busy ? "composer-busy" : ""}`}>
                 <textarea
                   ref={composerInput}
                   aria-label="消息输入"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder="发送消息给 Adex"
+                  placeholder="按住说话，或点按输入"
                   rows={1}
                   maxLength={16000}
                   onKeyDown={(e) => {
@@ -1233,6 +1233,8 @@ function App() {
                   <div className="composer-right">
                     <VoiceInput
                       key={`${current}:${page}:${mobile}`}
+                      surfaceRef={composerInput}
+                      hasText={draft.length > 0 || busy}
                       onText={(text) => setDraft((d) => d + text)}
                     />
                     <span>Enter 发送</span>
