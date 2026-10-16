@@ -138,6 +138,7 @@ export function BrowserTaskCard({
         | undefined
     )?.scope === "READ_HOST_FOR_THIS_TASK";
   const searchRequest = summary?.kind === "查询网站";
+  const interruptedRead = readAccess && action?.state === "UNKNOWN";
   const draftFields = summary?.fields.filter(
     (f) =>
       !["可编辑区域", "输入内容"].includes(f.label) ||
@@ -199,6 +200,40 @@ export function BrowserTaskCard({
           {notice}
         </p>
       )}
+      {view &&
+        !terminal.has(data?.status || "") &&
+        (human || (waiting && view.status === "AGENT") || interruptedRead) && (
+          <div className="browser-chat-login">
+            <strong>
+              {interruptedRead
+                ? "网页读取中断，还未进入登录"
+                : human
+                  ? "现在由你操作网站"
+                  : "需要登录？直接接管当前网页"}
+            </strong>
+            <small>
+              {interruptedRead
+                ? "这次只是读取新域名，没有发表或下单。重新打开后，可在下方真实页面完成登录。"
+                : "密码和验证码填写在下方网站区域，完成后继续原任务，无需新建任务。"}
+            </small>
+            {!human && (
+              <button
+                className="browser-chat-primary"
+                disabled={busy || !waiting}
+                onClick={() =>
+                  void act(async () => {
+                    await browserApi.control(view.id, {
+                      action: interruptedRead ? "recover_read" : "takeover",
+                    });
+                    setNotice("已打开网站，可在下方登录或操作。");
+                  })
+                }
+              >
+                {interruptedRead ? "重新打开网站并登录" : "打开网站并接管"}
+              </button>
+            )}
+          </div>
+        )}
       {view?.progress_events?.length ? (
         <details className="browser-chat-progress">
           <summary>
@@ -372,7 +407,13 @@ export function BrowserTaskCard({
           </details>
           {action.state === "UNKNOWN" ? (
             <>
-              <p>请求结果尚未核实，不会自动重复发表。</p>
+              <p>
+                {readAccess
+                  ? "这次网页读取未能核实，可核对状态或使用上方按钮重新打开。"
+                  : searchRequest
+                    ? "搜索请求结果尚未核实，请核对当前页面。"
+                    : "提交结果尚未核实，不会自动重复发表或下单。"}
+              </p>
               <button
                 disabled={busy}
                 onClick={() =>
@@ -448,7 +489,10 @@ export function BrowserTaskCard({
         </div>
       )}
       {view && (
-        <details className="browser-chat-page" open={human && !form}>
+        <details
+          className="browser-chat-page"
+          open={(human && !form) || interruptedRead}
+        >
           <summary>
             {human ? "网站页面 · 扫码、验证码或手动操作" : "查看网站当前页面"}
           </summary>

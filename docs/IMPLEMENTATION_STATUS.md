@@ -468,6 +468,35 @@ Speech and gesture behaviour is unchanged. Web/iOS builds and diff/secrets check
 validate this CSS-only adjustment; physical-device visual review remains separate.
 The signed update was installed and launched on the paired iPhone (both exit 0).
 
+### 2026-10-17 · Inline browser login and interrupted-read recovery
+
+Screenshots and read-only diagnostics showed UNKNOWN GET host-permission reads to
+the Xiaohongshu pages host, with publication-specific copy and no takeover CTA.
+Read-host GET redirects now produce transport-only receipts; no redirect is treated
+as authenticated login, publication or purchase evidence. Existing UNKNOWN reads can
+be explicitly discarded and reopened in HUMAN mode on the same Run; UNKNOWN writes
+remain protected from recovery/resubmission. The card exposes takeover and expands
+the real login/control page, and the missing embedded-login API contract is fixed.
+Owner/conversation-scoped state-only context grounds follow-up chat responses.
+Article/news browsing now uses lookup semantics rather than requiring business
+publication receipts. See [contracts and recovery design](architecture/browser-login-recovery.md).
+
+Commands: `uv run --project services/adex-tools pytest services/adex-tools/tests -q`
+(72 passed), the analogous Agent suite (62 passed), `make test-client` (21 passed),
+`make check-style`, `uv run python scripts/check_contract.py` (91 operations),
+`uv run python scripts/check_secrets.py`, `git diff --check`, Web/iOS bundles and
+signed Xcode build. Agent/Tools restarted and all four readiness endpoints returned
+HTTP 200. Signed iOS package installed and launched (both commands exit 0).
+Isolated integration command: `uv run python scripts/test_stack.py
+tests/integration/test_browser_operator.py tests/integration/test_browser_access.py
+tests/integration/test_browser_routing.py -q` — 10 passed. This includes UNKNOWN-write
+recovery rejection, same-Run interrupted-read recovery, and owner/resource isolation
+for the metadata-only browser context endpoint.
+
+BLOCKED_EXTERNAL: real merchant login/CAPTCHA/risk-control acceptance requires user
+interaction. Synthetic Chromium fixtures and state-injection tests are regression
+evidence only; no real Xiaohongshu login, publication or purchase success is claimed.
+
 ### 2026-10-17 · Voice capture tactile confirmation
 
 iOS speech capture emits one light UIKit impact only after the audio engine has

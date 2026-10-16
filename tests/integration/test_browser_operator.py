@@ -425,3 +425,85 @@ def test_inline_login_approval_and_publication_receipt_in_origin_conversation(
     ).raise_for_status()
     cleanup_notifications(db, again_id)
     cleanup_notifications(db, run)
+
+
+def test_unknown_read_can_reopen_for_login_but_unknown_write_cannot(client, db):
+    """Failure injection in isolated PG/Chromium fixture; NOT merchant execution."""
+    from psycopg.types.json import Jsonb
+
+    conv, run = create(client)
+    execute(claim())
+    item = session(client, run)
+    action = item["action_id"]
+    db.execute(
+        "UPDATE tools.browser_sessions SET status='UNKNOWN' WHERE id=%s", (item["id"],)
+    )
+    db.execute("UPDATE tools.approvals SET state='UNKNOWN' WHERE id=%s", (action,))
+    endpoint = f"/api/v1/browser/sessions/{item['id']}/control"
+    denied = client.post(endpoint, json={"action": "recover_read"})
+    assert denied.status_code == 409, denied.text
+    assert (
+        db.execute(
+            "SELECT state FROM tools.approvals WHERE id=%s", (action,)
+        ).fetchone()["state"]
+        == "UNKNOWN"
+    )
+    # Inject an interrupted host-permission read, not a real mutation result.
+    row = db.execute("SELECT * FROM tools.approvals WHERE id=%s", (action,)).fetchone()
+    request = row["request"]
+    request["payload"] = {
+        "method": "GET",
+        "destination": "https://example.com/fixture",
+        "additional_permission": {
+            "scope": "READ_HOST_FOR_THIS_TASK",
+            "host": "example.com",
+        },
+    }
+    db.execute(
+        "UPDATE tools.approvals SET request=%s WHERE id=%s", (Jsonb(request), action)
+    )
+    db.execute(
+        "INSERT INTO tools.effects(owner_id,effect_key,request_hash,tool_id,state) VALUES(%s,%s,%s,'browser.request','UNKNOWN')",
+        (row["owner_id"], "action:" + str(action), row["request_hash"]),
+    )
+    recovered = client.post(endpoint, json={"action": "recover_read"})
+    recovered.raise_for_status()
+    assert recovered.json()["status"] == "HUMAN"
+    assert recovered.json()["run_id"] == run
+    assert recovered.json()["action_id"] is None
+    assert state(db, run)["status"] == "WAITING_INPUT"
+    assert (
+        db.execute(
+            "SELECT state FROM tools.approvals WHERE id=%s", (action,)
+        ).fetchone()["state"]
+        == "REVOKED"
+    )
+    effect = db.execute(
+        "SELECT state,result FROM tools.effects WHERE owner_id=%s AND effect_key=%s",
+        (row["owner_id"], "action:" + str(action)),
+    ).fetchone()
+    assert effect["state"] == "FAILED" and effect["result"]["verified"] is False
+    context_url = os.environ["ADEX_TOOLS_URL"] + f"/internal/browser/context/{conv}"
+    observed = httpx.get(
+        context_url,
+        headers=sign("agent", "tools", "browser:context", row["owner_id"], conv),
+    )
+    observed.raise_for_status()
+    assert observed.json()["items"][0]["run_id"] == run
+    assert set(observed.json()["items"][0]) == {
+        "id",
+        "run_id",
+        "status",
+        "action_state",
+    }
+    other = httpx.get(
+        context_url, headers=sign("agent", "tools", "browser:context", uuid4(), conv)
+    )
+    assert other.json()["items"] == []
+    wrong_resource = httpx.get(
+        context_url,
+        headers=sign("agent", "tools", "browser:context", row["owner_id"], uuid4()),
+    )
+    assert wrong_resource.status_code == 403
+    client.post(f"/api/v1/browser/sessions/{item['id']}/close").raise_for_status()
+    cleanup_notifications(db, run)

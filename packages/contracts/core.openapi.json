@@ -3288,7 +3288,9 @@
                       "switch_tab",
                       "dialog_accept",
                       "dialog_dismiss",
-                      "secure_login"
+                      "secure_login",
+                      "open_login_frame",
+                      "recover_read"
                     ]
                   },
                   "element_id": {
@@ -3358,6 +3360,10 @@
                   "remember_login": {
                     "type": "boolean",
                     "default": false
+                  },
+                  "frame_id": {
+                    "type": "string",
+                    "maxLength": 100
                   }
                 }
               }

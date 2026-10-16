@@ -48,9 +48,9 @@ class BrowserWorkflow:
                 "role": "system",
                 "content": SYSTEM
                 + (
-                    "\n本次为商品查价/网页查询，不购买或发布。访问实际网站并搜索目标商品；先打开登录入口，出现实际表单/扫码验证再handoff。"
-                    "必须读取具体商品/规格价格，不把搜索摘要当报价，不依赖模型知识猜测当前最新机型或价格；done时text给出基于本轮观察的简短结果，"
-                    "说明规格、地区、优惠/会员条件和缺失信息。未看到价格则明确未能核实，不能编造价格或现货。"
+                    "\n本次为只读网页查询，不购买或发布。访问实际网站，按用户目标搜索文章、新闻或商品；先打开登录入口，出现实际表单/扫码验证再handoff。"
+                    "done时text给出本轮观察到的结果和具体链接，不编造内容或访问成功。若查询涉及价格，必须读取具体商品/规格价格，不把搜索摘要当报价，"
+                    "说明地区、优惠/会员条件和缺失信息。未看到价格则明确未能核实，不能依赖模型知识编造价格或现货。"
                     if run.get("request", {}).get("params", {}).get("browser_mode") == "lookup"
                     else ""
                 ),
@@ -339,7 +339,7 @@ def lookup_result(session_id, observation, summary):
         if node.get("role") in ("StaticText", "heading", "link") and not node.get("protected")
     )[:6000]
     if not visible.strip():
-        summary = "当前页面没有可核实的商品价格信息；可能需要登录或完成网站验证。"
+        summary = "当前页面没有可核实的查询内容；可能需要登录或完成网站验证。"
     return {
         "schema_version": 1,
         "phase": "result",
@@ -348,7 +348,7 @@ def lookup_result(session_id, observation, summary):
         + url
         + "\n查询时间（UTC）："
         + observed_at
-        + "\n价格仅代表本次页面观察；需核对商品规格、地区、优惠和运费，结算页为准。未创建订单。",
+        + "\n本次为只读查询，未发表内容、未创建订单。若涉及价格，仅代表本次页面观察；规格、地区、优惠和运费需另行核对。",
         "artifact": {
             "browser_session_id": session_id,
             "lookup_evidence": {

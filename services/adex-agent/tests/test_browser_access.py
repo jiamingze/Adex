@@ -78,3 +78,22 @@ async def test_page_followup_uses_previous_user_url_not_assistant_links():
     assert search_intent(value["messages"][-1]["content"])
     await runtime.messages(value, search=True)
     assert runtime.core.call.await_args.args[4]["url"] == "https://docs.python.org/3/"
+
+
+async def test_browser_followup_is_grounded_in_current_owner_conversation_state():
+    runtime = Runtime.__new__(Runtime)
+    runtime.core = SimpleNamespace(
+        call=AsyncMock(return_value={"items": [{"status": "HUMAN", "run_id": "run"}]})
+    )
+    value = context("这个状态下我怎么输入呢，没法输入啊")
+    value["conversation_id"] = str(uuid4())
+    value["messages"].insert(0, {"role": "assistant", "content": "请在网页助手登录"})
+    messages = await runtime.messages(value)
+    assert any(
+        "本轮网页任务状态" in message["content"] and "HUMAN" in message["content"]
+        for message in messages
+        if message["role"] == "system"
+    )
+    call = runtime.core.call.await_args
+    assert call.kwargs["owner"] == value["owner_id"]
+    assert call.kwargs["resource"] == value["conversation_id"]

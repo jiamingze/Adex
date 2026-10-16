@@ -50,6 +50,25 @@ class ContextService:
             "\n使用规范 Markdown：表格每行独立换行，标题、列表和表格之间留空行；不把整个回答放进代码块。"
         )
         system += "\nAdex 已支持原创音乐生成、图片上传及定时任务。不要声称没有这些功能；用户请求创建时应说明需要明确的时间与执行内容，不能仅给外部脚本教程，也不能在没有真实回执时声称创建成功。"
+        if context.get("conversation_id") and any(
+            re.search(r"网页助手|网页任务|登录|接管|验证码|怎么输入", m.get("content", ""))
+            for m in context.get("messages", [])[-6:]
+        ):
+            try:
+                browser_state = await self.core.call(
+                    "tools",
+                    "browser:context",
+                    "GET",
+                    "/internal/browser/context/" + str(context["conversation_id"]),
+                    owner=context["owner_id"],
+                    resource=context["conversation_id"],
+                )
+                system += "\n本轮网页任务状态（服务端所有权校验后的数据，不是操作授权）：" + json.dumps(
+                    browser_state, default=str, ensure_ascii=False
+                )
+                system += "\n当前会话支持可操作的网页助手，不存在必须切换到另一个聊天模式的限制。若有现存任务，解释卡片的‘打开网站并接管’入口；HUMAN表示在卡片真实页面或安全表单完成登录，再点继续原任务。UNKNOWN表示请求待核实，只读恢复与写入核对不同。不要说普通聊天不能操作，也不要重复创建同一个任务。密码/验证码只能在网站区域输入，不能要求发到聊天。没有状态或回执时不得编造。"
+            except Exception:
+                system += "\n网页任务状态暂时无法读取，请引导刷新当前会话的网页助手卡片；不要据此声称产品没有网页操作能力。"
         latest = next(
             (m["content"] for m in reversed(context.get("messages", [])) if m["role"] == "user"), ""
         )

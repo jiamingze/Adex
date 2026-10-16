@@ -267,9 +267,7 @@ class MockProvider:
                         if node:
                             step = {"action": "click", "element_id": node["id"]}
             if value["observation"].get("url") != "about:blank" and any(
-                "本次为商品查价/网页查询" in m.get("content", "")
-                for m in messages
-                if m.get("role") == "system"
+                "本次为只读网页查询" in m.get("content", "") for m in messages if m.get("role") == "system"
             ):
                 step = {"action": "done", "text": "TEST_FIXTURE：当前演练页面没有商品报价，无法核实价格。"}
             text = json.dumps(step, ensure_ascii=False)

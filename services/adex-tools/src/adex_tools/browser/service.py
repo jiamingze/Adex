@@ -14,7 +14,7 @@ from psycopg.types.json import Jsonb
 from adex_kernel.core import digest, required
 from adex_tools.connectors.vault import CredentialVault
 from adex_tools.browser.process import BrowserPool
-from adex_tools.browser.policy import BrowserStep, approval_summary
+from adex_tools.browser.policy import BrowserStep, approval_summary, read_host_permission
 from adex_tools.runners.browser_policy import admitted_hosts
 
 pool = BrowserPool()
@@ -375,8 +375,55 @@ class BrowserService:
             value = await actor.call({"action": "mode", "mode": "HUMAN", "human": True})
             return await self.record(current, value, mode="HUMAN")
 
+    async def recover_read(self, owner, session):
+        # Session -> approval is the lock order. No browser I/O occurs in this
+        # transaction. A failed read is discarded, never relabelled successful;
+        # uncertain POST/publication/payment effects cannot enter this path.
+        async with self.core.pool.connection() as conn:
+            async with conn.transaction():
+                row = await (
+                    await conn.execute(
+                        "SELECT *,active_command IS NOT NULL AND command_until>clock_timestamp() AS busy FROM browser_sessions WHERE id=%s AND owner_id=%s FOR UPDATE",
+                        (session, owner),
+                    )
+                ).fetchone()
+                if not row:
+                    raise HTTPException(404, "BROWSER_SESSION_NOT_FOUND")
+                if row["busy"] or row["status"] != "UNKNOWN" or not row["action_id"]:
+                    raise HTTPException(409, "BROWSER_READ_RECOVERY_NOT_ALLOWED")
+                approval = await (
+                    await conn.execute(
+                        "SELECT * FROM approvals WHERE id=%s AND owner_id=%s FOR UPDATE",
+                        (row["action_id"], owner),
+                    )
+                ).fetchone()
+                if (
+                    not approval
+                    or approval["state"] != "UNKNOWN"
+                    or approval["kind"] != "browser.request"
+                    or not read_host_permission(approval["request"].get("payload", {}))
+                    or str(approval["request"].get("browser_session_id")) != str(session)
+                ):
+                    raise HTTPException(409, "BROWSER_READ_RECOVERY_NOT_ALLOWED")
+                result = Jsonb({"code": "READ_UNVERIFIED_DISCARDED", "verified": False})
+                await conn.execute(
+                    "UPDATE effects SET state='FAILED',result=%s WHERE owner_id=%s AND effect_key=%s AND state IN ('IN_FLIGHT','UNKNOWN')",
+                    (result, owner, "action:" + str(row["action_id"])),
+                )
+                await conn.execute(
+                    "UPDATE approvals SET state='REVOKED',result=%s WHERE id=%s", (result, row["action_id"])
+                )
+                await conn.execute(
+                    "UPDATE browser_sessions SET action_id=NULL,pending_cipher=NULL,runtime_id=NULL,status='HUMAN',active_command=NULL,command_until=NULL WHERE id=%s",
+                    (session,),
+                )
+        await pool.close(session)
+        return await self.recover(owner, session)
+
     async def control(self, owner, session, body):
         action = body["action"]
+        if action == "recover_read":
+            return await self.recover_read(owner, session)
         if action == "recover":
             return await self.recover(owner, session)
         async with self.command(owner, session) as (row, actor):

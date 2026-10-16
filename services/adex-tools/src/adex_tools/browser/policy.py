@@ -19,6 +19,16 @@ CRITICAL = re.compile(
 )
 
 
+def read_host_permission(payload):
+    permission = payload.get("additional_permission") or {}
+    return (
+        payload.get("method") == "GET"
+        and permission.get("scope") == "READ_HOST_FOR_THIS_TASK"
+        and bool(permission.get("host"))
+        and urlsplit(payload.get("destination", "")).hostname == permission.get("host")
+    )
+
+
 class BrowserStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: Literal[

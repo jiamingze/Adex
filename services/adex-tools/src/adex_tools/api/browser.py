@@ -39,6 +39,8 @@ class SecureField(BaseModel):
 class Control(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: Literal[
+        "recover_read",
+        "open_login_frame",
         "secure_login",
         "dialog_accept",
         "dialog_dismiss",
@@ -58,6 +60,7 @@ class Control(BaseModel):
         "resume",
     ]
     remember_login: bool = False
+    frame_id: str = Field(default="", max_length=100)
     origin: str = Field(default="", max_length=2000)
     observation_id: str = Field(default="", max_length=100)
     submit_element_id: str = Field(default="", max_length=100)
@@ -75,6 +78,18 @@ class Control(BaseModel):
 async def sessions(request: Request):
     c = core.require(request, "app", "browser:read")
     return jsonable_encoder(await BrowserService(core).list(UUID(c["owner"])))
+
+
+@router.get("/internal/browser/context/{conversation}")
+async def conversation_context(request: Request, conversation: UUID):
+    c = core.require(request, "agent", "browser:context", conversation)
+    # Only durable workflow metadata crosses into model context, never page input,
+    # screenshots, cookies, credentials or URL query strings.
+    rows = await core.query(
+        "SELECT b.id,b.run_id,b.status,a.state AS action_state FROM browser_sessions b LEFT JOIN approvals a ON a.id=b.action_id AND a.owner_id=b.owner_id WHERE b.owner_id=%s AND b.conversation_id=%s AND b.status<>'CLOSED' ORDER BY b.updated_at DESC LIMIT 3",
+        (UUID(c["owner"]), conversation),
+    )
+    return jsonable_encoder({"items": rows})
 
 
 @router.get("/internal/browser/sessions/{session}")

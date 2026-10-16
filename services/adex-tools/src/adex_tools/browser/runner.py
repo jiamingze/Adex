@@ -210,7 +210,14 @@ class Broker:
             "test_fixture": self.test_fixture,
             "state": "SUBMITTED_UNVERIFIED",
         }
-        if 200 <= response.status < 300 and pending.get("transport_only"):
+        # A read-only host grant can return a login redirect. Verify transport,
+        # not login or business success; never extend this rule to POST redirects.
+        read_redirect = (
+            pending.get("grant_read_host")
+            and response.request.method == "GET"
+            and 300 <= response.status < 400
+        )
+        if pending.get("transport_only") and (200 <= response.status < 300 or read_redirect):
             result.update(verified=True, provider_receipt="http:" + pending["digest"], state="HTTP_ACCEPTED")
         try:
             if int(response.headers.get("content-length", "0")) > 1000000:

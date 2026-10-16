@@ -352,3 +352,59 @@ async def test_visible_embedded_login_opens_real_form_only_on_bound_human_comman
         assert any(field["secret"] for field in form["fields"])
     finally:
         await actor.close()
+
+
+async def test_read_host_redirect_is_transport_only_not_business_success():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.runner import Broker
+
+    for method, read_host, status, verified in [
+        ("GET", "login.example.com", 302, True),
+        ("GET", "login.example.com", 403, False),
+        ("POST", None, 302, False),
+        ("GET", None, 302, False),
+    ]:
+        broker = Broker()
+        broker.test_fixture = True
+        request = SimpleNamespace(method=method)
+        broker.pending = {
+            "request": request,
+            "released": True,
+            "id": "request",
+            "digest": "hash",
+            "transport_only": True,
+            "grant_read_host": read_host,
+        }
+        response = SimpleNamespace(
+            request=request,
+            status=status,
+            url="https://login.example.com/",
+            headers={},
+            json=AsyncMock(side_effect=ValueError()),
+        )
+        await broker.response(response)
+        assert broker.last_receipt["verified"] is verified
+        assert broker.last_receipt["business_verified"] is False
+
+
+def test_inline_login_control_contract_and_read_recovery_are_narrow(monkeypatch):
+    monkeypatch.setenv("ADEX_TOOLS_KEY", "local-unit-fixture-key-" * 3)
+    monkeypatch.setenv("ADEX_DB_URL", "postgresql://localhost/adex_test_unit")
+    from adex_tools.api.browser import Control
+    from adex_tools.browser.policy import read_host_permission
+
+    assert (
+        Control(action="open_login_frame", frame_id="visible-frame", origin="https://example.com").frame_id
+        == "visible-frame"
+    )
+    assert Control(action="recover_read").action == "recover_read"
+    payload = {
+        "method": "GET",
+        "destination": "https://pages.example.com/",
+        "additional_permission": {"scope": "READ_HOST_FOR_THIS_TASK", "host": "pages.example.com"},
+    }
+    assert read_host_permission(payload)
+    assert not read_host_permission({**payload, "method": "POST"})
+    assert not read_host_permission({**payload, "destination": "https://evil.example/"})
+    assert not read_host_permission({**payload, "additional_permission": {"scope": "WRITE"}})
