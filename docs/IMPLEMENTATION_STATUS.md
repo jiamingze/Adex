@@ -458,3 +458,12 @@ Validation: Web and signed iOS builds, 21 client tests, native speech gesture te
 style/architecture, secrets and diff checks passed.
 The signed update was installed and launched on the paired iPhone (both commands
 exit 0). Visual alignment and native touch behaviour still require device review.
+
+### 2026-10-17 · Taller voice sheet
+
+The recording sheet minimum height increases from 220px to 280px, adapting its
+minimum on short viewports with `55svh`. Vertical padding increases to 36px plus
+the bottom safe area, giving the waveform and release/cancel hints more space.
+Speech and gesture behaviour is unchanged. Web/iOS builds and diff/secrets checks
+validate this CSS-only adjustment; physical-device visual review remains separate.
+The signed update was installed and launched on the paired iPhone (both exit 0).

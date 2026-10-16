@@ -130,8 +130,8 @@ html.native-app input,html.native-app select,html.native-app textarea{font-size:
   inset: auto 0 0;
   width: 100%;
   max-width: none;
-  min-height: 220px;
-  padding: 28px 24px calc(28px + env(safe-area-inset-bottom));
+  min-height: min(280px, 55svh);
+  padding: 36px 24px calc(36px + env(safe-area-inset-bottom));
   border-radius: 28px 28px 0 0;
   background: linear-gradient(180deg, #f6f8ff, #fff);
   color: #202329;
