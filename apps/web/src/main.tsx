@@ -185,6 +185,8 @@ function App() {
     { id: string; name: string }[]
   >([]);
   const composerInput = useRef<HTMLTextAreaElement>(null);
+  const voiceSurface = useRef<HTMLButtonElement>(null);
+  const [composerFocused, setComposerFocused] = useState(false);
   useEffect(() => {
     if (new URLSearchParams(location.search).get("connected") === "1") {
       setPage("assistant");
@@ -1175,26 +1177,42 @@ function App() {
             </div>
             <div className="composer-wrap">
               <div className={`composer ${!draft && !attachments.length ? "composer-empty" : ""} ${busy ? "composer-busy" : ""}`}>
-                <textarea
-                  ref={composerInput}
-                  aria-label="消息输入"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="按住说话，或点按输入"
-                  rows={1}
-                  maxLength={16000}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.nativeEvent.isComposing &&
-                      (preferences().enterSend || e.ctrlKey || e.metaKey)
-                    ) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}
-                />
+                <div className="composer-entry">
+                  <textarea
+                    ref={composerInput}
+                    onFocus={() => setComposerFocused(true)}
+                    onBlur={() => setComposerFocused(false)}
+                    aria-label="消息输入"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="按住说话，或点按输入"
+                    rows={1}
+                    maxLength={16000}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing &&
+                        (preferences().enterSend || e.ctrlKey || e.metaKey)
+                      ) {
+                        e.preventDefault();
+                        send();
+                      }
+                    }}
+                  />
+                  <button
+                    ref={voiceSurface}
+                    type="button"
+                    className="composer-voice-surface"
+                    hidden={!!draft || composerFocused || busy || !!attachments.length}
+                    aria-label="按住说话，或点按输入"
+                    onClick={(event) => {
+                      // Keyboard/screen-reader activation enters text editing.
+                      // Pointer gestures are owned by VoiceInput, including release.
+                      if (event.detail === 0) composerInput.current?.focus();
+                    }}
+                  >按住说话，或点按输入</button>
+                </div>
                 <div className="attachment-chips">
                   {attachments.map((f) => (
                     <button
@@ -1233,7 +1251,8 @@ function App() {
                   <div className="composer-right">
                     <VoiceInput
                       key={`${current}:${page}:${mobile}`}
-                      surfaceRef={composerInput}
+                      surfaceRef={voiceSurface}
+                      inputRef={composerInput}
                       hasText={draft.length > 0 || busy}
                       onText={(text) => setDraft((d) => d + text)}
                     />

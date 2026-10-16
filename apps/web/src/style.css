@@ -67,15 +67,33 @@ html.native-app input,html.native-app select,html.native-app textarea{font-size:
   padding: 6px 10px;
   border-radius: 28px;
 }
-.composer-empty textarea {
+.composer-entry { position: relative; min-width: 0; width: 100%; }
+.composer-empty .composer-entry {
   grid-column: 2;
   grid-row: 1;
+}
+.composer-empty textarea {
   min-height: 44px;
   height: 44px;
   padding: 11px 2px;
-  -webkit-touch-callout: none;
-  touch-action: none;
 }
+.composer-voice-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  padding: 11px 2px;
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.composer-voice-surface[hidden] { display: none; }
 .composer-empty .composer-actions,
 .composer-empty .composer-right { display: contents; }
 .composer-empty .composer-add { grid-column: 1; grid-row: 1; }
@@ -127,7 +145,7 @@ html.voice-capture-active,
 html.voice-capture-active *,
 .voice-bottom-sheet,
 .voice-bottom-sheet *,
-.composer-empty textarea:placeholder-shown {
+.composer-voice-surface {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;

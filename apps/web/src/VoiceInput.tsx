@@ -7,10 +7,12 @@ type Phase = "idle" | "recording" | "processing";
 export function VoiceInput({
   onText,
   surfaceRef,
+  inputRef,
   hasText = false,
 }: {
   onText: (text: string) => void;
-  surfaceRef?: RefObject<HTMLTextAreaElement | null>;
+  surfaceRef?: RefObject<HTMLElement | null>;
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
   hasText?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -101,7 +103,7 @@ export function VoiceInput({
       pressed = false;
       clear();
       if (held.current) void release();
-      else if (!moved && !active.current) surface.focus();
+      else if (!moved && !active.current) inputRef?.current?.focus();
     };
     const abort = () => {
       pressed = false;
@@ -115,6 +117,10 @@ export function VoiceInput({
     window.addEventListener("pagehide", abort);
     document.addEventListener("visibilitychange", hidden);
     const menu = (event: Event) => event.preventDefault();
+    // WebKit's editable-text loupe is a native touch recognizer: cancelling
+    // pointerdown/selection alone does not cancel it. This surface is a button,
+    // and its touch default must be cancelled before the long-press deadline.
+    surface.addEventListener("touchstart", menu, { passive: false });
     surface.addEventListener("pointerdown", down);
     surface.addEventListener("pointermove", move);
     surface.addEventListener("pointerup", up);
@@ -127,10 +133,11 @@ export function VoiceInput({
       surface.removeEventListener("pointerup", up);
       surface.removeEventListener("pointercancel", abort);
       surface.removeEventListener("contextmenu", menu);
+      surface.removeEventListener("touchstart", menu);
       window.removeEventListener("pagehide", abort);
       document.removeEventListener("visibilitychange", hidden);
     };
-  }, [surfaceRef, hasText]);
+  }, [surfaceRef, inputRef, hasText]);
   useEffect(() => {
     const end = () => {
       clearTimeout(buttonTimer.current);

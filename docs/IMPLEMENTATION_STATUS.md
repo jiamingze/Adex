@@ -430,3 +430,19 @@ callout/visual acceptance is still required; builds are not reported as UI proof
 The signed update was subsequently installed and launched on the paired iPhone;
 both device commands returned exit code 0. Its bundled public API origin was
 refreshed to the gateway created after reboot (endpoint kept out of Git).
+
+### 2026-10-17 · Separate voice touch surface from text editing
+
+A physical-device screenshot showed the native iOS text loupe over the recording
+sheet despite the CSS/selection guard. The empty unfocused composer now uses a
+non-editable button over the textarea: hold gestures never start on editable text.
+A non-passive touchstart handler cancels WebKit's native long-press default before
+the 350ms voice threshold. Short release focuses the textarea for normal typing;
+typed/focused drafts keep normal selection, and keyboard/accessibility activation
+enters editing. The existing release/cancel speech lifecycle is preserved.
+
+Web/iOS builds, 21 client tests, native gesture regression, architecture/style,
+secrets and diff checks passed. These tests do not prove the physical-device loupe
+is absent; the screenshot was the observed regression and requires device retest.
+The final signed bundle was installed and launched on the paired iPhone, with
+both device commands returning exit code 0; existing app data was retained.
