@@ -391,3 +391,21 @@ and `device process launch` both returned exit code 0 for `io.adex.personal`.
 All four local service readiness checks returned HTTP 200. This supersedes the
 latest-package installation blocker above; merchant risk verification and physical
 microphone interaction remain separate acceptance steps.
+
+### 2026-10-17 · Strict hold-to-talk lifecycle
+
+Both the microphone button and empty composer require a deliberate 350ms hold.
+Short taps do not invoke recognition; release/lost capture stop recording, upward
+motion cancels, and page hiding stops an active recording. The recording indicator
+is a body-level fixed bottom sheet across the viewport, with a circular 44px button.
+Native start/stop calls carry per-gesture IDs, so a delayed start after release is
+rejected and an old stop cannot terminate a newer recording. Final transcription
+processing is explicitly labelled as recording ended.
+Verification includes `make test-ios-speech` (stop-before-start, overlapping start,
+stale stop and release fencing), Web type/build/client checks and signed iOS build.
+Browser short-tap behaviour was verified without sending a message. Actual microphone
+speech remains a physical-device acceptance step, not proven by lifecycle unit tests.
+The updated signed package was installed and launched on the connected iPhone;
+both device commands returned exit code 0. Web build, 21 client tests, native gesture
+regression, architecture/style and secrets checks passed. Short microphone-button
+tap produced no recording-state change in the browser UI.

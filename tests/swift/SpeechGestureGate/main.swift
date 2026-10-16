@@ -1,0 +1,16 @@
+import Foundation
+
+let gate = SpeechGestureGate()
+precondition(!gate.stop("released-before-bridge-start"))
+precondition(!gate.begin("released-before-bridge-start"))
+precondition(gate.begin("held"))
+precondition(!gate.begin("overlapping"))
+precondition(!gate.stop("old-gesture"))
+precondition(gate.stop("held"))
+gate.finish()
+precondition(!gate.begin("held"))
+precondition(gate.begin("next-gesture"))
+precondition(!gate.stop("held"))
+precondition(gate.stop("next-gesture"))
+gate.finish()
+print("PASS: stop-before-start, overlapping start, stale stop and release fencing")

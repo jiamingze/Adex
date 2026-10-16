@@ -57,8 +57,13 @@ public class AdexSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
     private var pending: CAPPluginCall?
     private var text = ""
     private var tapInstalled = false
+    private let gestureGate = SpeechGestureGate()
     @objc public func start(_ call: CAPPluginCall) {
+        guard let id = call.getString("session_id"), !id.isEmpty else { call.reject("SPEECH_SESSION_REQUIRED"); return }
+        // stop can reach the bridge before start while permissions initialize.
+        // A stopped gesture must never activate the microphone afterwards.
         guard pending == nil else { call.reject("SPEECH_BUSY"); return }
+        guard gestureGate.begin(id) else { call.reject("SPEECH_CANCELLED"); return }
         pending = call
         SFSpeechRecognizer.requestAuthorization { status in
             guard status == .authorized else { DispatchQueue.main.async { if self.pending === call { self.fail("SPEECH_PERMISSION_DENIED") } }; return }
@@ -92,7 +97,7 @@ public class AdexSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
     private func finish() {
-        guard let call = pending else { return }; pending = nil
+        guard let call = pending else { return }; pending = nil; gestureGate.finish()
         cleanup()
         try? AVAudioSession.sharedInstance().setActive(false)
         call.resolve(["text": text, "provider": "ios-speech"])
@@ -104,11 +109,12 @@ public class AdexSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
         try? AVAudioSession.sharedInstance().setActive(false)
     }
     private func fail(_ reason: String) {
-        guard let call = pending else { return }; pending = nil
+        guard let call = pending else { return }; pending = nil; gestureGate.finish()
         cleanup(); call.reject(reason)
     }
     @objc public func stop(_ call: CAPPluginCall) {
-        guard let original = pending else { call.resolve(); return }
+        guard let id = call.getString("session_id"), !id.isEmpty else { call.resolve(); return }
+        guard gestureGate.stop(id), let original = pending else { call.resolve(); return }
         if !engine.isRunning { finish(); call.resolve(); return }
         engine.stop()
         if tapInstalled { engine.inputNode.removeTap(onBus: 0); tapInstalled = false }

@@ -84,3 +84,39 @@ html.native-app input,html.native-app select,html.native-app textarea{font-size:
 .composer-empty .attachment-chips,
 .composer-empty .composer-right > span,
 .composer-empty:not(.composer-busy) .send-button { display: none; }
+
+.composer .voice-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+.voice-recording-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 12%);
+  pointer-events: none;
+  z-index: 999;
+}
+.voice-status.voice-bottom-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: none;
+  min-height: 220px;
+  padding: 28px 24px calc(28px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(180deg, #f6f8ff, #fff);
+  color: #202329;
+  box-shadow: 0 -12px 48px rgb(0 0 0 / 10%);
+  pointer-events: none;
+  z-index: 1000;
+  transform: none;
+}
+.voice-status.voice-bottom-sheet.cancelling { background: #fff0ef; color: #b4433e; }
+.voice-bottom-sheet .voice-wave { height: 64px; gap: 6px; }
+.voice-bottom-sheet strong { font-size: 19px; }
+.voice-bottom-sheet span { font-size: 14px; color: #707580; }

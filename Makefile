@@ -56,3 +56,10 @@ demo-ui:
 	pnpm install --frozen-lockfile
 	pnpm --dir apps/web build
 	uv run python tests/fixtures/product_gallery_server.py
+
+# macOS native speech lifecycle regression, independent of microphone permissions.
+.PHONY: test-ios-speech
+test-ios-speech:
+	mkdir -p .local-data/native-tests
+	swiftc apps/ios/ios/App/CapApp-SPM/Sources/CapApp-SPM/SpeechGestureGate.swift tests/swift/SpeechGestureGate/main.swift -o .local-data/native-tests/speech-gesture
+	.local-data/native-tests/speech-gesture
