@@ -146,9 +146,10 @@ class BrowserService:
             if storage
             else row["storage_cipher"]
         )
-        from adex_tools.browser.login import login_form
+        from adex_tools.browser.login import login_form, access_block
 
         value["login_form"] = login_form(value)
+        value["access_block"] = access_block(value)
         snapshot = {k: v for k, v in value.items() if k != "screenshot"}
         progress = list(row["snapshot"].get("progress_events", []))
         if row.get("_progress"):
@@ -243,10 +244,13 @@ class BrowserService:
             (owner, urlsplit(row["current_url"]).hostname),
             one=True,
         )
+        from adex_tools.browser.login import access_block
+
+        snapshot = {**row["snapshot"], **(actor.preview if actor else {})}
         return {
             "profile_revision": profile["revision"] if profile else 0,
-            **row["snapshot"],
-            **(actor.preview if actor else {}),
+            **snapshot,
+            "access_block": access_block(snapshot),
             "id": str(session),
             "run_id": str(row["run_id"]),
             "status": "LOST" if lost and row["status"] not in ("CLOSED", "UNKNOWN") else row["status"],
@@ -302,7 +306,7 @@ class BrowserService:
             try:
                 command = {**step.model_dump(), "observation_id": body["observation_id"]}
                 if step.action == "handoff":
-                    value = await actor.call({"action": "mode", "mode": "HUMAN"})
+                    value = await self.login_handoff(actor)
                     result = await self.record(row, value, mode="HUMAN")
                 elif step.action == "done":
                     result = await self.record(row, await actor.call({"action": "observe"}))
@@ -348,6 +352,28 @@ class BrowserService:
             "file_mime": metadata.get("mime_type", "application/octet-stream"),
         }
 
+    async def login_handoff(self, actor):
+        from adex_tools.browser.login import access_block, login_form
+
+        value = await actor.call({"action": "mode", "mode": "HUMAN"})
+        frame = value.get("embedded_login")
+        # Prepare only an actually observed visible login, never model-created
+        # fields. Ownership changes automatically; user submission is still needed.
+        if frame and not value.get("pending") and not access_block(value) and not login_form(value):
+            try:
+                return await actor.call(
+                    {
+                        "action": "open_login_frame",
+                        "prepare_only": True,
+                        "human": True,
+                        "frame_id": frame["id"],
+                        "origin": frame["origin"],
+                    }
+                )
+            except HTTPException:
+                value["login_preparation_error"] = "LOGIN_FORM_UNAVAILABLE"
+        return value
+
     async def recover(self, owner, session):
         row = await self.own(owner, session)
         if row["status"] == "CLOSED":
@@ -372,7 +398,7 @@ class BrowserService:
             )
         await pool.close(session)
         async with self.command(owner, session) as (current, actor):
-            value = await actor.call({"action": "mode", "mode": "HUMAN", "human": True})
+            value = await self.login_handoff(actor)
             return await self.record(current, value, mode="HUMAN")
 
     async def recover_read(self, owner, session):
@@ -459,9 +485,7 @@ class BrowserService:
             if action == "takeover":
                 if row["status"] in ("WAITING_APPROVAL", "UNKNOWN"):
                     raise HTTPException(409, "RESOLVE_BROWSER_APPROVAL_FIRST")
-                return await self.record(
-                    row, await actor.call({"action": "mode", "mode": "HUMAN", "human": True}), mode="HUMAN"
-                )
+                return await self.record(row, await self.login_handoff(actor), mode="HUMAN")
             if action == "resume" and row["status"] == "AGENT":
                 return await self.record(row, await actor.call({"action": "observe"}), mode="AGENT")
             if row["status"] != "HUMAN":

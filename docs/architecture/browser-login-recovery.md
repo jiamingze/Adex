@@ -22,3 +22,15 @@ Reference: [Meta's published Muse safety design](https://research.meta.ai/blog/s
 ## Follow-up routing correction
 
 A real Qwen route at 06:50 on 2026-10-17 returned `none` for the explicit Xiaohongshu/Tesla search after earlier assistant capability denials; a separate diagnostic with shorter history returned `lookup`. Routing must not treat assistant-generated capability explanations as evidence of user intent. The routing contract now includes the latest user request explicitly and bounded prior user requests only. Assistant drafts remain available exclusively to task preparation, marked as untrusted data. This changes no approvals, service boundary or database schema. Regression coverage must include the exact reported query after denial history and ensure real task creation, not merely a mocked classifier answer.
+
+## Direct login affordance
+
+The user authorizes preparing the login interface without a separate takeover question.
+When a fresh real login form is observed, the existing handoff automatically switches
+input ownership to HUMAN and the conversation renders its fields directly. A visible
+embedded login frame can be opened once by the trusted handoff code, with the same
+origin/handle and egress checks as the existing user-open command. No credentials
+are filled or sent until the user submits the actual form; publication/payment
+approval remains separate. Explicit access-denied/risky-IP pages instead expose
+`access_block` and BLOCKED_EXTERNAL, never fake login fields or automatic retries.
+No database migration; all state remains in existing snapshots/checkpoints/Run.

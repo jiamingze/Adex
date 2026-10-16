@@ -10,7 +10,24 @@ ACCOUNT = re.compile(
 )
 
 
+def access_block(view):
+    text = "\n".join(
+        n.get("name", "") for n in view.get("nodes", []) if n.get("role") in ("heading", "StaticText")
+    )
+    if re.search(r"安全限制|访问受限|拒绝访问|access denied|access blocked", text, re.I) and re.search(
+        r"IP.{0,12}(风险|封禁|blocked)|异常流量|网络环境|unusual traffic|network.{0,12}blocked", text, re.I
+    ):
+        return {
+            "code": "NETWORK_ACCESS_RESTRICTED",
+            "message": "网站限制了当前浏览器的访问，尚未进入可登录页面。",
+            "availability": "BLOCKED_EXTERNAL",
+        }
+    return None
+
+
 def login_form(view):
+    if access_block(view):
+        return None
     url = urlsplit(view.get("url", ""))
     if url.scheme != "https" or not url.hostname:
         return None

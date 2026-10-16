@@ -156,6 +156,11 @@ class BrowserWorkflow:
                         "浏览器执行环境已变化。请打开浏览器面板，选择恢复并接管；待核实的提交不会自动重发。",
                     )
                 raise
+            if value.get("access_block"):
+                return self.wait(
+                    session_id,
+                    "网站限制了当前浏览器的访问，暂时无法进入登录表单（BLOCKED_EXTERNAL）。这不是密码错误，也未完成查询；系统已暂停，不会反复请求或提交。",
+                )
             if (value.get("login_form") or value.get("embedded_login")) and value.get("status") == "AGENT":
                 await call(
                     base + "/step",

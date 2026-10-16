@@ -507,3 +507,73 @@ def test_unknown_read_can_reopen_for_login_but_unknown_write_cannot(client, db):
     assert wrong_resource.status_code == 403
     client.post(f"/api/v1/browser/sessions/{item['id']}/close").raise_for_status()
     cleanup_notifications(db, run)
+
+
+def test_login_fields_appear_in_conversation_without_takeover_request(client, db):
+    """Whole service flow against synthetic Chromium login, NOT real Xiaohongshu."""
+    conv = client.post(
+        "/api/v1/conversations", json={"title": "TEST_FIXTURE direct login"}
+    ).json()["id"]
+    # The preceding profile test remembers this synthetic site's authenticated
+    # cookie. Explicitly start this isolated fixture case logged out.
+    db.execute(
+        "UPDATE tools.browser_profiles SET cipher=NULL,expires_at=clock_timestamp(),revision=revision+1 WHERE host='example.com' AND owner_id=(SELECT owner_id FROM app.conversations WHERE id=%s)",
+        (conv,),
+    )
+    response = client.post(
+        "/api/v1/tasks",
+        headers={"Idempotency-Key": str(uuid4())},
+        json={
+            "kind": "BROWSER",
+            "instruction": "TEST_FIXTURE 搜文章，需要登录时展示表单",
+            "origin_conversation_id": conv,
+            "browser_url": "https://example.com/fixture-login-frame",
+            "params": {"browser_mode": "lookup"},
+        },
+    )
+    response.raise_for_status()
+    run = response.json()["id"]
+    execute(claim())
+    view = client.get(f"/api/v1/browser/runs/{run}").json()
+    assert view["status"] == "WAITING_INPUT"
+    assert view["session"]["status"] == "HUMAN"
+    form = view["session"]["login_form"]
+    assert form and any(f["secret"] for f in form["fields"]), {
+        k: view["session"].get(k)
+        for k in (
+            "url",
+            "status",
+            "embedded_login",
+            "login_preparation_error",
+            "pending",
+            "nodes",
+        )
+    }
+    # No takeover API call: submit the form returned by the first conversation view.
+    result = client.post(
+        f"/api/v1/browser/sessions/{view['session']['id']}/control",
+        json={
+            "action": "secure_login",
+            "origin": form["origin"],
+            "observation_id": form["observation_id"],
+            "submit_element_id": form["buttons"][0]["id"],
+            "fields": [
+                {
+                    "element_id": f["id"],
+                    "text": "TEST_FIXTURE_password"
+                    if f["secret"]
+                    else "TEST_FIXTURE_account",
+                }
+                for f in form["fields"]
+            ],
+        },
+    )
+    result.raise_for_status()
+    assert "TEST_FIXTURE_password" not in result.text
+    assert result.json()["auto_resumed"] is True
+    assert result.json()["run_id"] == run
+    resumed = claim()
+    assert str(resumed["id"]) == run
+    execute(resumed)
+    assert state(db, run)["status"] == "COMPLETED"
+    cleanup_notifications(db, run)

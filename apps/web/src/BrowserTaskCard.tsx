@@ -97,7 +97,8 @@ export function BrowserTaskCard({
   }, [runId, conversationId]);
   const view = data?.session,
     action = data?.action,
-    form = view?.login_form,
+    blocked = view?.access_block,
+    form = blocked ? null : view?.login_form,
     human = view?.status === "HUMAN",
     waiting = data?.status === "WAITING_INPUT";
   const signature = form
@@ -182,9 +183,11 @@ export function BrowserTaskCard({
         </div>
         <span className="browser-chat-status">
           {busy ? <LoaderCircle size={14} className="spin" /> : null}
-          {data?.status === "WAITING_INPUT" && human
-            ? "等待登录或验证"
-            : statusLabels[data?.status || "QUEUED"] || data?.status}
+          {blocked
+            ? "网站限制访问"
+            : data?.status === "WAITING_INPUT" && human
+              ? "等待登录或验证"
+              : statusLabels[data?.status || "QUEUED"] || data?.status}
         </span>
       </header>
       {error && (
@@ -200,16 +203,29 @@ export function BrowserTaskCard({
           {notice}
         </p>
       )}
-      {view &&
+      {blocked && (
+        <div className="browser-chat-login" role="status">
+          <strong>网站限制访问，暂时无法登录</strong>
+          <p>{blocked.message}</p>
+          <small>
+            当前没有可填写的登录表单。Adex
+            已暂停，不会反复提交，也没有完成搜索。本机浏览器可访问，不代表服务端浏览器已获网站允许。
+          </small>
+        </div>
+      )}
+      {!blocked &&
+        view &&
         !terminal.has(data?.status || "") &&
-        (human || (waiting && view.status === "AGENT") || interruptedRead) && (
+        ((human && !form) ||
+          (waiting && view.status === "AGENT") ||
+          interruptedRead) && (
           <div className="browser-chat-login">
             <strong>
               {interruptedRead
                 ? "网页读取中断，还未进入登录"
                 : human
-                  ? "现在由你操作网站"
-                  : "需要登录？直接接管当前网页"}
+                  ? "请在下方完成网站验证"
+                  : "网站输入区域"}
             </strong>
             <small>
               {interruptedRead
@@ -229,7 +245,7 @@ export function BrowserTaskCard({
                   })
                 }
               >
-                {interruptedRead ? "重新打开网站并登录" : "打开网站并接管"}
+                {interruptedRead ? "重新打开网站并登录" : "显示网站输入区域"}
               </button>
             )}
           </div>
@@ -249,7 +265,7 @@ export function BrowserTaskCard({
       ) : !terminal.has(data?.status || "") && !human && !action ? (
         <p className="browser-chat-muted">正在打开网站、检查页面并准备内容…</p>
       ) : null}
-      {human && !form && view?.embedded_login && (
+      {!blocked && human && !form && view?.embedded_login && (
         <div className="browser-chat-login">
           <strong>网站使用嵌入式登录</strong>
           <small>
@@ -269,7 +285,7 @@ export function BrowserTaskCard({
               )
             }
           >
-            打开登录表单
+            加载登录输入框
           </button>
         </div>
       )}
@@ -312,7 +328,7 @@ export function BrowserTaskCard({
           <div className="browser-chat-login-title">
             <LockKeyhole size={17} />
             <div>
-              <strong>安全登录到 {host(form.origin)}</strong>
+              <strong>请登录 {host(form.origin)}</strong>
               <small>
                 Adex 转交网站的真实输入框，凭据不发送给模型或写入聊天。
               </small>
@@ -375,7 +391,7 @@ export function BrowserTaskCard({
           {!waiting && <small>正在准备安全登录，稍后即可填写。</small>}
         </form>
       )}
-      {action && (
+      {action && !blocked && (
         <div className="browser-chat-approval">
           <strong>{summary?.kind || "请核对待提交的网页操作"}</strong>
           <small>
@@ -540,7 +556,7 @@ export function BrowserTaskCard({
               <p>正在同步网站页面…</p>
             )}
           </div>
-          {human && (
+          {human && !blocked && (
             <>
               <label>
                 输入到页面当前选中的输入框
@@ -604,7 +620,7 @@ export function BrowserTaskCard({
           )}
         </details>
       )}
-      {human && !form && (
+      {human && !form && !blocked && (
         <div className="browser-chat-continue">
           {!data?.is_guest && (
             <label className="browser-chat-remember">
@@ -625,7 +641,7 @@ export function BrowserTaskCard({
           </button>
         </div>
       )}
-      {view?.status === "LOST" && (
+      {!blocked && view?.status === "LOST" && (
         <button
           disabled={busy}
           onClick={() =>

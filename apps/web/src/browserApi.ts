@@ -10,6 +10,7 @@ export type BrowserSession = {
   revision: number;
 };
 export type BrowserView = BrowserSession & {
+  access_block?: { code: string; message: string; availability: string } | null;
   url?: string;
   dialog?: { id: string; type: string; message: string; url: string };
   tabs?: { id: string; url: string; active: boolean }[];

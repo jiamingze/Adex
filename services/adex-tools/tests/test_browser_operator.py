@@ -408,3 +408,118 @@ def test_inline_login_control_contract_and_read_recovery_are_narrow(monkeypatch)
     assert not read_host_permission({**payload, "method": "POST"})
     assert not read_host_permission({**payload, "destination": "https://evil.example/"})
     assert not read_host_permission({**payload, "additional_permission": {"scope": "WRITE"}})
+
+
+def test_network_restriction_is_not_a_login_form():
+    from adex_tools.browser.login import access_block, login_form
+
+    blocked = {
+        "url": "https://example.com/error",
+        "nodes": [
+            {"role": "heading", "name": "安全限制"},
+            {"role": "StaticText", "name": "IP存在风险，请切换可靠网络环境后重试"},
+        ],
+    }
+    assert access_block(blocked)["code"] == "NETWORK_ACCESS_RESTRICTED"
+    assert login_form(blocked) is None
+    assert access_block({"nodes": [{"role": "StaticText", "name": "请登录后继续"}]}) is None
+    assert access_block({"nodes": [{"role": "heading", "name": "如何解决IP风险"}]}) is None
+
+
+async def test_handoff_prepares_observed_login_without_second_takeover_question():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.service import BrowserService
+
+    actor = SimpleNamespace(
+        call=AsyncMock(
+            side_effect=[
+                {
+                    "url": "https://example.com",
+                    "mode": "HUMAN",
+                    "nodes": [],
+                    "embedded_login": {"id": "visible", "origin": "https://example.com"},
+                },
+                {
+                    "url": "https://example.com/login",
+                    "mode": "HUMAN",
+                    "nodes": [
+                        {"id": "account", "role": "textbox", "name": "手机号"},
+                        {"id": "login", "role": "button", "name": "登录"},
+                    ],
+                },
+            ]
+        )
+    )
+    value = await BrowserService(SimpleNamespace()).login_handoff(actor)
+    assert value["mode"] == "HUMAN"
+    assert actor.call.await_args.args[0] == {
+        "action": "open_login_frame",
+        "prepare_only": True,
+        "human": True,
+        "frame_id": "visible",
+        "origin": "https://example.com",
+    }
+
+
+async def test_chromium_inline_login_is_ready_without_takeover_button():
+    """Actual Chromium, synthetic login only; never a real merchant credential."""
+    from types import SimpleNamespace
+    from adex_tools.browser.process import BrowserProcess
+    from adex_tools.browser.service import BrowserService
+    from adex_tools.browser.login import login_form
+    import json
+
+    actor = await BrowserProcess.start()
+    try:
+        await actor.call({"url": "https://example.com/fixture-login-frame", "_test_fixture": True})
+        value = await BrowserService(SimpleNamespace()).login_handoff(actor)
+        form = login_form(value)
+        assert value["mode"] == "HUMAN" and form
+        assert any(field["secret"] for field in form["fields"])
+        secret = "TEST_FIXTURE_private_pass"
+        result = await actor.call(
+            {
+                "action": "secure_login",
+                "human": True,
+                "origin": form["origin"],
+                "observation_id": form["observation_id"],
+                "submit_element_id": form["buttons"][0]["id"],
+                "fields": [
+                    {"element_id": field["id"], "text": secret if field["secret"] else "TEST_FIXTURE_account"}
+                    for field in form["fields"]
+                ],
+            }
+        )
+        assert secret not in json.dumps(result)
+        assert login_form(result) is None
+    finally:
+        await actor.close()
+
+
+async def test_automatic_login_preparation_does_not_authorize_network_writes():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.runner import Broker
+
+    broker = Broker()
+    broker.mode = "HUMAN"
+    broker.embedded_login = {
+        "id": "frame",
+        "origin": "https://example.com",
+        "url": "https://example.com/login",
+    }
+    broker.observe = AsyncMock(return_value={})
+    broker.admit = AsyncMock(return_value=True)
+    broker.page = SimpleNamespace(goto=AsyncMock())
+    await broker.operate(
+        {
+            "action": "open_login_frame",
+            "human": True,
+            "prepare_only": True,
+            "frame_id": "frame",
+            "origin": "https://example.com",
+        }
+    )
+    assert broker.human_authorized is False
+    assert broker.human_until == 0

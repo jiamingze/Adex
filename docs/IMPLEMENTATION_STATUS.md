@@ -527,3 +527,37 @@ Agent restarted; all four readiness checks returned HTTP 200. No client bundle
 change was needed. Real Xiaohongshu login/risk verification remains
 BLOCKED_EXTERNAL until completed by the user; existing chat messages were not
 rewritten and no unknown external action was replayed.
+
+### 2026-10-17 · Prepare login fields without a takeover question
+
+The trusted browser handoff now prepares observed embedded login frames once and
+renders actual login fields directly in the conversation. It does not ask users to
+approve a separate takeover first. Credentials still require explicit user form
+submission; automatic preparation grants no generic network-write window. Real
+origin/handle checks and existing publication/order approvals remain in place.
+
+Explicit risky-IP/access-denied page text yields `access_block` and BLOCKED_EXTERNAL,
+including existing cached views. The card explains that no login form is available,
+hides irrelevant submission/login controls, and does not fabricate inputs or retry
+website restrictions. Existing uncertain effects remain durable and unreplayed.
+
+Validation: Tools suite (76 passed), Agent suite (63 passed), client suite (21
+passed), Web/iOS bundles and signed Xcode build, architecture/style, OpenAPI (91
+operations), secrets and diff checks. Chromium tests use synthetic login credentials
+and verify automatic form preparation plus secret redaction. Real stored site
+observations confirm access restriction detection; these are not proof that real
+Xiaohongshu login works. The signed iOS package was installed and launched (both
+exit 0); Agent/Tools restarted and all four readiness checks returned HTTP 200.
+Real Xiaohongshu login/search remains BLOCKED_EXTERNAL for the currently restricted
+server browser environment. Ordinary desktop-browser success does not prove shared
+session/network state with this isolated runner.
+
+Final cross-service login regression: `uv run python scripts/test_stack.py
+tests/integration/test_browser_operator.py::test_inline_login_approval_and_publication_receipt_in_origin_conversation
+tests/integration/test_browser_operator.py::test_login_fields_appear_in_conversation_without_takeover_request
+-q` — 2 passed. This verifies the prior remembered-login/publication-approval flow
+and first-view embedded login fields, explicit credential submission and automatic
+same-Run completion. The isolated first-login fixture expires the synthetic profile
+left by the preceding test; earlier failures exposed test-state reuse, not a real
+merchant login success. The other five existing operator cases passed in the prior
+module run. Automatic preparation also has a regression asserting no write grant.

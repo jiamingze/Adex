@@ -608,8 +608,10 @@ class Broker:
                 raise ValueError("STALE_BROWSER_LOGIN_FORM")
             if not await self.admit(frame["url"]):
                 raise ValueError("BROWSER_URL_DENIED")
-            self.human_authorized = True
-            self.human_until = asyncio.get_running_loop().time() + 10
+            # Automatic form preparation is not a human submit gesture and must
+            # not authorize arbitrary writes from the newly opened document.
+            self.human_authorized = not body.get("prepare_only", False)
+            self.human_until = asyncio.get_running_loop().time() + 10 if self.human_authorized else 0
             try:
                 await self.page.goto(frame["url"], wait_until="domcontentloaded", timeout=12000)
             except Exception:
