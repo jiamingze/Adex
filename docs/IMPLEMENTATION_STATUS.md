@@ -446,3 +446,15 @@ secrets and diff checks passed. These tests do not prove the physical-device lou
 is absent; the screenshot was the observed regression and requires device retest.
 The final signed bundle was installed and launched on the paired iPhone, with
 both device commands returning exit code 0; existing app data was retained.
+
+### 2026-10-17 · Unified composer controls
+
+The plus button, text entry and voice/send control now share one rounded input
+shell in both empty and typed/multiline states. The hold-to-talk surface is
+transparent over the shared background; only its duplicate textarea placeholder
+is hidden, preserving focus and normal text editing. Attachments occupy a separate
+row inside the shell. The existing touch cancellation and speech lifecycle remain.
+Validation: Web and signed iOS builds, 21 client tests, native speech gesture tests,
+style/architecture, secrets and diff checks passed.
+The signed update was installed and launched on the paired iPhone (both commands
+exit 0). Visual alignment and native touch behaviour still require device review.
