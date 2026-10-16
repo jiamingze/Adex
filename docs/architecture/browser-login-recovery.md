@@ -18,3 +18,7 @@
 No database migration: reuse browser_sessions, approvals, effects, Automation leases/checkpoints and existing ownership controls. No new service, scheduler or per-site skill.
 
 Reference: [Meta's published Muse safety design](https://research.meta.ai/blog/security-and-safety-for-ai-agents-our-approach-with-muse) describes visible browser takeover and credentials isolated from the main agent. This does not establish Muse's private implementation or guarantee access to merchant sites.
+
+## Follow-up routing correction
+
+A real Qwen route at 06:50 on 2026-10-17 returned `none` for the explicit Xiaohongshu/Tesla search after earlier assistant capability denials; a separate diagnostic with shorter history returned `lookup`. Routing must not treat assistant-generated capability explanations as evidence of user intent. The routing contract now includes the latest user request explicitly and bounded prior user requests only. Assistant drafts remain available exclusively to task preparation, marked as untrusted data. This changes no approvals, service boundary or database schema. Regression coverage must include the exact reported query after denial history and ensure real task creation, not merely a mocked classifier answer.

@@ -21,7 +21,7 @@ async def test_prefixless_followups_reach_semantic_router(text):
     runtime = Runtime('{"mode":"operate"}')
     messages = [{"role": "assistant", "content": "草稿：TEST_FIXTURE"}, {"role": "user", "content": text}]
     assert await route_request(runtime, "owner", "turn", messages) == "operate"
-    assert "TEST_FIXTURE" in runtime.messages[1]["content"]
+    assert "TEST_FIXTURE" not in runtime.messages[1]["content"]
     instruction = task_instruction(messages, text)
     assert text in instruction and "TEST_FIXTURE" in instruction
     assert "不构成审批" in instruction and "不得重放" in instruction
@@ -89,3 +89,21 @@ def test_lookup_completion_contains_observed_source_time_not_purchase_receipt():
     assert "虚构价格" not in empty["content"] and "未创建订单" in empty["content"]
     with pytest.raises(ProviderFailure):
         lookup_result("fixture", {"url": "http://127.0.0.1", "nodes": []}, "")
+
+
+async def test_assistant_denials_cannot_enter_browser_intent_classifier():
+    query = "帮我打开小红书上网搜一篇关于特斯拉最近的新闻"
+    runtime = Runtime('{"mode":"lookup"}')
+    messages = [
+        {"role": "user", "content": "搜小红书"},
+        {"role": "assistant", "content": "无法打开小红书，普通聊天只有只读浏览器，不能输入。"},
+        {"role": "user", "content": query},
+    ]
+    assert await route_request(runtime, "owner", "turn", messages) == "lookup"
+    payload = json.loads(runtime.messages[1]["content"])
+    assert payload["latest_request"] == query
+    assert all(m["role"] == "user" for m in payload["recent"])
+    assert "无法打开" not in runtime.messages[1]["content"]
+    assert "无法打开" in task_instruction(
+        messages, query
+    )  # Draft context is separate, never an intent authority.

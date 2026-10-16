@@ -204,8 +204,10 @@ class MockProvider:
             value = json.loads(latest)
             query = value["recent"][-1]["content"]
             mode = "none"
-            if any(w in query for w in ("价格", "多少钱", "库存")) or (
-                any(w in query for w in ("淘宝", "京东", "商品")) and "搜" in query
+            if (
+                any(w in query for w in ("价格", "多少钱", "库存"))
+                or (any(w in query for w in ("淘宝", "京东", "商品")) and "搜" in query)
+                or ("打开" in query and "搜" in query and "小红书" in query)
             ):
                 mode = "lookup"
             elif any(w in query for w in ("发表", "发布", "发出去", "下单", "购买")) and not any(

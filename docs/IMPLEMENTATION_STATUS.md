@@ -507,3 +507,23 @@ prevent recording. Web has no new vibration dependency. Native gesture regressio
 signed iOS build, style/architecture and secrets/diff checks validate the change;
 actual tactile feel requires a physical-device check and system haptic support.
 The signed update was installed and launched on the paired iPhone (both exit 0).
+
+### 2026-10-17 · Route explicit searches despite prior assistant refusals
+
+The reported Xiaohongshu/Tesla request had a real Qwen route result of `none`,
+which let ordinary text generation repeat a capability denial. Intent routing now
+receives the explicit latest user request and bounded user history only. Assistant
+text remains available as untrusted task/draft data, outside intent classification.
+No pattern-based production routing fallback or approval bypass was introduced.
+
+Verification: `uv run --project services/adex-agent pytest services/adex-agent/tests
+-q` (63 passed); `uv run python scripts/test_stack.py
+tests/integration/test_browser_routing.py -q` (5 passed, isolated PG/Chromium/mock
+fixtures, including the exact reported request after a poisoned assistant reply);
+`make check-style`, secrets scan and diff checks passed. A live Qwen diagnostic
+using the actual reported conversation history returned `lookup` with the new
+routing input. This confirms routing, not merchant login/search completion.
+Agent restarted; all four readiness checks returned HTTP 200. No client bundle
+change was needed. Real Xiaohongshu login/risk verification remains
+BLOCKED_EXTERNAL until completed by the user; existing chat messages were not
+rewritten and no unknown external action was replayed.

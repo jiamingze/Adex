@@ -7,7 +7,11 @@ from test_reliability import client, db, wait
 
 @pytest.mark.parametrize(
     "query,mode",
-    [("到小红书上发表", "operate"), ("去京东看看这款手机多少钱", "lookup")],
+    [
+        ("到小红书上发表", "operate"),
+        ("去京东看看这款手机多少钱", "lookup"),
+        ("帮我打开小红书上网搜一篇关于特斯拉最近的新闻", "lookup"),
+    ],
 )
 def test_prefixless_chat_creates_browser_run_with_draft_context(
     client, db, query, mode
@@ -30,6 +34,12 @@ def test_prefixless_chat_creates_browser_run_with_draft_context(
             ).fetchone()
         )
     )
+    if "特斯拉" in query:
+        # Isolated failure-history fixture, never an update to a user's chat.
+        db.execute(
+            "UPDATE app.messages SET content=%s WHERE conversation_id=%s AND role='assistant'",
+            ("普通聊天只有只读浏览器，我无法打开小红书并在搜索框输入。", conv),
+        )
     client.post(
         f"/api/v1/conversations/{conv}/messages",
         json={

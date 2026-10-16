@@ -25,15 +25,25 @@ def candidate(text):
     )
 
 
-def route_messages(messages):
-    recent = [
+def dialogue_data(messages):
+    return [
         {"role": m["role"], "content": str(m.get("content", ""))[:12000]}
         for m in messages[-8:]
         if m.get("role") in ("user", "assistant")
     ]
+
+
+def route_messages(messages):
+    # Assistant refusals/capability claims are generated data, not an intent
+    # authority. Keep them for drafts, but never feed them to this classifier.
+    recent = [m for m in dialogue_data(messages) if m["role"] == "user"]
+    latest = recent[-1]["content"] if recent else ""
     return [
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": json.dumps({"recent": recent}, ensure_ascii=False)},
+        {
+            "role": "user",
+            "content": json.dumps({"latest_request": latest, "recent": recent}, ensure_ascii=False),
+        },
     ]
 
 
@@ -59,7 +69,7 @@ async def route_request(runtime, owner, turn, messages):
 def task_instruction(messages, latest):
     """Carry bounded draft context as data; never replay prior action/approval IDs."""
     entries = []
-    for m in reversed(json.loads(route_messages(messages)[1]["content"])["recent"][-4:]):
+    for m in reversed(dialogue_data(messages)[-4:]):
         entry = {"role": m["role"], "content": m["content"][:2500], "truncated": len(m["content"]) > 2500}
         if len(json.dumps([entry, *entries], ensure_ascii=False)) > 10000:
             break
