@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 /** Model proposes normalized facts; only App validates and commits under the live Turn fence. */
 @Service
 public class MemoryChatService {
+  private static final org.slf4j.Logger log =
+      org.slf4j.LoggerFactory.getLogger(MemoryChatService.class);
   private final Kernel k;
   private final MemoryService memory;
   private final ConversationStore chat;
@@ -101,6 +103,10 @@ public class MemoryChatService {
                     "model",
                     turn.getOrDefault("model", "")));
       } catch (Exception failure) {
+        log.warn(
+            "memory_plan_unavailable turn_id={} code={}",
+            id,
+            failure instanceof Kernel.Problem problem ? problem.code : "MEMORY_PLAN_UNAVAILABLE");
         // Never fall back to storing raw text or repeatedly dispatch an uncertain paid call.
         proposal =
             Map.of(
@@ -146,10 +152,11 @@ public class MemoryChatService {
                   turn.get("id"),
                   turn.get("owner_id"));
           var proposed = k.decode(String.valueOf(saved.get("proposal")));
+          // Best-effort background memory failures stay in the plan ledger and logs, not chat.
           String receipt =
               "learn".equals(proposed.get("mode"))
                   ? apply(turn, user, proposed, k.decode(String.valueOf(saved.get("input"))))
-                  : Boolean.TRUE.equals(proposed.get("unavailable")) ? "本次记忆整理暂时不可用，未更新长期记忆。" : "";
+                  : "";
           complete(turn, content + (receipt.isBlank() ? "" : "\n\n---\n\n" + receipt), cards);
         });
   }
