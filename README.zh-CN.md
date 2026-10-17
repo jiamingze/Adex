@@ -4,7 +4,7 @@
 
 **可自托管的个人 AI 助手：记住偏好、安排每天的事，把任务持续做下去。**
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [体验界面](#体验界面) · [安装](docs/zh-CN/installation.md) · [参与开发](CONTRIBUTING.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [体验界面](#体验界面) · [安装](docs/zh-CN/installation.md) · [参与开发](CONTRIBUTING.md) · [社区讨论](https://github.com/jiamingze/Adex/discussions)
 
 [![CI](https://github.com/jiamingze/Adex/actions/workflows/core.yml/badge.svg)](https://github.com/jiamingze/Adex/actions/workflows/core.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -132,3 +132,10 @@ uv run python scripts/check_secrets.py
 集成测试使用隔离数据库和明确标注的外部夹具，不使用个人 Key；真实供应商验证需自行选择并限制费用。请遵守 [社区规范](CODE_OF_CONDUCT.md)，通过 [SECURITY.md](SECURITY.md) 报告安全问题。
 
 [MIT 许可证](LICENSE)。独立项目，与 OpenAI、阿里云和 MiniMax 无隶属关系；名称仅表示适配，依赖和内容保留各自权利。
+
+
+## 一起完善 Adex
+
+[社区欢迎帖](https://github.com/jiamingze/Adex/discussions/1) · [安装问答](https://github.com/jiamingze/Adex/discussions/categories/q-a) · [可认领的入门任务](https://github.com/jiamingze/Adex/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
+
+如果 Adex 对你有帮助，欢迎点一颗 Star，让更多人发现它。也欢迎分享自己的使用场景、安装经验和作品；一个可复现的问题或聚焦的 PR 同样有价值。

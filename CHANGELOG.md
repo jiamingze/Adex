@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 2026-10-18 — Repository reliability and community
+
+- Fix a shared-suite reminder test that counted unrelated model invocations; assert no model invocation for the specific reminder Run, including redelivery.
+- Respect configured or Linux-native Java environments; retain the Homebrew Java 21 default where present.
+- Refresh immutable GitHub Action pins, add manual reruns, bounded job timeouts, concurrency cancellation and a secret scan.
+- Configure grouped Dependabot updates for Actions, npm, Maven, uv and Docker, plus categorized release notes.
+- Refresh the light product banner and social preview; connect bilingual READMEs to Discussions and scoped first-contribution issues.
+
+
 ### 2026-10-16 — Fresh-clone onboarding and project discovery
 
 - Fix `pnpm install` / CI failing on a missing private tunnel file: iOS bundling is now explicit (`pnpm --dir apps/ios bundle`), with actionable endpoint errors and regression tests.

@@ -117,3 +117,46 @@ is saved as a topic; the remaining candidate topics are follow-up suggestions,
 not claims of applied settings. No release or outside promotion was published.
 Traffic/referrer conversion is still unmeasured; repository improvements cannot
 establish the cause of low attention or promise more stars.
+
+
+## 2026-10-18 refresh
+
+A later full-suite CI failure was not a product reminder failure: the reminder
+integration test asserted a global zero invocation count after preceding tests had
+already made model calls. The assertion now scopes `agent.invocations` to the
+current reminder Run and still requires zero calls both before and after outbox
+redelivery. No failure is suppressed and no runtime quota is loosened.
+
+Local verification on the corrected code:
+
+- `uv run python scripts/test_stack.py`: **73 passed in 274.05s**, isolated database.
+- `uv run pytest tests/scripts -q`: **12 passed**.
+- `make check-style`: passed, including architecture checks.
+- `uv run ruff check services/adex-agent/src services/adex-tools/src packages/python-kernel/src`: passed.
+- `uv run python scripts/check_contract.py`: passed.
+- `uv run python scripts/check_secrets.py` and `git diff --check`: passed.
+
+Actions are pinned to verified upstream release commits. CI retains build, unit,
+contract, style, lint, integration and four Docker image gates; adds a secret scan,
+manual dispatch, timeouts and cancellation of superseded runs. Dependency update
+PRs are grouped and rate-limited; they do not auto-merge. `JAVA_HOME` supplied by
+contributors is respected instead of being overwritten with a macOS-only path.
+
+Applied through the authenticated repository UI: refreshed About, 13 relevant
+topics, enabled Discussions, a pinned [bilingual welcome](https://github.com/jiamingze/Adex/discussions/1),
+[first contribution issues](starter-tasks.md), branch-update suggestions and automatic
+merged-branch cleanup. A synthetic 1280×640 social preview is uploaded; its editable
+source is in `docs/assets`. README banners use the same light mountain/sun identity.
+No user content is used in these images. The homepage still points to the documented
+local UI preview, not a nonexistent hosted service.
+
+These changes improve discoverability and onboarding. GitHub traffic and conversion
+need measurement over time; no manufactured stars, followers or external messages
+are part of this work. Real merchant execution and external provider availability
+retain the limitations documented in IMPLEMENTATION_STATUS.md.
+
+
+Remote acceptance for the CI repair: [run 39049363749](https://github.com/jiamingze/Adex/actions/runs/39049363749)
+on `8ff0fd1` completed successfully: `verify` and all four image builds. Additional
+packaging checks parsed all changed GitHub YAML and verified 70 local README/starter
+link targets. The final packaging commit is checked by the same CI workflow.

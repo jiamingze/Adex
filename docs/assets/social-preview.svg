@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#e9f1eb"/></linearGradient></defs>
+<rect width="1280" height="640" fill="url(#bg)"/>
+<circle cx="1160" cy="60" r="250" fill="#deebe2"/>
+<text x="76" y="78" font-family="Arial,sans-serif" font-size="19" letter-spacing="3" fill="#567265">OPEN SOURCE · WEB + iOS</text>
+<g transform="translate(76 123)"><rect width="106" height="106" rx="28" fill="#fff" stroke="#d9e3dd"/><circle cx="70" cy="31" r="14" fill="#f2bf63"/><path d="M12 83 46 38 65 62 78 49 96 83Z" fill="#2c5b50"/><path d="M48 91C75 76 30 74 57 57" fill="none" stroke="#f7eedb" stroke-width="9"/></g>
+<text x="208" y="211" font-family="Arial,sans-serif" font-weight="700" font-size="100" letter-spacing="-4" fill="#18372d">Adex</text>
+<text x="76" y="311" font-family="Arial,sans-serif" font-weight="700" font-size="44" fill="#203d33">A personal assistant</text>
+<text x="76" y="367" font-family="Arial,sans-serif" font-weight="700" font-size="44" fill="#203d33">that follows through.</text>
+<g font-family="Arial,sans-serif" font-size="18" fill="#295343">
+<rect x="76" y="408" width="146" height="46" rx="23" fill="#e4eee7"/><text x="100" y="438">Multi-user</text>
+<rect x="234" y="408" width="190" height="46" rx="23" fill="#e4eee7"/><text x="255" y="438">Editable memory</text>
+<rect x="436" y="408" width="164" height="46" rx="23" fill="#e4eee7"/><text x="456" y="438">Durable tasks</text></g>
+<g transform="translate(792 188)" font-family="Arial,sans-serif">
+<rect width="384" height="274" rx="25" fill="#fff" stroke="#d5e1d8"/>
+<text x="28" y="47" font-weight="700" font-size="24" fill="#244236">Your daily workspace</text>
+<path d="M28 70H356" stroke="#e5ebe6"/>
+<circle cx="40" cy="105" r="8" fill="#77a88b"/><text x="65" y="112" font-size="20" fill="#3b5347">Today, chat, tasks and notes</text>
+<circle cx="40" cy="157" r="8" fill="#e3b66d"/><text x="65" y="164" font-size="20" fill="#3b5347">Remember what matters</text>
+<circle cx="40" cy="209" r="8" fill="#6d9aa5"/><text x="65" y="216" font-size="20" fill="#3b5347">Review before external actions</text></g>
+<path d="M76 516H1204" stroke="#ceded2"/>
+<text x="76" y="565" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#274b3b">github.com/jiamingze/Adex</text>
+<text x="1204" y="565" text-anchor="end" font-family="Arial,sans-serif" font-size="20" fill="#567265">Self-hosted · Java + Python + React</text>
+</svg>

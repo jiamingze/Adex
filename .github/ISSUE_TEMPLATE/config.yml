@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Questions and community / 问答与交流
+    url: https://github.com/jiamingze/Adex/discussions
+    about: Ask installation questions, suggest ideas, and share your experiments.
   - name: Setup and UI preview / 安装与界面预览
     url: https://github.com/jiamingze/Adex#try-the-interface
     about: Start with the synthetic UI demo or installation guide.

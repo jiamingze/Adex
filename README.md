@@ -4,7 +4,7 @@
 
 **Your self-hosted personal AI assistant — remember context, organize your day, and follow through.**
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Try the UI](#try-the-interface) · [Install](docs/en/installation.md) · [Contribute](CONTRIBUTING.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Try the UI](#try-the-interface) · [Install](docs/en/installation.md) · [Contribute](CONTRIBUTING.md) · [Community](https://github.com/jiamingze/Adex/discussions)
 
 [![CI](https://github.com/jiamingze/Adex/actions/workflows/core.yml/badge.svg)](https://github.com/jiamingze/Adex/actions/workflows/core.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -120,6 +120,8 @@ Services can deploy independently and coordinate across instances. Included Comp
 
 ## Contribute
 
+[Join the community](https://github.com/jiamingze/Adex/discussions/1), [ask a question](https://github.com/jiamingze/Adex/discussions/categories/q-a), or [pick a good first issue](https://github.com/jiamingze/Adex/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22).
+
 Small, focused contributions are welcome: documentation, accessibility, reproducible mobile bugs and provider fixtures. [Choose a starter task](docs/project/starter-tasks.md), read [CONTRIBUTING.md](CONTRIBUTING.md), or [open an issue](https://github.com/jiamingze/Adex/issues/new/choose). English and Chinese are welcome; no paid model account or iPhone is needed for every contribution.
 
 ```bash
@@ -128,6 +130,8 @@ make check-style
 make test-integration
 uv run python scripts/check_secrets.py
 ```
+
+If Adex is useful to you, a star helps others find it. Share what you build in [Show and tell](https://github.com/jiamingze/Adex/discussions/categories/show-and-tell); reproducible bug reports and focused PRs are just as welcome.
 
 Integration tests use isolated databases and explicitly labelled external fixtures, not personal keys. Keep real provider tests opt-in and cost-bounded. Read the [community guidelines](CODE_OF_CONDUCT.md) and report vulnerabilities via [SECURITY.md](SECURITY.md).
 

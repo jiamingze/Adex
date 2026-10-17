@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320"><rect width="1200" height="320" rx="24" fill="#101318"/><circle cx="1050" cy="60" r="220" fill="#17352e"/><circle cx="1050" cy="60" r="140" fill="#204c40"/><path d="M90 160 122 94 155 160 122 226Z" fill="#90e2bd"/><path d="M110 160h80" stroke="#e5fff3" stroke-width="8" stroke-linecap="round"/><text x="225" y="164" font-family="Arial,sans-serif" font-size="80" font-weight="700" fill="#f4f5f7">Adex</text><text x="229" y="217" font-family="Arial,sans-serif" font-size="25" fill="#b0bec1">Multi-user. Memory. Durable agents.</text><text x="930" y="274" font-family="Arial,sans-serif" font-size="18" fill="#a5c9b9">WEB + iOS</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+<rect width="1200" height="300" rx="24" fill="#f1f6f2"/>
+<circle cx="1100" cy="0" r="220" fill="#dfebe2"/>
+<g transform="translate(64 77)"><rect width="126" height="126" rx="30" fill="#fff" stroke="#d9e3dd"/><circle cx="84" cy="36" r="17" fill="#f2bf63"/><path d="M14 100 55 45 78 74 94 59 114 100Z" fill="#2c5b50"/><path d="M57 110C90 91 36 89 69 68" fill="none" stroke="#f7eedb" stroke-width="11"/></g>
+<text x="224" y="156" font-family="Arial,sans-serif" font-size="82" font-weight="700" fill="#18372d">Adex</text>
+<text x="229" y="205" font-family="Arial,sans-serif" font-size="25" fill="#476557">Your self-hosted personal AI assistant</text>
+<text x="1135" y="113" text-anchor="end" font-family="Arial,sans-serif" font-size="21" font-weight="700" fill="#2c5b50">MULTI-USER · MEMORY · DURABLE TASKS</text>
+<text x="1135" y="153" text-anchor="end" font-family="Arial,sans-serif" font-size="20" fill="#567265">Web + iOS / Java + Python + React</text>
+<text x="1135" y="230" text-anchor="end" font-family="Arial,sans-serif" font-size="17" fill="#567265">Let intelligence become part of everyday life.</text>
+</svg>

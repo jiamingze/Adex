@@ -8,9 +8,9 @@ with your scope to avoid duplicate work. Read [CONTRIBUTING](../../CONTRIBUTING.
 
 | Task / 任务 | Start here / 入口 | Done when / 验收 |
 | --- | --- | --- |
-| Fresh-install feedback on Ubuntu / Ubuntu 安装复现 | [Installation](../en/installation.md), `make demo-ui`, `make setup` | Record OS/tool versions and a sanitized failing command, or improve a verified instruction in both languages. No real keys or `.env`. |
+| [Fresh-install feedback on Ubuntu / Ubuntu 安装复现](https://github.com/jiamingze/Adex/issues/3) | [Installation](../en/installation.md), `make demo-ui`, `make setup` | Record OS/tool versions and a sanitized failing command, or improve a verified instruction in both languages. No real keys or `.env`. |
 | Keyboard accessibility in the demo / 演示页键盘可访问性 | `apps/web/src`, `make demo-ui` | Reproduce one focus-order/label/keyboard issue, submit a focused fix and before/after keyboard steps. Do not disable text selection globally. |
-| Document one chat-to-note code path / 聊天转笔记代码导读 | `apps/web/src/ReplyNoteAction.tsx`, App note application service, Agent note composition | One short bilingual walkthrough linking actual symbols and explaining ownership, retries and failure behavior. Validate all paths and links. |
+| [Document one chat-to-note code path / 聊天转笔记代码导读](https://github.com/jiamingze/Adex/issues/2) | `apps/web/src/ReplyNoteAction.tsx`, App note application service, Agent note composition | One short bilingual walkthrough linking actual symbols and explaining ownership, retries and failure behavior. Validate all paths and links. |
 
 Use `mock` providers or synthetic UI data for first contributions. Mock responses do
 not prove real website/model compatibility. Do not change signing, personal accounts,
