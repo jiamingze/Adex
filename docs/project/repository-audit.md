@@ -160,3 +160,10 @@ Remote acceptance for the CI repair: [run 39049363749](https://github.com/jiamin
 on `8ff0fd1` completed successfully: `verify` and all four image builds. Additional
 packaging checks parsed all changed GitHub YAML and verified 70 local README/starter
 link targets. The final packaging commit is checked by the same CI workflow.
+
+
+Security settings verified in GitHub: private vulnerability reporting, dependency
+graph, Dependabot alerts, Dependabot security updates and grouped security updates
+are enabled. Existing secret scanning and push protection remain enabled. No
+credentials, wider contributor permissions or automatic dependency merges were
+created. See [SECURITY.md](../../SECURITY.md) for the private reporting entry point.

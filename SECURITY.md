@@ -4,7 +4,7 @@ Adex is early-stage software. There are no supported stable release branches yet
 
 ## Reporting
 
-Do not publish credentials, exploit payloads containing private data, or sensitive logs in a public issue. Use the repository's Security → Report a vulnerability feature if enabled. If unavailable, open a minimal issue requesting a private reporting channel without disclosing the vulnerability. No private-reporting response SLA is promised.
+Do not publish credentials, exploit payloads containing private data, or sensitive logs in a public issue. Use [private vulnerability reporting](https://github.com/jiamingze/Adex/security/advisories/new) (Security → Report a vulnerability), enabled for this repository. If temporarily unavailable, open a minimal issue requesting a private reporting channel without disclosing the vulnerability. No private-reporting response SLA is promised.
 
 ## Deployment checklist
 
