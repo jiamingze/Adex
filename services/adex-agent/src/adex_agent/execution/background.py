@@ -66,7 +66,7 @@ class BackgroundWorker:
             elif run.get("kind") == "BROWSER":
                 from adex_agent.browser.workflow import BrowserWorkflow
 
-                result = await BrowserWorkflow(self).run(run, context)
+                result = await BrowserWorkflow(self).run(run, context, saved)
                 if result["phase"] == "browser_waiting":
                     ref = await self.checkpoints.save_checkpoint(
                         run, f"browser-wait:{run['epoch']}", result, revision

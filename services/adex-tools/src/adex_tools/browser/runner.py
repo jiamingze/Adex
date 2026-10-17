@@ -9,13 +9,24 @@ import asyncio
 import base64
 import hashlib
 import json
+import os
 import re
 import sys
 from uuid import uuid4
 from urllib.parse import urlsplit
-from adex_tools.browser.policy import SECRET, CRITICAL, request_digest, request_preview, receipt_id
+from adex_tools.browser.policy import (
+    SECRET,
+    CRITICAL,
+    request_digest,
+    request_preview,
+    receipt_id,
+    public_source_url,
+    same_read_site,
+    unsolicited_telemetry,
+)
 from adex_tools.runners.browser_policy import admitted_hosts, allowed_url, resolve_public_hosts
 from adex_tools.runners.browser_proxy import BrowserEgress
+from adex_tools.runners.browser_config import browser_channel
 
 
 class Broker:
@@ -36,6 +47,7 @@ class Broker:
         self.tabs = {}
         self.requests = 0
         self.gesture = ""
+        self.network_failures = []
 
     def safe(self, value):
         text = str(value)[:16000]
@@ -60,7 +72,7 @@ class Broker:
 
     async def forward(self, route):
         if self.test_fixture:
-            from adex_tools.browser.fixture import HTML, LOGIN_HTML
+            from adex_tools.browser.fixture import HTML, LOGIN_HTML, FEED_HTML
 
             if (
                 route.request.method == "GET"
@@ -98,6 +110,8 @@ class Broker:
                     if urlsplit(route.request.url).path == "/fixture-login-frame"
                     else LOGIN_HTML
                     if urlsplit(route.request.url).path == "/fixture-login"
+                    else FEED_HTML
+                    if urlsplit(route.request.url).path == "/fixture-feed"
                     else HTML
                 ),
             )
@@ -138,10 +152,26 @@ class Broker:
             and urlsplit(request.url).hostname != urlsplit(self.page.url).hostname
         ):
             return await route.abort()
-        new_domain = urlsplit(request.url).hostname not in self.read_hosts and request.resource_type not in (
-            "image",
-            "stylesheet",
-            "script",
+        if self.mode == "AGENT" and unsolicited_telemetry(
+            request.url, request.resource_type, request.is_navigation_request()
+        ):
+            return await route.abort()
+        # Same-site read-only bootstrap APIs are covered by the requested website.
+        # New sites, navigations and every write still pass the existing approval gate.
+        same_site_read = (
+            request.method in ("GET", "HEAD")
+            and not request.is_navigation_request()
+            and same_read_site(urlsplit(request.url).hostname, self.read_hosts)
+        )
+        new_domain = (
+            not same_site_read
+            and urlsplit(request.url).hostname not in self.read_hosts
+            and request.resource_type
+            not in (
+                "image",
+                "stylesheet",
+                "script",
+            )
         )
         needs_approval = (
             new_domain
@@ -272,11 +302,13 @@ class Broker:
         )
         if urlsplit(body["url"]).hostname not in self.pinned:
             raise ValueError("BROWSER_DNS_BLOCKED")
-        self.proxy = await asyncio.start_server(BrowserEgress(self.pinned).handle, "127.0.0.1", 0, limit=8192)
+        self.egress = BrowserEgress(self.pinned)
+        self.proxy = await asyncio.start_server(self.egress.handle, "127.0.0.1", 0, limit=8192)
         port = self.proxy.sockets[0].getsockname()[1]
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(
             headless=True,
+            channel=browser_channel(),
             chromium_sandbox=True,
             proxy={"server": f"http://127.0.0.1:{port}", "bypass": "<-loopback>"},
             args=[
@@ -293,12 +325,27 @@ class Broker:
         )
         await self.context.route("**/*", self.intercept)
         await self.context.route_web_socket("**/*", lambda ws: ws.close())
+
+        def failed(request):
+            code = re.search(r"(?:net::)?ERR_[A-Z_]+", request.failure or "")
+            if code and len(self.network_failures) < 12:
+                self.network_failures.append(
+                    {
+                        "host": urlsplit(request.url).hostname
+                        if urlsplit(request.url).hostname in self.pinned
+                        else "unadmitted",
+                        "code": code.group(0),
+                    }
+                )
+
+        self.context.on("requestfailed", failed)
         self.context.on("response", lambda response: asyncio.create_task(self.response(response)))
         self.page = await self.context.new_page()
         self.watch(self.page)
         self.cdp = await self.context.new_cdp_session(self.page)
         self.context.on("page", lambda page: asyncio.create_task(self.activate(page)))
-        await self.page.goto(body["url"], wait_until="commit", timeout=12000)
+        response = await self.page.goto(body["url"], wait_until="commit", timeout=12000)
+        self.document_status = response.status if response else None
         try:
             await self.page.wait_for_load_state("domcontentloaded", timeout=2000)
         except Exception:
@@ -311,7 +358,7 @@ class Broker:
         def dialog_open(dialog):
             self.dialog = dialog
             self.dialog_id = str(uuid4())
-            self.dialog_url = urlsplit(page.url)._replace(query="", fragment="").geturl()
+            self.dialog_url = public_source_url(page.url)
 
         page.on("dialog", dialog_open)
 
@@ -351,7 +398,10 @@ class Broker:
             }
         tree = (await self.cdp.send("Accessibility.getFullAXTree"))["nodes"]
         nodes, handles = [], {}
-        for node in tree:
+        text_count, link_count, control_count = 0, 0, 0
+        # Feed-heavy pages often put their search/login controls at the end of DOM.
+        # Budget text and links separately; do not truncate before reaching controls.
+        for node in tree[:6000]:
             if node.get("ignored"):
                 continue
             role = node.get("role", {}).get("value", "")
@@ -374,6 +424,18 @@ class Broker:
                     "slider",
                 )
             ) and backend:
+                is_priority = role in ("textbox", "searchbox", "combobox") or bool(
+                    re.search(r"搜索|查询|登录|sign.?in|log.?in|search", name, re.I)
+                )
+                if (
+                    control_count >= 150
+                    or (control_count >= 120 and not is_priority)
+                    or (role == "link" and link_count >= 60 and not is_priority)
+                ):
+                    continue
+                control_count += 1
+                if role == "link":
+                    link_count += 1
                 described = (await self.cdp.send("DOM.describeNode", {"backendNodeId": backend, "depth": 0}))[
                     "node"
                 ]
@@ -430,10 +492,9 @@ class Broker:
                         "value": "[REDACTED]" if protected else self.safe(current_value)[:5000],
                     }
                 )
-            elif role in ("StaticText", "heading") and name:
+            elif role in ("StaticText", "heading") and name and text_count < 100:
                 nodes.append({"role": role, "name": name})
-            if len(nodes) >= 250:
-                break
+                text_count += 1
         revision = hashlib.sha256(
             json.dumps({"nodes": nodes, "url": self.page.url}, sort_keys=True).encode()
         ).hexdigest()[:24]
@@ -443,7 +504,7 @@ class Broker:
             self.pending.setdefault("observation_id", revision)
             self.pending.setdefault(
                 "before",
-                {"url": urlsplit(self.page.url)._replace(query="", fragment="").geturl(), "nodes": nodes},
+                {"url": public_source_url(self.page.url), "nodes": nodes},
             )
             pending = {
                 k: v
@@ -482,7 +543,7 @@ class Broker:
             }
             break
         result = {
-            "url": urlsplit(self.page.url)._replace(query="", fragment="").geturl(),
+            "url": public_source_url(self.page.url),
             "title": self.safe(await self.page.title()),
             "observation_id": revision,
             "nodes": nodes,
@@ -491,6 +552,14 @@ class Broker:
             else None,
             "pending": pending,
             "receipt": self.last_receipt,
+            "network": {
+                "document_status": getattr(self, "document_status", None),
+                "route": "configured_loopback_proxy"
+                if os.getenv("ADEX_BROWSER_UPSTREAM_PROXY")
+                else "direct_pinned",
+                "channel": browser_channel(),
+                "failures": list(self.network_failures),
+            },
             "provider": "TEST_FIXTURE" if self.test_fixture else "chromium",
             "mode": self.mode,
             "read_hosts": sorted(self.read_hosts),
@@ -503,7 +572,7 @@ class Broker:
         result["tabs"] = [
             {
                 "id": key,
-                "url": urlsplit(page.url)._replace(query="", fragment="").geturl(),
+                "url": public_source_url(page.url),
                 "active": page == self.page,
             }
             for key, page in list(self.tabs.items())
@@ -706,7 +775,7 @@ class Broker:
         self.critical = False
         self.gesture = ""
         target = self.handles.get(body.get("element_id", ""))
-        if action in ("click", "type", "select", "upload") and not (
+        if (action in ("click", "type", "select", "upload") or (action == "key" and not human)) and not (
             human and action == "type" and not body.get("element_id")
         ):
             if not target:
@@ -715,6 +784,13 @@ class Broker:
                 raise ValueError("BROWSER_LOGIN_REQUIRED")
             self.gesture = target["name"]
             self.critical = bool(CRITICAL.search(self.gesture))
+        if action == "key" and not human:
+            if (
+                body.get("text") != "Enter"
+                or target["role"] not in ("textbox", "searchbox", "combobox")
+                or not re.search(r"搜索|查询|关键词|search", target["name"], re.I)
+            ):
+                raise ValueError("BROWSER_SEARCH_KEY_NOT_ALLOWED")
         if human and action == "type":
             self.private_values.add(body.get("text", ""))
             if target and target.get("protected"):
@@ -736,6 +812,9 @@ class Broker:
                 await self.page.mouse.wheel(0, -500 if body.get("text") == "up" else 500)
             elif action == "type" and human and not body.get("element_id"):
                 await self.page.keyboard.insert_text(body.get("text", ""))
+            elif action == "key" and not human:
+                await self.cdp.send("DOM.focus", {"backendNodeId": target["backend"]})
+                await self.page.keyboard.press("Enter")
             elif action == "key" and human:
                 if body.get("text") not in ("Enter", "Tab", "Backspace", "Escape", "ArrowDown", "ArrowUp"):
                     raise ValueError("BROWSER_KEY_NOT_ALLOWED")
@@ -796,12 +875,26 @@ async def main():
             first = False
         except Exception as error:
             code = str(error)
-            result = {"error": code if re.fullmatch("[A-Z_]{3,80}", code) else "BROWSER_OPERATION_FAILED"}
+            network = re.search(r"net::(ERR_[A-Z_]+)", code)
+            safe_code = (
+                code
+                if re.fullmatch("[A-Z_]{3,80}", code)
+                else ("BROWSER_" + network[1])
+                if network
+                else "BROWSER_NAVIGATION_TIMEOUT"
+                if type(error).__name__ == "TimeoutError"
+                else "BROWSER_OPERATION_FAILED"
+            )
+            result = {"error": safe_code}
         print(json.dumps(result, ensure_ascii=False), flush=True)
     if hasattr(broker, "browser"):
         await broker.browser.close()
+    if hasattr(broker, "playwright"):
         await broker.playwright.stop()
+    if hasattr(broker, "proxy"):
         broker.proxy.close()
+        await broker.proxy.wait_closed()
+        await broker.egress.close()
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit, urljoin
 from adex_tools.runners.browser_policy import allowed_url, resolve_public_hosts
 from adex_tools.runners.browser_proxy import BrowserEgress
+from adex_tools.runners.browser_config import browser_channel
 
 
 def related_links(links, page_url, hosts, query):
@@ -53,6 +54,7 @@ async def run(body):
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(
                 headless=True,
+                channel=browser_channel(),
                 chromium_sandbox=True,
                 proxy={"server": f"http://127.0.0.1:{port}", "bypass": "<-loopback>"},
                 args=[
@@ -166,6 +168,7 @@ async def run(body):
                 await browser.close()
     finally:
         proxy.close()
+        await egress.close()
         await proxy.wait_closed()
 
 

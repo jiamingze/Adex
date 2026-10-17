@@ -147,6 +147,7 @@ async def test_approval_snapshot_change_never_releases_request():
         await broker.browser.close()
         await broker.playwright.stop()
         broker.proxy.close()
+        await broker.egress.close()
 
 
 def test_opaque_or_malformed_body_is_not_automatically_reviewable():
@@ -523,3 +524,62 @@ async def test_automatic_login_preparation_does_not_authorize_network_writes():
     )
     assert broker.human_authorized is False
     assert broker.human_until == 0
+
+
+async def test_agent_can_submit_search_by_enter_but_not_secret_or_arbitrary_keys():
+    from adex_tools.browser.process import BrowserProcess
+
+    actor = await BrowserProcess.start()
+    try:
+        value = await actor.call({"url": "https://example.com/fixture", "_test_fixture": True})
+        field = next(n for n in value["nodes"] if n.get("name") == "搜索商品" and n.get("id"))
+        value = await actor.call(
+            {
+                "action": "type",
+                "element_id": field["id"],
+                "text": "TEST_FIXTURE phone",
+                "observation_id": value["observation_id"],
+            }
+        )
+        value = await actor.call(
+            {
+                "action": "key",
+                "element_id": field["id"],
+                "text": "Enter",
+                "observation_id": value["observation_id"],
+            }
+        )
+        assert any("TEST_FIXTURE商品结果" in n.get("name", "") for n in value["nodes"])
+        with pytest.raises(Exception):
+            await actor.call(
+                {
+                    "action": "key",
+                    "element_id": field["id"],
+                    "text": "Control+L",
+                    "observation_id": value["observation_id"],
+                }
+            )
+        protected = next(n for n in value["nodes"] if n.get("name") == "密码" and n.get("id"))
+        with pytest.raises(Exception):
+            await actor.call(
+                {
+                    "action": "key",
+                    "element_id": protected["id"],
+                    "text": "Enter",
+                    "observation_id": value["observation_id"],
+                }
+            )
+    finally:
+        await actor.close()
+
+
+async def test_search_control_survives_large_feed_snapshot():
+    from adex_tools.browser.process import BrowserProcess
+
+    actor = await BrowserProcess.start()
+    try:
+        value = await actor.call({"url": "https://example.com/fixture-feed", "_test_fixture": True})
+        assert any(n.get("name") == "搜索商品" and n.get("id") for n in value["nodes"])
+        assert len([n for n in value["nodes"] if n.get("role") == "StaticText"]) <= 100
+    finally:
+        await actor.close()

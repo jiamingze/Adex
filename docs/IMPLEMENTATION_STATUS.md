@@ -706,3 +706,18 @@ and three-scheduler SIGKILL/fencing/checkpoint/outbox recovery: **9 passed in 41
 Both migrations were applied locally; App/Automation/Agent restarted, all four
 service readiness endpoints returned HTTP 200. Physical iPhone reminder display
 still depends on the user's notification settings, connectivity and server uptime.
+
+
+### 2026-10-17 browser reliability and chat scheduling
+
+Colloquial daily news delivery now reaches durable Automation schedules rather than
+plain model text. Exact 10-minute and daily 19:00 requests, deduplication and a
+one-minute result backfill passed isolated integration tests (4 passed). See
+[chat schedule verification](architecture/chat-schedule-delivery.md).
+
+Browser transport now supports an explicit trusted local proxy, full Chromium,
+bounded network diagnostics, search Enter and independent AX budgets. Multi-page
+research evidence survives the existing checkpoint/resume path. Browser fixture
+integration: 11 passed. Actual Xiaohongshu login and Taobao search remain
+**BLOCKED_EXTERNAL**; no real cross-merchant quote, publication or purchase is claimed.
+See [audit and real probe outcomes](architecture/browser-reliability-audit.md).

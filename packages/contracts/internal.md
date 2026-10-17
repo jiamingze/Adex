@@ -67,3 +67,24 @@ conversation, current important/TODO/deadline and time window before notificatio
 Obsolete deliveries are acknowledged without a visible message or notification.
 APNs dispatch independently rechecks current eligibility. Notification run_id and
 conversation_id continue to use the existing authenticated resume contract.
+
+
+### Browser research and transport reliability
+
+BrowserStep adds `key` only for `text: "Enter"` with a current, unprotected search
+textbox/searchbox/combobox handle. Arbitrary keys, JavaScript, model approval and
+credential input remain forbidden. The resulting network request still uses the
+existing approval/effect gate. Snapshot text/link/control budgets are independent,
+so long feeds do not hide late search and login controls.
+
+Read-only non-navigation GET/HEAD subresources may use the same registrable site
+as an explicitly authorized read host (bundled PSL including private suffixes).
+Every host still passes public DNS validation and IP pinning. Different sites,
+navigation to an ungranted host and mutating requests retain their approval rules.
+Unsolicited telemetry is denied, never granted as a side effect.
+
+Snapshots add bounded `network` diagnostics: route/channel/document_status/failures.
+Research results add `artifact.research_evidence`, at most ten observations with
+source URL/title/observation_id/observed_at/visible_text, persisted in the existing
+immutable checkpoint before the Automation reference commit. Evidence is untrusted
+page text, not a verified offer or a business execution receipt. No new migration.

@@ -32,7 +32,16 @@ async def _read_page(url, query="", max_pages=3):
     environment = {
         k: v
         for k, v in os.environ.items()
-        if k in ("PATH", "HOME", "TMPDIR", "LANG", "PLAYWRIGHT_BROWSERS_PATH")
+        if k
+        in (
+            "PATH",
+            "HOME",
+            "TMPDIR",
+            "LANG",
+            "PLAYWRIGHT_BROWSERS_PATH",
+            "ADEX_BROWSER_UPSTREAM_PROXY",
+            "ADEX_BROWSER_CHANNEL",
+        )
     }
     child = await asyncio.create_subprocess_exec(
         sys.executable,

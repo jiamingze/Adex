@@ -15,6 +15,7 @@ class BrowserProcess:
         self.lock = asyncio.Lock()
         self.last_used = time.monotonic()
         self.preview = {}
+        self.close_lock = asyncio.Lock()
 
     @classmethod
     async def start(cls):
@@ -28,6 +29,8 @@ class BrowserProcess:
                 "TMPDIR",
                 "LANG",
                 "PLAYWRIGHT_BROWSERS_PATH",
+                "ADEX_BROWSER_UPSTREAM_PROXY",
+                "ADEX_BROWSER_CHANNEL",
                 "ADEX_BROWSER_MODE",
                 "ADEX_BROWSER_ALLOWED_HOSTS",
             )
@@ -65,19 +68,33 @@ class BrowserProcess:
                 raise HTTPException(409, "BROWSER_SESSION_LOST") from None
 
     async def close(self):
-        if self.child.returncode is None:
-            try:
-                os.killpg(self.child.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-            try:
-                await asyncio.wait_for(self.child.wait(), 3)
-            except TimeoutError:
+        async with self.close_lock:
+            if self.child.returncode is None:
+                # Let Chromium/Playwright close their pipes before terminating the process.
+                # Abrupt SIGTERM alone leaves asyncio transports alive at loop teardown.
                 try:
-                    os.killpg(self.child.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                await self.child.wait()
+                    self.child.stdin.write(b'{"action":"close"}\n')
+                    await self.child.stdin.drain()
+                    await asyncio.wait_for(self.child.wait(), 3)
+                except (TimeoutError, OSError, ConnectionError):
+                    try:
+                        os.killpg(self.child.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        await asyncio.wait_for(self.child.wait(), 3)
+                    except TimeoutError:
+                        try:
+                            os.killpg(self.child.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        await self.child.wait()
+            self.child.stdin.close()
+            try:
+                await self.child.stdin.wait_closed()
+            except (OSError, ConnectionError):
+                pass
+            self.preview = {}
 
 
 class BrowserPool:

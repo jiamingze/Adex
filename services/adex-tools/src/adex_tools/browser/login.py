@@ -14,6 +14,15 @@ def access_block(view):
     text = "\n".join(
         n.get("name", "") for n in view.get("nodes", []) if n.get("role") in ("heading", "StaticText")
     )
+    status = (view.get("network") or {}).get("document_status")
+    if status in (403, 429) or re.search(
+        r"IP存在风险|检测到.{0,12}异常流量|访问过于频繁|操作太频繁", text, re.I
+    ):
+        return {
+            "code": "NETWORK_ACCESS_RESTRICTED",
+            "message": "网站拒绝当前访问或要求降低访问频率；尚未取得查询结果。",
+            "availability": "BLOCKED_EXTERNAL",
+        }
     if re.search(r"安全限制|访问受限|拒绝访问|access denied|access blocked", text, re.I) and re.search(
         r"IP.{0,12}(风险|封禁|blocked)|异常流量|网络环境|unusual traffic|network.{0,12}blocked", text, re.I
     ):

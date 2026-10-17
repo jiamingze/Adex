@@ -7,6 +7,7 @@ HTML = """<!doctype html><html><head><meta charset="utf-8"><title>TEST_FIXTURE B
 <h1>TEST_FIXTURE 本地浏览器演练</h1><p>这是隔离测试页面，不是真实发布或购物。</p>
 <label>标题<input id="title"></label><label>正文<textarea id="body"></textarea></label>
 <label>密码<input id="password" type="password"></label>
+<label>搜索商品<input id="search" onkeydown="if(event.key==='Enter'){document.getElementById('search-result').textContent='TEST_FIXTURE商品结果 256GB ¥1000'}"></label><p id="search-result"></p>
 <button id="publish">发布</button><div id="receipt" role="status"></div>
 <script>document.querySelector('#publish').onclick=async()=>{
  const result=await fetch('/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:document.querySelector('#title').value,content:document.querySelector('#body').value})});
@@ -24,3 +25,8 @@ LOGIN_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>TEST_FIX
  const result=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account:document.querySelector('#account').value,password})});
  if((await result.json()).authenticated) location.href='/fixture';
 };</script></body></html>"""
+
+
+FEED_HTML = HTML.replace(
+    "<label>搜索商品", "".join(f"<p>TEST_FIXTURE feed item {i}</p>" for i in range(350)) + "<label>搜索商品"
+)

@@ -1,5 +1,6 @@
 """Generic browser policy; no website-specific selectors or flow scripts."""
 
+from functools import lru_cache
 from email.parser import BytesParser
 from email.policy import default as email_policy
 import hashlib
@@ -32,7 +33,17 @@ def read_host_permission(payload):
 class BrowserStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: Literal[
-        "navigate", "click", "type", "select", "scroll", "back", "upload", "switch_tab", "handoff", "done"
+        "navigate",
+        "click",
+        "type",
+        "select",
+        "scroll",
+        "back",
+        "upload",
+        "switch_tab",
+        "handoff",
+        "done",
+        "key",
     ]
     element_id: str = Field(default="", max_length=100)
     text: str = Field(default="", max_length=16000)
@@ -223,3 +234,52 @@ def publication_metadata(pending, response, readback_url, receipt):
     if not result.get("permalink") and str(receipt) in unquote(urlsplit(readback_url).path):
         result.update(permalink=readback_url, permalink_source="observed_page", permalink_verified=True)
     return result
+
+
+def public_source_url(url):
+    """Retain non-secret product identity; do not publish auth/tracking/search parameters."""
+    from urllib.parse import urlencode
+
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        return ""
+    identity = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query)[:40]
+        if key.lower() in ("id", "sku", "sku_id", "item_id", "product_id", "variant", "variant_id")
+        and re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", value)
+    ]
+    return parsed._replace(query=urlencode(identity), fragment="").geturl()
+
+
+# Bundled PSL only: no network fetch or writable cache in the sandbox.
+# Include private suffixes so unrelated github.io/blogspot.com tenants never share a grant.
+@lru_cache(maxsize=2048)
+def read_site(host):
+    return _suffix_parser()(host or "").top_domain_under_public_suffix
+
+
+@lru_cache(maxsize=1)
+def _suffix_parser():
+    import tldextract
+
+    return tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True)
+
+
+def same_read_site(host, read_hosts):
+    site = read_site(host)
+    return bool(site) and any(read_site(allowed) == site for allowed in read_hosts)
+
+
+def unsolicited_telemetry(url, resource_type, navigation):
+    return (
+        not navigation
+        and resource_type in ("fetch", "xhr", "other", "ping")
+        and bool(
+            re.search(
+                r"/(?:analytics|telemetry|metrics|beacon|collect|tracking|apm|logs?|[^/]*_sdk)(?:/|$)",
+                urlsplit(url).path,
+                re.I,
+            )
+        )
+    )

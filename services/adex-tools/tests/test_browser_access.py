@@ -95,6 +95,7 @@ async def test_proxy_denies_redirect_destinations_without_dialing(monkeypatch, a
     finally:
         server.close()
         await server.wait_closed()
+        await egress.close()
 
 
 def test_related_links_are_bounded_same_host_and_not_action_urls():
