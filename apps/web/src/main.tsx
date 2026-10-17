@@ -674,7 +674,11 @@ function App() {
       setError(errorMessage(e));
     }
   }
-  if (!ready) return <div className="session-loading">正在打开 Adex…</div>;
+  if (!ready) return native ? (
+    <div className="native-launch" role="status" aria-label="正在打开 Adex，让智能，成为日常。">
+      <img src="/brand/adex-launch.png" alt="" />
+    </div>
+  ) : <div className="session-loading">正在打开 Adex…</div>;
   if (!user)
     return (
       <Login
@@ -696,7 +700,7 @@ function App() {
       <aside className={`sidebar ${mobile ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-icon">
-            <Sparkles size={21} />
+            <img src="/brand/adex-icon.png" alt="" width={30} height={30} />
           </div>
           <strong>
             Adex<span> /</span>

@@ -17,5 +17,17 @@ Live text should be separate from illustration for accessibility/localization.
 
 A winding ivory trail through muted blue/green mountains blends into the white
 canvas. The user-selected slogan is “让智能，成为日常。” (“Make intelligence part
-of everyday life.”). This version remains a design asset pending app integration.
+of everyday life.”). This version is the selected app launch artwork (integration details below).
 The original concept is retained for comparison.
+
+## Implemented iOS identity
+
+The mountain revision is now the iOS launch asset, fitted without cropping on a
+white canvas. Native session bootstrap displays the same artwork, followed by a
+180ms content reveal respecting Reduce Motion, with no artificial startup delay.
+The system launch storyboard itself is static. The new simplified mountain/path/
+sun icon is installed in the iOS asset catalog and used for Web favicon/sidebar.
+Launch text remains baked into the approved illustration; the bootstrap wrapper
+provides an accessible status label. Future translated variants need separate art.
+
+![Simplified app icon](assets/adex-icon-mountain.png)

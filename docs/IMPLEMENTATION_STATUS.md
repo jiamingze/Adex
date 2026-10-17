@@ -662,3 +662,19 @@ in 2.82s), secret scan and diff checks. Migration applied locally and App/Agent
 restarted. This server-side change works with the currently installed iOS client;
 no signing or native capability change is required. Fixture model responses are
 labelled and do not claim real semantic-provider acceptance.
+
+### 2026-10-17 · Mountain launch artwork and simplified app icon
+
+Selected second mountain/sunrise design is now the native launch storyboard and
+native session-loading artwork. Aspect-fit on white preserves the approved slogan
+“让智能，成为日常。” across screen ratios. A 180ms content reveal respects Reduce
+Motion and adds no artificial loading delay. The iOS system launch screen is static.
+A generated simplified mountain/trail/sun icon replaces the iOS app icon and Web
+favicon/sidebar mark. Icon checked at 1024×1024 without alpha. Source design assets
+and intent are documented in `docs/design/launch-screen.md`.
+
+Validation: Web/iOS TypeScript/Vite build, signed Xcode build, `make test-client`
+(21 passed), `make check-style` including architecture checks, secret scan and diff
+check passed. Physical device overwrite installation and launch both exited 0.
+Visual cold-launch acceptance on the physical screen remains user-verifiable;
+installation success alone is not a screenshot or animation timing measurement.
