@@ -44,3 +44,23 @@ def test_relative_schedule_is_one_shot_and_not_browser_lookup():
         assert draft["instruction"]
     assert relative_chat_draft("一分钟后") is None
     assert not schedule_intent("不要一分钟后提醒我")
+
+
+@pytest.mark.parametrize("text", ["每天晚上19点发我最新的新闻", "每天晚上7点发给我最新的新闻"])
+def test_daily_delivery_colloquial_request(text):
+    from adex_agent.routing.intent import schedule_intent
+    from adex_agent.routing.schedule import daily_chat_draft
+
+    assert schedule_intent(text)
+    draft = daily_chat_draft(text)
+    assert draft["kind"] == "DAILY"
+    assert draft["local_time"] == "19:00"
+
+
+def test_ten_minute_delivery_request():
+    from adex_agent.routing.intent import schedule_intent
+    from adex_agent.routing.schedule import relative_chat_draft
+
+    text = "10分钟后发我下最新的新闻"
+    assert schedule_intent(text)
+    assert relative_chat_draft(text)["delay_seconds"] == 600

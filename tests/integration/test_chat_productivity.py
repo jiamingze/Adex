@@ -131,3 +131,35 @@ def test_one_minute_chat_executes_and_backfills(client, db):
         ).fetchone()["n"]
         == 1
     )
+
+
+def test_colloquial_news_schedule_has_durable_receipt(client, db):
+    for text, kind in [
+        ("10分钟后发我下最新的新闻", "ONCE"),
+        ("每天晚上19点发我最新的新闻", "DAILY"),
+    ]:
+        conv, path, body, answer = chat(client, text)
+        assert "已设置" in answer["content"]
+        card = answer["cards"][0]["data"]
+        schedule = db.execute(
+            "SELECT * FROM automation.schedules WHERE id=%s", (card["schedule_id"],)
+        ).fetchone()
+        assert schedule["kind"] == kind and schedule["status"] == "ACTIVE"
+        assert str(schedule["origin_conversation_id"]) == conv
+        turn = db.execute(
+            "SELECT created_at FROM app.turns WHERE conversation_id=%s", (conv,)
+        ).fetchone()
+        if kind == "ONCE":
+            assert (
+                schedule["next_fire_at"] - turn["created_at"]
+            ).total_seconds() == 600
+        else:
+            assert str(schedule["local_time"]) == "19:00:00"
+        client.post(path, json=body).raise_for_status()
+        assert (
+            db.execute(
+                "SELECT count(*) AS n FROM automation.schedules WHERE origin_conversation_id=%s",
+                (conv,),
+            ).fetchone()["n"]
+            == 1
+        )
