@@ -50,3 +50,20 @@ commits. Management receipts commit atomically; learning commits only with a com
 normal answer. Existing public message/SSE contracts are unchanged. No raw-text fallback,
 keyword production router, new scheduler or model-authorized write.
 See [design and limits](../../docs/architecture/conversational-memory.md).
+
+### Important todo reminders
+
+App's durable `matrix.reminder` outbox bridge creates an Automation ONCE schedule
+with task_kind=MATRIX_REMINDER and task_request={matrix_reminder_id: UUID}.
+first_fire_at=max(reminder.created_at, due_at-10 minutes); late bridge retries may
+retain this past timestamp for catch-up. Only this internal template permits it.
+Normal public scheduling cannot supply task_kind/task_request. Automatic reminders
+are excluded from user automation listings and manual schedule quota accounting.
+
+The existing leased Agent worker checkpoints a deterministic result with artifact
+{matrix_reminder_id: UUID}; no model invocation is needed. Existing Automation
+completion/outbox delivery calls App result:attach. App revalidates owner,
+conversation, current important/TODO/deadline and time window before notification.
+Obsolete deliveries are acknowledged without a visible message or notification.
+APNs dispatch independently rechecks current eligibility. Notification run_id and
+conversation_id continue to use the existing authenticated resume contract.

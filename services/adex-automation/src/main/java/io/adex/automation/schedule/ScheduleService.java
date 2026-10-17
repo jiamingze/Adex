@@ -18,7 +18,7 @@ public class ScheduleService {
   public Object list(Map<String, Object> claims) {
     return Kernel.items(
         k.db.queryForList(
-            "SELECT * FROM schedules WHERE owner_id=? ORDER BY created_at DESC LIMIT 100",
+            "SELECT * FROM schedules WHERE owner_id=? AND task_kind<>'MATRIX_REMINDER' ORDER BY created_at DESC LIMIT 100",
             Kernel.uuid(claims.get("owner"))));
   }
 
@@ -41,12 +41,17 @@ public class ScheduleService {
     LocalTime time =
         kind.equals("DAILY") ? LocalTime.parse(Kernel.text(b, "local_time", 20)) : null;
     String taskKind = String.valueOf(b.getOrDefault("task_kind", "CHAT"));
-    if (!Set.of("CHAT", "CONNECTOR_SYNC").contains(taskKind))
+    if (!Set.of("CHAT", "CONNECTOR_SYNC", "MATRIX_REMINDER").contains(taskKind))
       throw Kernel.error(400, "INVALID_TASK_KIND");
     Object taskRequest = b.getOrDefault("task_request", Map.of());
     if (taskKind.equals("CONNECTOR_SYNC")
         && (!(taskRequest instanceof Map<?, ?> request) || request.get("connection_id") == null))
       throw Kernel.error(400, "INVALID_CONNECTOR_SCHEDULE");
+    if (taskKind.equals("MATRIX_REMINDER")
+        && (!kind.equals("ONCE")
+            || !(taskRequest instanceof Map<?, ?> reminder)
+            || Kernel.uuid(reminder.get("matrix_reminder_id")) == null))
+      throw Kernel.error(400, "INVALID_REMINDER_SCHEDULE");
     String hash = Kernel.hash(k.encode(new TreeMap<>(b)));
     return k.tx.execute(
         s -> {
@@ -66,13 +71,15 @@ public class ScheduleService {
           }
           Instant now =
               k.db.queryForObject("SELECT clock_timestamp()", Timestamp.class).toInstant();
-          if (first.isBefore(now.minusSeconds(5))) throw Kernel.error(400, "SCHEDULE_IN_PAST");
+          if (!taskKind.equals("MATRIX_REMINDER") && first.isBefore(now.minusSeconds(5)))
+            throw Kernel.error(400, "SCHEDULE_IN_PAST");
           if (k.db.queryForObject(
-                  "SELECT count(*) FROM schedules WHERE owner_id=? AND status IN"
-                      + " ('ACTIVE','PAUSED')",
-                  Integer.class,
-                  owner)
-              >= 100) throw Kernel.error(429, "SCHEDULE_LIMIT");
+                      "SELECT count(*) FROM schedules WHERE owner_id=? AND status IN"
+                          + " ('ACTIVE','PAUSED') AND task_kind<>'MATRIX_REMINDER'",
+                      Integer.class,
+                      owner)
+                  >= 100
+              && !taskKind.equals("MATRIX_REMINDER")) throw Kernel.error(429, "SCHEDULE_LIMIT");
           Instant next =
               kind.equals("DAILY") ? ScheduleTime.nextDaily(first.minusNanos(1), tz, time) : first;
           UUID id = Kernel.id();

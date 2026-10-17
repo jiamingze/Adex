@@ -51,6 +51,18 @@ class BackgroundWorker:
                     saved = cp["state"]
             if saved and saved.get("phase") == "result":
                 result = saved
+            elif run.get("kind") == "MATRIX_REMINDER":
+                # Deadline eligibility and visible content are revalidated by App at consumption.
+                result = {
+                    "schema_version": 1,
+                    "phase": "result",
+                    "content": "重要待办截止提醒",
+                    "artifact": {"matrix_reminder_id": run["request"]["matrix_reminder_id"]},
+                    "completed_steps": ["reminder"],
+                    "pending_effects": [],
+                    "usage": {},
+                    "provider": "deterministic",
+                }
             elif run.get("kind") == "BROWSER":
                 from adex_agent.browser.workflow import BrowserWorkflow
 

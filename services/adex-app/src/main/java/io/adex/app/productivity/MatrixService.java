@@ -11,10 +11,12 @@ import org.springframework.stereotype.Service;
 public class MatrixService {
   private final Kernel k;
   private final ConversationStore chat;
+  private final MatrixReminderService reminders;
 
-  public MatrixService(Kernel k, ConversationStore chat) {
+  public MatrixService(Kernel k, ConversationStore chat, MatrixReminderService reminders) {
     this.k = k;
     this.chat = chat;
+    this.reminders = reminders;
   }
 
   public Object list(UUID owner) {
@@ -25,6 +27,39 @@ public class MatrixService {
   }
 
   public Object save(UUID owner, UUID id, Map<String, Object> b) {
+    UUID linkedRun = b.get("run_id") == null ? null : Kernel.uuid(b.get("run_id"));
+    if (linkedRun != null)
+      k.call(
+          "automation", "run:read", owner, linkedRun, "GET", "/internal/runs/" + linkedRun, null);
+    return k.tx.execute(
+        tx -> {
+          // Match result consumption: conversation locks precede the todo row.
+          // Lock both old/new references on edits before FK checks on reminder insertion.
+          var conversations = new TreeSet<UUID>();
+          if (b.get("conversation_id") != null)
+            conversations.add(Kernel.uuid(b.get("conversation_id")));
+          if (id != null) {
+            for (var old :
+                k.db.queryForList(
+                    "SELECT conversation_id FROM matrix_tasks WHERE id=? AND owner_id=?",
+                    id,
+                    owner))
+              if (old.get("conversation_id") != null)
+                conversations.add(Kernel.uuid(old.get("conversation_id")));
+          }
+          for (UUID conversation : conversations)
+            k.row(
+                "SELECT id FROM conversations WHERE id=? AND owner_id=? FOR UPDATE",
+                conversation,
+                owner);
+          @SuppressWarnings("unchecked")
+          var saved = (Map<String, Object>) saveRow(owner, id, b);
+          reminders.enqueue(saved);
+          return saved;
+        });
+  }
+
+  private Object saveRow(UUID owner, UUID id, Map<String, Object> b) {
     String title = Kernel.text(b, "title", 200),
         status = String.valueOf(b.getOrDefault("status", "TODO"));
     if (!(b.get("important") instanceof Boolean)
@@ -43,8 +78,6 @@ public class MatrixService {
     UUID conv = b.get("conversation_id") == null ? null : Kernel.uuid(b.get("conversation_id"));
     UUID run = b.get("run_id") == null ? null : Kernel.uuid(b.get("run_id"));
     if (conv != null) chat.own(owner, conv);
-    if (run != null)
-      k.call("automation", "run:read", owner, run, "GET", "/internal/runs/" + run, null);
     if (id == null)
       return k.row(
           "INSERT INTO matrix_tasks(id,owner_id,title,important,urgent,due_at,status,run_id,conversation_id,description) VALUES(?,?,?,?,?,?,?,?,?,?) RETURNING *",

@@ -678,3 +678,31 @@ Validation: Web/iOS TypeScript/Vite build, signed Xcode build, `make test-client
 check passed. Physical device overwrite installation and launch both exited 0.
 Visual cold-launch acceptance on the physical screen remains user-verifiable;
 installation success alone is not a screenshot or animation timing measurement.
+
+### 2026-10-17 · Important todo deadline reminders
+
+App migration 022 adds immutable task/deadline reminder identities, an owner reminder
+inbox for manual todos without a source conversation, notification correlation and
+backfill of future important TODO items. Saving a task atomically records the
+reminder and existing App outbox entry. Automation migration 007 permits an internal
+MATRIX_REMINDER ONCE template; no second task scheduler or recovery system exists.
+The leased/checkpointed worker emits deterministic data without model invocation.
+Result consumption validates current owner, todo status, importance and deadline;
+APNs dispatch rechecks eligibility. Deadline changes, completion and deletion
+suppress obsolete reminders. Inside-ten-minute creation catches up immediately.
+Apple-accepted pushes cannot be recalled; existing quiet hours/notification opt-out
+remain authoritative. See `docs/architecture/todo-reminders.md` and internal contract.
+
+Validation: signed state is unchanged (server-only feature); Java App/Automation
+unit tests/package, Agent suite (66 passed), formatting/architecture checks,
+OpenAPI (93 operations), secrets and diff checks. Isolated real-PG scheduling,
+reminder delivery, APNs fixture acceptance, zero LLM calls, duplicate outbox,
+completed/rescheduled/deleted suppression and immediate catch-up: 4 passed in
+24.76s. APNs fixture acceptance is not physical-phone acceptance for this reminder.
+
+Final isolated regression after lock-order review: reminder suite, chat todo defaults,
+explicit-priority overrides, matrix ownership/revision, offline notification resume,
+and three-scheduler SIGKILL/fencing/checkpoint/outbox recovery: **9 passed in 41.07s**.
+Both migrations were applied locally; App/Automation/Agent restarted, all four
+service readiness endpoints returned HTTP 200. Physical iPhone reminder display
+still depends on the user's notification settings, connectivity and server uptime.

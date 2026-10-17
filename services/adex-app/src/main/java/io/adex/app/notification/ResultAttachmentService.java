@@ -80,6 +80,37 @@ public class ResultAttachmentService {
               == 0) return Map.of("ok", true, "deduplicated", true);
           if (conversation.get("deleted_at") != null)
             return Map.of("ok", true, "discarded", "CONVERSATION_DELETED");
+          if ("MATRIX_REMINDER".equals(b.get("kind"))) {
+            if (!(b.get("artifact") instanceof Map<?, ?> artifact))
+              throw Kernel.error(400, "INVALID_REMINDER");
+            var rows =
+                k.db.queryForList(
+                    "SELECT t.title,t.description,t.due_at,r.id FROM matrix_reminders r JOIN matrix_tasks t ON t.id=r.task_id AND t.owner_id=r.owner_id WHERE r.id=? AND r.owner_id=? AND r.conversation_id=? AND t.important AND t.status='TODO' AND t.due_at=r.due_at AND t.due_at>clock_timestamp() AND t.due_at<=clock_timestamp()+interval '10 minutes' FOR SHARE OF t",
+                    Kernel.uuid(artifact.get("matrix_reminder_id")),
+                    owner,
+                    conv);
+            if (rows.isEmpty()) return Map.of("ok", true, "discarded", "REMINDER_OBSOLETE");
+            var task = rows.getFirst();
+            var due =
+                ((java.sql.Timestamp) task.get("due_at"))
+                    .toInstant()
+                    .atZone(java.time.ZoneId.of("Asia/Shanghai"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm"));
+            String reminderText = "重要待办即将到期：" + task.get("title") + "\n截止时间：" + due + "（北京时间）";
+            chat.append(conv, "assistant", reminderText, dedupe);
+            k.db.update(
+                "INSERT INTO notifications(id,event_id,owner_id,conversation_id,run_id,title,body,importance,matrix_reminder_id) VALUES(?,?,?,?,?,?,?,?,?)",
+                Kernel.id(),
+                event,
+                owner,
+                conv,
+                Kernel.uuid(b.get("run_id")),
+                "重要待办即将到期",
+                reminderText,
+                100,
+                task.get("id"));
+            return Map.of("ok", true);
+          }
           if (((Number) u.get("memory_revision")).longValue()
               != Kernel.number(b, "memory_revision"))
             return Map.of("ok", true, "discarded", "MEMORY_REVISION_CHANGED");
