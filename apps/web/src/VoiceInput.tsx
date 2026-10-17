@@ -15,6 +15,9 @@ export function VoiceInput({
   inputRef?: RefObject<HTMLTextAreaElement | null>;
   hasText?: boolean;
 }) {
+  const onTextRef = useRef(onText);
+  onTextRef.current = onText;
+  const released = useRef<(() => void) | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [hint, setHint] = useState("");
   const [cancel, setCancel] = useState(false);
@@ -52,6 +55,8 @@ export function VoiceInput({
     return () => {
       mounted.current = false;
       clearTimeout(buttonTimer.current);
+      cancelled.current = true;
+      released.current?.();
       if (active.current) void stopSpeech();
     };
   }, []);
@@ -175,10 +180,13 @@ export function VoiceInput({
     )
       document.activeElement.blur();
     try {
+      const releaseGate = new Promise<void>((resolve) => { released.current = resolve; });
       const text = (await transcribe()).trim();
+      // Recognition may finish on silence before the finger lifts. Only release sends.
+      if (held.current) await releaseGate;
       if (mounted.current) {
         if (cancelled.current) setHint("已取消录音");
-        else if (text) onText(text);
+        else if (text) onTextRef.current(text);
         else setHint("没有听清，请长按重试");
       }
     } catch (error) {
@@ -207,6 +215,8 @@ export function VoiceInput({
   async function release() {
     if (!held.current) return;
     held.current = false;
+    released.current?.();
+    released.current = null;
     setPhase("processing");
     try {
       await stopSpeech();
@@ -222,7 +232,7 @@ export function VoiceInput({
           className={`voice-button ${phase} ${cancel ? "cancelling" : ""}`}
           aria-label={
             phase === "recording"
-              ? "正在录音，松开转为文字"
+              ? "正在录音，松开发送"
               : phase === "processing"
                 ? "录音已结束，正在转文字"
                 : "长按语音输入"
@@ -307,14 +317,14 @@ export function VoiceInput({
                   </div>
                   <strong>{cancel ? "松开取消" : "正在聆听"}</strong>
                   <span>
-                    {cancel ? "移回按钮继续录音" : "松开输入 · 上滑取消"}
+                    {cancel ? "移回按钮继续录音" : "松开发送 · 上滑取消"}
                   </span>
                 </>
               ) : (
                 <>
                   <LoaderCircle size={22} className="voice-spinner" />
                   <strong>录音已结束</strong>
-                  <span>正在转成文字…</span>
+                  <span>正在识别并发送…</span>
                 </>
               )}
             </div>

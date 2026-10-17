@@ -16,6 +16,8 @@ public class ChatWorker {
   final Kernel k;
   final ConversationStore chat;
   final MemoryChatService memoryChat;
+  final io.adex.app.productivity.MatrixService matrix;
+  final io.adex.app.integration.ChatScheduleService schedules;
   final Semaphore slots = new Semaphore(4);
   final ConcurrentHashMap<UUID, Map<String, Object>> active = new ConcurrentHashMap<>();
 
@@ -70,10 +72,17 @@ public class ChatWorker {
     }
   }
 
-  public ChatWorker(Kernel k, ConversationStore chat, MemoryChatService memoryChat) {
+  public ChatWorker(
+      Kernel k,
+      ConversationStore chat,
+      MemoryChatService memoryChat,
+      io.adex.app.productivity.MatrixService matrix,
+      io.adex.app.integration.ChatScheduleService schedules) {
     this.k = k;
     this.chat = chat;
     this.memoryChat = memoryChat;
+    this.matrix = matrix;
+    this.schedules = schedules;
   }
 
   @Scheduled(fixedDelay = 1000)
@@ -208,61 +217,25 @@ public class ChatWorker {
             emit(t, "正在创建定时任务", "turn.progress");
             if (Boolean.TRUE.equals(
                 k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest"))) {
-              finalContent = "Adex 支持定时任务。请先注册或登录，再发送这条请求，即可设置每天上午8点（北京时间）整理 SpaceX 最新消息。当前尚未创建任务。";
+              finalContent = "请先注册或登录，再发送这条请求以创建定时任务。当前尚未创建任务。";
             } else {
               if (!(e.get("draft") instanceof Map<?, ?> draft))
                 throw Kernel.error(400, "INVALID_SCHEDULE_KIND");
-              var request = new LinkedHashMap<String, Object>();
-              for (String field : List.of("title", "instruction", "kind", "timezone", "local_time"))
-                request.put(field, draft.get(field));
-              var zone = java.time.ZoneId.of(String.valueOf(request.get("timezone")));
-              var localTime = java.time.LocalTime.parse(String.valueOf(request.get("local_time")));
-              var created =
-                  k.db
-                      .queryForObject(
-                          "SELECT created_at FROM turns WHERE id=?", java.sql.Timestamp.class, id)
-                      .toInstant()
-                      .atZone(zone);
-              var first = created.toLocalDate().atTime(localTime).atZone(zone);
-              if (!first.isAfter(created)) first = first.plusDays(1);
-              request.put("first_fire_at", first.toInstant().toString());
-              request.put("origin_conversation_id", conv);
-              request.put("idempotency_key", "chat-schedule:" + id);
-              var schedule =
-                  k.call(
-                      "automation",
-                      "schedule:write",
-                      owner,
-                      null,
-                      "POST",
-                      "/internal/automations",
-                      request);
-              cards =
-                  List.of(
-                      Map.of(
-                          "type",
-                          "automation_status",
-                          "data",
-                          Map.of(
-                              "schedule_id",
-                              schedule.get("id"),
-                              "local_time",
-                              localTime.toString(),
-                              "timezone",
-                              zone.toString(),
-                              "status",
-                              schedule.get("status")),
-                          "actions",
-                          List.of("open_tasks")));
-              finalContent =
-                  "已设置每天 "
-                      + localTime
-                      + "（"
-                      + zone
-                      + "）执行："
-                      + request.get("instruction")
-                      + "。结果会回到当前对话，可在定时任务页暂停或取消。";
+              var receipt = schedules.create(owner, conv, id, draft);
+              cards = List.of(receipt.get("card"));
+              finalContent = String.valueOf(receipt.get("content"));
             }
+          }
+          if (type.equals("todo.requested")) {
+            if (Boolean.TRUE.equals(
+                k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest")))
+              throw Kernel.error(403, "SIGN_IN_REQUIRED");
+            if (!(e.get("draft") instanceof Map<?, ?>))
+              throw Kernel.error(400, "INVALID_MATRIX_TASK");
+            @SuppressWarnings("unchecked")
+            var draft = (Map<String, Object>) e.get("draft");
+            var saved = matrix.fromChat(owner, conv, t, draft);
+            finalContent = "已添加到你的待办：" + saved.get("title") + "。可在待办页查看和完成。";
           }
           if (type.equals("task.requested")) {
             emit(t, "正在创建任务", "turn.progress");

@@ -71,6 +71,43 @@ public class MatrixService {
     return rows.getFirst();
   }
 
+  /** Serialize against turn takeover/cancel; commit todo before issuing a success receipt. */
+  public Map<String, Object> fromChat(
+      UUID owner, UUID conv, Map<String, Object> turn, Map<String, Object> draft) {
+    return k.tx.execute(
+        tx -> {
+          // Match chat commit lock order: conversation, then turn, then local task.
+          // No LLM or remote call under these short transaction locks.
+          k.row(
+              "SELECT id FROM conversations WHERE id=? AND owner_id=? AND deleted_at IS NULL FOR UPDATE",
+              conv,
+              owner);
+          k.row(
+              "SELECT id FROM turns WHERE id=? AND owner_id=? AND epoch=? AND attempt_id=? AND status='RUNNING' AND lease_until>clock_timestamp() FOR UPDATE",
+              turn.get("id"),
+              owner,
+              turn.get("epoch"),
+              turn.get("attempt_id"));
+          var existing =
+              k.db.queryForList(
+                  "SELECT * FROM matrix_tasks WHERE source_turn_id=? AND owner_id=?",
+                  turn.get("id"),
+                  owner);
+          if (!existing.isEmpty()) return existing.getFirst();
+          var body = new LinkedHashMap<String, Object>();
+          for (String key : List.of("title", "important", "urgent", "due_at"))
+            body.put(key, draft.get(key));
+          body.put("conversation_id", conv);
+          @SuppressWarnings("unchecked")
+          var saved = (Map<String, Object>) save(owner, null, body);
+          k.db.update(
+              "UPDATE matrix_tasks SET source_turn_id=? WHERE id=?",
+              turn.get("id"),
+              saved.get("id"));
+          return saved;
+        });
+  }
+
   public Object delete(UUID owner, UUID id) {
     if (k.db.update("DELETE FROM matrix_tasks WHERE id=? AND owner_id=?", id, owner) != 1)
       throw Kernel.error(404, "NOT_FOUND");

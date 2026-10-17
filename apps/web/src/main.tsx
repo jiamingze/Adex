@@ -1,3 +1,4 @@
+import { matrixResource } from "./matrixResource";
 import { noteView } from "./notesApi";
 import { ReplyNoteAction } from "./ReplyNoteAction";
 import { useChatScroll } from "./useChatScroll";
@@ -566,6 +567,11 @@ function App() {
       return () => cancelAnimationFrame(frame);
     }
   }, [messages, deferredPartial, optimistic, page, current, loadedConversation]);
+  useEffect(() => {
+    // Chat actions may create todos server-side; refresh the shared projection
+    // when a reply finishes so Today/Todos do not retain the pre-action cache.
+    if (user && !guest && !busy) void matrixResource.load(true).catch(() => {});
+  }, [busy, user, guest]);
   async function newConversation() {
     try {
       const c = await api.createConversation("新对话");
@@ -643,8 +649,8 @@ function App() {
     } catch (e) {
       setBusy(false);
       setOptimistic(null);
-      if (typeof replacement !== "string")
-        setDraft((existing) => existing || text);
+      // Keep recognized speech as an editable draft if the network send fails.
+      setDraft((existing) => existing || text);
       setChatError(errorMessage(e));
     } finally {
       sending.current = false;
@@ -1299,7 +1305,10 @@ function App() {
                       surfaceRef={voiceSurface}
                       inputRef={composerInput}
                       hasText={draft.length > 0 || busy}
-                      onText={(text) => setDraft((d) => d + text)}
+                      onText={(text) => {
+                        if (busy || sending.current) setDraft((d) => d + text);
+                        else void send(text);
+                      }}
                     />
                     <span>Enter 发送</span>
                     <button

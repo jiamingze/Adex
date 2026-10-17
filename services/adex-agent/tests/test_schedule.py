@@ -26,3 +26,21 @@ def test_interval_cannot_bypass_minimum_frequency():
             first_fire_at="2026-10-11T00:00:00Z",
             interval_seconds=1,
         )
+
+
+def test_relative_schedule_is_one_shot_and_not_browser_lookup():
+    from adex_agent.routing.intent import schedule_intent
+    from adex_agent.routing.schedule import relative_chat_draft
+
+    for text, seconds in [
+        ("1分钟后给整理一条最新的新闻", 60),
+        ("十分钟后提醒我喝水", 600),
+        ("2小时后帮我汇总新闻", 7200),
+    ]:
+        assert schedule_intent(text)
+        draft = relative_chat_draft(text)
+        assert draft["kind"] == "ONCE"
+        assert draft["delay_seconds"] == seconds
+        assert draft["instruction"]
+    assert relative_chat_draft("一分钟后") is None
+    assert not schedule_intent("不要一分钟后提醒我")

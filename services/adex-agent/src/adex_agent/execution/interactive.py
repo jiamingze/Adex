@@ -20,12 +20,22 @@ class InteractiveTurnService:
             )
             import re
 
+            selected_runtime = copy.copy(self.runtime)
+            if body.model:
+                selected_runtime.provider_mode = "qwen" if body.model == "qwen3.8-max" else "minimax"
+                selected_runtime.provider = provider(selected_runtime.provider_mode)
+            from adex_agent.routing.productivity import todo_draft
+
+            todo = await todo_draft(selected_runtime, body.owner_id, body.invocation_key, latest)
+            if todo:
+                yield json.dumps({"type": "todo.requested", "draft": todo}, ensure_ascii=False) + "\n"
+                return
             from adex_agent.routing.intent import schedule_intent
 
             if schedule_intent(latest):
-                from adex_agent.routing.schedule import daily_chat_draft
+                from adex_agent.routing.schedule import daily_chat_draft, relative_chat_draft
 
-                draft = daily_chat_draft(latest)
+                draft = relative_chat_draft(latest) or daily_chat_draft(latest)
                 if draft:
                     yield (
                         json.dumps({"type": "schedule.requested", "draft": draft}, ensure_ascii=False) + "\n"
@@ -42,10 +52,6 @@ class InteractiveTurnService:
                         + "\n"
                     )
                 return
-            selected_runtime = copy.copy(self.runtime)
-            if body.model:
-                selected_runtime.provider_mode = "qwen" if body.model == "qwen3.8-max" else "minimax"
-                selected_runtime.provider = provider(selected_runtime.provider_mode)
             from adex_agent.routing.browser import route_request, task_instruction
 
             browser_mode = await route_request(

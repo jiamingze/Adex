@@ -88,3 +88,33 @@ def daily_chat_draft(text):
         "timezone": "Asia/Shanghai",
         "local_time": f"{hour:02d}:{minute:02d}",
     }
+
+
+def relative_chat_draft(text):
+    """Relative duration stays relative until App anchors it to durable turn time."""
+    import re
+
+    match = re.search(r"([一二三四五六七八九十两\d]+)\s*(分钟|小时|秒)\s*(?:之?后)", text)
+    if not match:
+        return None
+    raw = match[1]
+    digits = dict(zip("一二三四五六七八九", range(1, 10))) | {"两": 2}
+    if raw.isdigit():
+        count = int(raw)
+    elif "十" in raw:
+        a, b = raw.split("十", 1)
+        count = digits.get(a, 1) * 10 + digits.get(b, 0)
+    else:
+        count = digits.get(raw, 0)
+    seconds = count * {"分钟": 60, "小时": 3600, "秒": 1}[match[2]]
+    instruction = text[match.end() :].strip(" ，,：:")
+    instruction = re.sub(r"^(?:请|帮我|给我|给)\s*", "", instruction).strip()
+    if not 1 <= seconds <= 31536000 or not instruction:
+        return None
+    return {
+        "title": instruction[:80],
+        "instruction": instruction,
+        "kind": "ONCE",
+        "timezone": "Asia/Shanghai",
+        "delay_seconds": seconds,
+    }

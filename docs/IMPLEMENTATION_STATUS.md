@@ -608,3 +608,40 @@ Tap-feedback validation: `make test-client` (21 passed), `make check-style`
 `git diff --check` passed. This is client presentation feedback, with no schema,
 API, task-state or scheduling changes. Real scheduled-task/Run end-to-end device
 acceptance remains separate from the generic test notification.
+
+### 2026-10-17 · Chat todos, relative schedules and release-to-send voice
+
+App migration `020.sql` adds unique nullable chat source-turn identity to matrix
+items. A semantic Agent todo proposal is validated and persisted by MatrixService
+under conversation/turn fencing locks. Only the committed row produces success;
+replayed messages do not duplicate items. Shared Today/Todos projection refreshes
+when chat finishes. Existing manual CRUD and user isolation remain unchanged.
+
+Relative minute/hour/second requests now create ONCE schedules anchored to durable
+turn creation time. ChatScheduleService translates timing into the existing
+Automation API; DAILY remains supported. Receipt cards show the actual one-shot
+execution time instead of incorrectly labelling every schedule as daily. No new
+scheduler or recovery mechanism was introduced.
+
+`uv run python scripts/test_stack.py tests/integration/test_chat_productivity.py
+tests/integration/test_core.py::test_daily_schedule_from_chat_persists_once -q`:
+**3 passed in 67.23s**. Real isolated PostgreSQL and three scheduler processes
+verified todo persistence/replay, full one-minute elapsed trigger, leased Run
+execution, origin-conversation result backfill, one notification and one occurrence.
+Model/search/provider responses in this stack are explicit fixtures, not proof of
+real news quality or physical APNs display. Agent suite: **65 passed**.
+
+Voice release submits final text through the ordinary idempotent chat path;
+recognition finishing before release waits for release. Cancellation/unmount never
+submits; a failed network send preserves the recognized draft. Composer border,
+focus treatment and circular controls are refined. Signed iOS build, physical
+install and launch succeeded; microphone interaction still requires phone acceptance.
+
+Additional regression: isolated todo/replay, three-scheduler SIGKILL/fencing/
+checkpoint/outbox recovery, and matrix revision/cross-user isolation: **3 passed in
+10.63s**. `mvn -q -pl services/adex-app -am test package`, `make check-style`,
+`make test-client` (**21 passed**), Web/iOS TypeScript/Vite build, signed Xcode build,
+OpenAPI (**93 operations**), secrets and diff checks passed. The isolated stack
+claims and invokes the existing worker explicitly for deterministic execution;
+the local deployed Agent has its background claim loop enabled. Migration 020 was
+applied locally; App/Agent restarted and all four readiness checks returned 200.

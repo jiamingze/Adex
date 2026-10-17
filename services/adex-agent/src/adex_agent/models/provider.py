@@ -187,6 +187,28 @@ class MockProvider:
     async def stream(self, messages):
         latest = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         if any(
+            m.get("content", "").startswith("TODO_ROUTE_V1") for m in messages if m.get("role") == "system"
+        ):
+            # Explicit deterministic fixture, not evidence of live model semantics.
+            query = json.loads(latest)["request"]
+            todo = (
+                None
+                if any(w in query for w in ("不要", "如何", "怎么"))
+                else {
+                    "title": "TEST_FIXTURE 准备项目周报",
+                    "important": "重要" in query,
+                    "urgent": "紧急" in query,
+                    "due_at": None,
+                }
+            )
+            yield {
+                "type": "completed",
+                "content": json.dumps({"todo": todo}),
+                "usage": {},
+                "provider": "mock",
+            }
+            return
+        if any(
             m.get("role") == "system" and m.get("content", "").startswith("SEMANTIC_MEMORY_V1")
             for m in messages
         ):

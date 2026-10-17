@@ -1808,3 +1808,9 @@
 .note-convert-spinner { animation: note-convert-spin 1s linear infinite; }
 @keyframes note-convert-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .note-convert-spinner { animation: none; } }
+
+/* One contained composer; touch targets remain inside its border on iPhone. */
+.composer-wrap .composer{border:1px solid var(--border);box-shadow:0 2px 10px #00000006;border-radius:26px;transition:border-color .15s,box-shadow .15s}
+.composer-wrap .composer:focus-within{border-color:color-mix(in srgb,var(--text) 24%,var(--border));box-shadow:0 2px 12px #00000009}
+.composer .voice-button{border-radius:50%;background:var(--hover);width:44px;height:44px;display:grid;place-items:center}
+.composer .send-button{width:40px;height:40px;border-radius:50%}
