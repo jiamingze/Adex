@@ -31,7 +31,7 @@ def search_intent(text):
         re.search(
             r"(搜一下|搜下|搜索|帮我搜|查一下|查下|查询|浏览器|github|https?://|官网|这个网页|该页面|这个网站|继续浏览|\b(?:browse|visit|website)\b|(?:打开|访问|浏览).{0,30}(?:网站|网页))|"
             r"(近期|最近|最新|今天|明天|今年|现在|目前|实时|本周|本月).*(演唱会|新闻|天气|价格|发布|比赛|活动|消息|信息|动态|进展|航班|汇率|股价)|"
-            r"(新闻|天气|汇率|股价|票价|航班|现任|开放时间)|"
+            r"(新闻|天气|汇率|股价|票价|航班|现任|开放时间)|(?:附近|周边).*(?:酒店|餐厅|咖啡|医院|景点)|"
             r"\b(latest|recent|current|today|tomorrow|news|weather|stock price|exchange rate)\b",
             text,
             re.I,

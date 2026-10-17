@@ -66,6 +66,8 @@ public class PostgresConversationStore implements ConversationStore {
   public Map<String, Object> send(UUID owner, UUID conv, Map<String, Object> body) {
     UUID client = Kernel.uuid(body.get("client_message_id"));
     String content = Kernel.text(body, "content", 16000);
+    var location = io.adex.app.location.LocationContext.normalize(body.get("client_location"));
+    String locationHash = location == null ? "" : Kernel.hash(k.encode(location));
     boolean search = Boolean.TRUE.equals(body.get("web_search"));
     String model = body.get("model") == null ? "" : String.valueOf(body.get("model"));
     if (!Set.of("", "qwen3.8-max", "minimax").contains(model))
@@ -88,7 +90,8 @@ public class PostgresConversationStore implements ConversationStore {
           if (!exists.isEmpty()) {
             var m = exists.getFirst();
             var t = k.row("SELECT * FROM turns WHERE id=?", m.get("id"));
-            if (!model.equals(t.get("model"))
+            if (!locationHash.equals(t.get("location_hash"))
+                || !model.equals(t.get("model"))
                 || !content.equals(m.get("content"))
                 || !Boolean.valueOf(search)
                     .equals(Boolean.valueOf(String.valueOf(t.get("web_search")))))
@@ -143,12 +146,14 @@ public class PostgresConversationStore implements ConversationStore {
               conv,
               conv);
           k.db.update(
-              "INSERT INTO turns(id,conversation_id,owner_id,web_search,model) VALUES(?,?,?,?,?)",
+              "INSERT INTO turns(id,conversation_id,owner_id,web_search,model,client_location,location_hash) VALUES(?,?,?,?,?,?::jsonb,?)",
               id,
               conv,
               owner,
               search,
-              model);
+              model,
+              location == null ? null : k.encode(location),
+              locationHash);
           k.db.update(
               "INSERT INTO outbox(id,kind,resource_id) VALUES(?,'turn.dispatch',?)",
               Kernel.id(),
@@ -233,7 +238,7 @@ public class PostgresConversationStore implements ConversationStore {
             throw Kernel.error(409, "MEMORY_REVISION_CHANGED");
           int n =
               k.db.update(
-                  "UPDATE turns SET status='COMPLETED',lease_until=NULL WHERE id=? AND epoch=? AND"
+                  "UPDATE turns SET status='COMPLETED',client_location=NULL,lease_until=NULL WHERE id=? AND epoch=? AND"
                       + " attempt_id=? AND status='RUNNING' AND lease_until>clock_timestamp()",
                   turn.get("id"),
                   turn.get("epoch"),

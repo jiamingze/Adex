@@ -37,7 +37,7 @@ public class ChatWorker {
           k.tx.executeWithoutResult(
               tx -> {
                 if (k.db.update(
-                        "UPDATE turns SET status='FAILED',error_code='CHAT_TIMEOUT',lease_until=NULL WHERE id=? AND epoch=? AND attempt_id=? AND status='RUNNING'",
+                        "UPDATE turns SET status='FAILED',client_location=NULL,error_code='CHAT_TIMEOUT',lease_until=NULL WHERE id=? AND epoch=? AND attempt_id=? AND status='RUNNING'",
                         t.get("id"),
                         t.get("epoch"),
                         t.get("attempt_id"))
@@ -159,6 +159,8 @@ public class ChatWorker {
       if (memoryChat.handle(t)) return;
       long upto = k.db.queryForObject("SELECT seq FROM messages WHERE id=?", Long.class, id);
       var ctx = chat.context(owner, conv, upto);
+      if (t.get("client_location") != null)
+        ctx.put("client_location", k.decode(String.valueOf(t.get("client_location"))));
       t.put("memory_revision", ctx.get("memory_revision"));
       emit(t, "", "turn.started");
       var body =
@@ -295,7 +297,7 @@ public class ChatWorker {
         k.tx.executeWithoutResult(
             s -> {
               if (k.db.update(
-                      "UPDATE turns SET status='FAILED',error_code=?,lease_until=NULL WHERE id=?"
+                      "UPDATE turns SET status='FAILED',client_location=NULL,error_code=?,lease_until=NULL WHERE id=?"
                           + " AND epoch=? AND attempt_id=? AND status='RUNNING'",
                       code,
                       id,

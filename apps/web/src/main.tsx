@@ -1,3 +1,5 @@
+import { LocationConsent } from "./LocationConsent";
+import { currentLocation, locationRelevant, locationPreference, type ClientLocation, type LocationMode } from "./locationContext";
 import { matrixResource } from "./matrixResource";
 import { noteView } from "./notesApi";
 import { ReplyNoteAction } from "./ReplyNoteAction";
@@ -137,6 +139,8 @@ function chatFromUrl() {
 }
 function App() {
   const [assistantTab, setAssistantTab] = useState<AssistantTab>("suggestions");
+  const [locationPrompt, setLocationPrompt] = useState(false);
+  const locationChoice = useRef<((mode: LocationMode) => void) | null>(null);
   const [modelLabel, setModelLabel] = useState("");
   const [user, setUser] = useState("");
   const [guest, setGuest] = useState(false);
@@ -232,6 +236,7 @@ function App() {
     conv: string;
     model: string;
     files: string[];
+    clientLocation?: ClientLocation;
   } | null>(null);
   useEffect(() => {
     const handler = (event: Event) => {
@@ -601,6 +606,13 @@ function App() {
           model: chatModel,
           files,
         };
+        if (locationRelevant(content)) {
+          if (!locationPreference().mode) {
+            setLocationPrompt(true);
+            await new Promise<LocationMode>((resolve) => { locationChoice.current = resolve; });
+          }
+          logical.clientLocation = await currentLocation();
+        }
         pending.current = logical;
       }
       setOptimistic({
@@ -617,6 +629,7 @@ function App() {
         content,
         file_ids: files,
         model: chatModel,
+        client_location: logical.clientLocation,
       });
       setBusy(true);
       setOptimistic((previous) =>
@@ -676,6 +689,7 @@ function App() {
   const unread = notifications.filter((n) => !n.read).length;
   return (
     <div className="shell">
+      {locationPrompt && <LocationConsent onChoose={(mode) => { setLocationPrompt(false); locationChoice.current?.(mode); locationChoice.current = null; }} />}
       <aside className={`sidebar ${mobile ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-icon">

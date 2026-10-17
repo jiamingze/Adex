@@ -114,3 +114,20 @@ Web SpeechRecognition interim results use the same preview callback. The transcr
 is transient panel state; partial results do not send messages. Release sends the
 final transcript once; cancellation/unmount never sends it. No server API/schema
 or new database migration is introduced.
+
+
+### Consented current location
+
+`MessageInput.client_location` is optional and owner/turn-scoped. App normalizes
+source, label, observed_at and paired device coordinates (rounded to 0.01°). A
+location hash binds idempotent retries after terminal-turn metadata is erased.
+Migration app/023 adds this transient context and hash. Context is injected only
+after memory planning, never inherited by recurring/background runs. Agent skips
+Redis L1 storage, rejects observations older than 15 minutes/future/invalid values,
+and passes only city/area/source/time to model prompts, never coordinate numbers.
+
+`POST Tools /internal/weather/forecast` requires Agent `weather:read` and valid
+owner; input latitude/longitude, output daily dates/values/units/timezone/source_url/
+fetched_at. A 503 is absence of evidence, never a fabricated forecast. System
+permission and explicit client consent precede device positioning; manual city and
+no-location paths remain usable. See docs/architecture/location-context.md.

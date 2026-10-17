@@ -66,6 +66,7 @@ iOS uses the same React UI in Capacitor. [Build/sign on your Mac](docs/en/instal
 | “Every morning at 8, summarize the latest SpaceX news.” | Confirm a timezone-aware schedule; background results return to the chat. Live news requires Tavily. |
 | Plan today | Today combines priorities, meetings and task results; iPhone calendar needs permission, Google needs OAuth configuration. |
 | Important todo reminders | Important, unfinished todos notify ten minutes before the deadline through the existing durable scheduler and configured APNs channel; obsolete reminders are suppressed. |
+| “What is tomorrow’s weather? Any hotels nearby?” | Opt into approximate foreground location or set a manual city. Recommendations need sourced evidence; no background tracking. [Location design](docs/architecture/location-context.md) |
 | Save a useful reply | Turn it into a titled private note; search, edit and pin it later. |
 | Prepare a website post | Server-side browser, in-chat login/takeover, frozen-request approval and receipt reconciliation. Actual Xiaohongshu/Taobao compatibility is **BLOCKED_EXTERNAL** pending account acceptance. |
 | Create a diagram, image, original music or video | Editable diagrams and private artifacts; real media generation requires a configured, entitled provider. Mock outputs are labelled. |

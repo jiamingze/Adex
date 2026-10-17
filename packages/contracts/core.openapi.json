@@ -3698,6 +3698,9 @@
               "qwen3.8-max",
               "minimax"
             ]
+          },
+          "client_location": {
+            "$ref": "#/components/schemas/ClientLocation"
           }
         },
         "required": [
@@ -4268,6 +4271,42 @@
             "format": "date-time"
           }
         }
+      },
+      "ClientLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "device",
+              "manual"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "source",
+          "label",
+          "observed_at"
+        ]
       }
     }
   }

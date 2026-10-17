@@ -54,8 +54,16 @@ class InteractiveTurnService:
                 return
             from adex_agent.routing.browser import route_request, task_instruction
 
-            browser_mode = await route_request(
-                selected_runtime, body.owner_id, body.invocation_key, body.context["messages"]
+            from adex_agent.routing.location import relevant as location_relevant
+
+            # Ordinary local information queries retain their consented turn context;
+            # do not turn a nearby recommendation into an unrelated background browser task.
+            browser_mode = (
+                "none"
+                if location_relevant(latest) and not re.search(r"网站|官网|网页|浏览器|https?://", latest)
+                else await route_request(
+                    selected_runtime, body.owner_id, body.invocation_key, body.context["messages"]
+                )
             )
             if browser_mode != "none":
                 yield (

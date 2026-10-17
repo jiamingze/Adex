@@ -13,6 +13,7 @@ public class AdexBridge: CAPBridgeViewController {
         webView?.allowsBackForwardNavigationGestures = false
         bridge?.registerPluginInstance(SecureSessionPlugin())
         bridge?.registerPluginInstance(AdexSpeechPlugin())
+        bridge?.registerPluginInstance(AdexLocationPlugin())
         bridge?.registerPluginInstance(AdexPushPlugin())
         bridge?.registerPluginInstance(AdexCalendarPlugin())
     }

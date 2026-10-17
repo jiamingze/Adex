@@ -490,3 +490,18 @@ test("priority tags map all four quadrants and result excerpts stay bounded plai
   );
   assert.ok(resultExcerpt("x".repeat(500)).length <= 220);
 });
+
+
+import { freshLocation, locationRelevant } from "../../.local-data/client-tests/locationModel.js";
+test("location fixes expire and irrelevant chat never triggers positioning", () => {
+  const now = Date.parse("2026-10-18T00:00:00Z");
+  const fix = {source:"device",label:"TEST_FIXTURE",latitude:31.23,longitude:121.47,observed_at:new Date(now).toISOString()};
+  assert.equal(freshLocation(fix,now),true);
+  assert.equal(freshLocation(fix,now+300001),false);
+  assert.equal(freshLocation({...fix,latitude:NaN},now),false);
+  assert.equal(freshLocation({...fix,observed_at:"bad"},now),false);
+  assert.equal(freshLocation({...fix,observed_at:new Date(now+60001).toISOString()},now),false);
+  assert.equal(locationRelevant("明天的天气怎么样"),true);
+  assert.equal(locationRelevant("附近有什么五星级酒店"),true);
+  assert.equal(locationRelevant("帮我写一篇技术方案"),false);
+});

@@ -735,3 +735,17 @@ See [audit and real probe outcomes](architecture/browser-reliability-audit.md).
 - Validation: Agent 77 tests; Tools 99 full-suite tests plus 46 focused redirect/
   control tests; browser integration 11 tests; client 21 tests; signed iOS build.
   These checks do not constitute physical microphone or actual JD login acceptance.
+
+
+### 2026-10-18 consented location for local questions
+
+Web/iOS support on-demand approximate location or manual city, with a first-use
+consent dialog and Settings → 常规 → 当前位置. No background positioning. City/area
+grounds weather and nearby search; explicit user destinations take precedence.
+Temporary turn coordinates are erased at completion/cancellation/deletion, excluded
+from model prompts, Redis L1 and automatic long-term memory. Migration app/023.
+
+Local weather uses actual Open-Meteo forecast evidence; manual city uses sourced
+search. Provider failure cannot become invented weather. Hotel stars, price,
+availability and distance still require independent evidence. Location/permission
+fixtures are not actual device fixes. See architecture/location-context.md.

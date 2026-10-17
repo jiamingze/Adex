@@ -1094,6 +1094,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/push/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owner-scoped APNs setup and recent delivery status */
+        get: operations["getPushStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/push/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue an idempotent generic push test for an owned conversation */
+        post: operations["sendPushTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1116,6 +1150,7 @@ export interface components {
             file_ids?: string[];
             /** @enum {string} */
             model?: "qwen3.8-max" | "minimax";
+            client_location?: components["schemas"]["ClientLocation"];
         };
         MemoryInput: {
             content: string;
@@ -1280,6 +1315,15 @@ export interface components {
             revision: number;
             /** Format: date-time */
             updated_at: string;
+        };
+        ClientLocation: {
+            /** @enum {string} */
+            source: "device" | "manual";
+            label: string;
+            latitude?: number;
+            longitude?: number;
+            /** Format: date-time */
+            observed_at: string;
         };
     };
     responses: never;
@@ -5040,7 +5084,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    action: "takeover" | "observe" | "click" | "point" | "type" | "key" | "scroll" | "navigate" | "back" | "resume" | "remember" | "recover" | "switch_tab" | "dialog_accept" | "dialog_dismiss" | "secure_login";
+                    action: "takeover" | "observe" | "click" | "point" | "type" | "key" | "scroll" | "navigate" | "back" | "resume" | "remember" | "recover" | "switch_tab" | "dialog_accept" | "dialog_dismiss" | "secure_login" | "open_login_frame" | "recover_read";
                     element_id?: string;
                     text?: string;
                     url?: string;
@@ -5057,6 +5101,7 @@ export interface operations {
                     }[];
                     /** @default false */
                     remember_login?: boolean;
+                    frame_id?: string;
                 };
             };
         };
@@ -5354,6 +5399,58 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+        };
+    };
+    getPushStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Configuration and delivery metadata; excludes device tokens and credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sendPushTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    event_id: string;
+                    /** Format: uuid */
+                    conversation_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Durable notification identifier, not a device-delivery receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description One new test per 30 seconds per owner */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

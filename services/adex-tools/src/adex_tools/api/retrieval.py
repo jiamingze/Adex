@@ -109,3 +109,16 @@ async def browser_read(request: Request, body: BrowserRead):
     UUID(claims["owner"])
     await reserve_search(claims["owner"])
     return await read_page(body.url, body.query, body.max_pages)
+
+
+@router.post("/internal/weather/forecast")
+async def local_forecast(request: Request, body: WeatherRequest):
+    claims = core.require(request, "agent", "weather:read")
+    UUID(claims["owner"])
+    await reserve_search(claims["owner"])
+    from adex_tools.retrieval.weather import forecast_weather
+
+    try:
+        return await forecast_weather(body.latitude, body.longitude)
+    except Exception:
+        raise HTTPException(503, "WEATHER_FORECAST_UNAVAILABLE") from None
