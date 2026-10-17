@@ -114,3 +114,12 @@ def test_related_links_are_bounded_same_host_and_not_action_urls():
         "documentation",
     )
     assert [row["url"] for row in result] == ["https://example.com/docs"]
+
+
+def test_verification_page_is_external_block_not_empty_success_or_login_form():
+    from adex_tools.browser.login import access_block, login_form
+
+    view = {"url": "https://cfe.m.jd.com/verification/", "title": "京东验证", "nodes": []}
+    assert access_block(view)["code"] == "WEBSITE_VERIFICATION_REQUIRED"
+    assert access_block(view)["availability"] == "BLOCKED_EXTERNAL"
+    assert login_form(view) is None

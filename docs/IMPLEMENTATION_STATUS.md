@@ -721,3 +721,17 @@ research evidence survives the existing checkpoint/resume path. Browser fixture
 integration: 11 passed. Actual Xiaohongshu login and Taobao search remain
 **BLOCKED_EXTERNAL**; no real cross-merchant quote, publication or purchase is claimed.
 See [audit and real probe outcomes](architecture/browser-reliability-audit.md).
+
+
+### 2026-10-17 JD transport and live speech preview
+
+- Added opt-in pre-TLS direct fallback to the same pinned public IP when the local
+  proxy CONNECT fails; read-only same-site redirects are validated/pinned before
+  Chromium follows them. No retry of dispatched writes or new scheduler.
+- Real JD search reached 京东验证, not a verified offer. Price lookup remains
+  **BLOCKED_EXTERNAL** pending website verification; no price is fabricated.
+- Actual native/Web interim speech results now appear in the hold-to-talk panel;
+  session-bound events are removed after completion, release/cancel semantics retained.
+- Validation: Agent 77 tests; Tools 99 full-suite tests plus 46 focused redirect/
+  control tests; browser integration 11 tests; client 21 tests; signed iOS build.
+  These checks do not constitute physical microphone or actual JD login acceptance.

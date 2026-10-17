@@ -205,7 +205,7 @@ export function BrowserTaskCard({
       )}
       {blocked && (
         <div className="browser-chat-login" role="status">
-          <strong>网站限制访问，暂时无法登录</strong>
+          <strong>{blocked.code === "WEBSITE_VERIFICATION_REQUIRED" ? "网站需要安全验证" : "网站限制访问，暂时无法登录"}</strong>
           <p>{blocked.message}</p>
           <small>
             当前没有可填写的登录表单。Adex

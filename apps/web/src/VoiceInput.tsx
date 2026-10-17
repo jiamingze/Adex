@@ -19,6 +19,12 @@ export function VoiceInput({
   onTextRef.current = onText;
   const released = useRef<(() => void) | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [transcript, setTranscript] = useState("");
+  const transcriptPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const panel = transcriptPanel.current;
+    if (panel) panel.scrollTop = panel.scrollHeight;
+  }, [transcript]);
   const [hint, setHint] = useState("");
   const [cancel, setCancel] = useState(false);
   const cancelled = useRef(false),
@@ -173,6 +179,7 @@ export function VoiceInput({
     cancelled.current = false;
     setCancel(false);
     setHint("");
+    setTranscript("");
     setPhase("recording");
     if (
       document.activeElement instanceof HTMLInputElement ||
@@ -181,7 +188,9 @@ export function VoiceInput({
       document.activeElement.blur();
     try {
       const releaseGate = new Promise<void>((resolve) => { released.current = resolve; });
-      const text = (await transcribe()).trim();
+      const text = (await transcribe((partial) => {
+        if (mounted.current && active.current && !cancelled.current) setTranscript(partial);
+      })).trim();
       // Recognition may finish on silence before the finger lifts. Only release sends.
       if (held.current) await releaseGate;
       if (mounted.current) {
@@ -308,6 +317,7 @@ export function VoiceInput({
               role="status"
               aria-live="polite"
             >
+              {transcript && <div ref={transcriptPanel} className="voice-transcript" aria-label="实时识别文字">{transcript}</div>}
               {phase === "recording" ? (
                 <>
                   <div className="voice-wave" aria-hidden="true">

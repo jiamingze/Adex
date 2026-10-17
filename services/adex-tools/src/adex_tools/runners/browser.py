@@ -40,6 +40,7 @@ async def _read_page(url, query="", max_pages=3):
             "LANG",
             "PLAYWRIGHT_BROWSERS_PATH",
             "ADEX_BROWSER_UPSTREAM_PROXY",
+            "ADEX_BROWSER_DIRECT_FALLBACK",
             "ADEX_BROWSER_CHANNEL",
         )
     }

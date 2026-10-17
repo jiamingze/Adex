@@ -13,7 +13,7 @@ import os
 import re
 import sys
 from uuid import uuid4
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin
 from adex_tools.browser.policy import (
     SECRET,
     CRITICAL,
@@ -128,6 +128,17 @@ class Broker:
                 return await route.fulfill(
                     status=response.status, headers=headers, body=await response.body()
                 )
+            return await route.fulfill(response=response)
+        if route.request.method in ("GET", "HEAD") and route.request.is_navigation_request():
+            # Chromium redirects can skip route interception. Inspect a navigation's
+            # first response without following it, then pin same-site read redirects
+            # before Chromium opens their CONNECT tunnel. Never follow a write here.
+            response = await route.fetch(max_redirects=0, max_retries=0, timeout=10000)
+            if 300 <= response.status < 400 and response.headers.get("location"):
+                target = urljoin(route.request.url, response.headers["location"])
+                host = urlsplit(target).hostname
+                if same_read_site(host, self.read_hosts) and await self.admit(target):
+                    self.read_hosts.add(host)
             return await route.fulfill(response=response)
         return await route.continue_()
 

@@ -179,7 +179,8 @@ class BrowserWorkflow:
             if value.get("access_block"):
                 return self.wait(
                     session_id,
-                    "网站限制了当前浏览器的访问，暂时无法进入登录表单（BLOCKED_EXTERNAL）。这不是密码错误，也未完成查询；系统已暂停，不会反复请求或提交。",
+                    str(value["access_block"].get("message", "网站暂时限制当前访问，尚未完成查询。"))
+                    + " 系统已暂停，不会反复请求或提交。",
                 )
             if (value.get("login_form") or value.get("embedded_login")) and value.get("status") == "AGENT":
                 await call(

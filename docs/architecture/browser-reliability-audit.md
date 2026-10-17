@@ -90,3 +90,47 @@ proxy with the local browser route. It is never auto-discovered or enabled for
 other deployments; empty configuration keeps direct pinned egress. Separate browser
 profiles and site risk controls remain different from an already logged-in Chrome.
 
+
+
+## JD follow-up and hold-to-talk transcript
+
+A real JD request reproduced BROWSER_ERR_TUNNEL_CONNECTION_FAILED with the configured
+loopback proxy. Direct pinned egress reached the JD homepage. JD search additionally
+redirected between same-site hosts; Chromium could skip the original route handler,
+leaving the redirect host absent from the CONNECT pin map. Read navigation now
+inspects a non-followed response and validates/pins same-site Location destinations.
+Write redirects still cannot replay. An opt-in connection-establishment-only direct
+fallback preserves the pinned address and runs before TLS/HTTP dispatch.
+
+The final real search probe for 纳瓦尔宝典 reached a page titled 京东验证. It did
+not obtain a verified price. This remains **BLOCKED_EXTERNAL**, not a successful
+product search or a price quote. Verification is classified separately from a
+transport error and no credentials, CAPTCHA or purchase were submitted.
+
+Hold-to-talk now displays actual iOS/Web interim recognition in a bounded, scrolling
+transcript area, preserving release-to-send and slide-to-cancel. Native partials
+are session-bound and callbacks are removed on completion. Device installation and
+a successful signed build do not establish physical microphone recognition quality.
+
+Validation commands for this follow-up:
+
+```sh
+uv run --project services/adex-agent pytest services/adex-agent/tests -q
+uv run --project services/adex-tools pytest services/adex-tools/tests -q
+uv run --project services/adex-tools pytest services/adex-tools/tests/test_browser_config.py services/adex-tools/tests/test_browser_operator.py -q
+uv run --project services/adex-tools pytest services/adex-tools/tests/test_browser_access.py services/adex-tools/tests/test_browser_config.py -q
+uv run python scripts/test_stack.py tests/integration/test_browser_operator.py tests/integration/test_browser_routing.py -q
+pnpm --dir apps/web build
+make test-client
+mvn -q -pl services/adex-automation -am test package
+make check-style
+uv run python scripts/check_contract.py
+uv run python scripts/check_secrets.py
+uv run python scripts/prepare_ios.py
+```
+
+Observed: Agent 77 passed; Tools full suite 99 passed, focused controls 46 passed,
+focused access/config 47 passed; browser integration 11 passed; client 21 passed.
+Java package, style/architecture, OpenAPI and secret checks passed. Xcode Debug
+build succeeded; `devicectl device install app` and `device process launch` succeeded.
+Microphone interaction still needs a physical spoken-input check.

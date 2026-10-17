@@ -30,6 +30,7 @@ class BrowserProcess:
                 "LANG",
                 "PLAYWRIGHT_BROWSERS_PATH",
                 "ADEX_BROWSER_UPSTREAM_PROXY",
+                "ADEX_BROWSER_DIRECT_FALLBACK",
                 "ADEX_BROWSER_CHANNEL",
                 "ADEX_BROWSER_MODE",
                 "ADEX_BROWSER_ALLOWED_HOSTS",

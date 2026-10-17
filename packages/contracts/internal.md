@@ -88,3 +88,29 @@ Research results add `artifact.research_evidence`, at most ten observations with
 source URL/title/observation_id/observed_at/visible_text, persisted in the existing
 immutable checkpoint before the Automation reference commit. Evidence is untrusted
 page text, not a verified offer or a business execution receipt. No new migration.
+
+
+### Browser CONNECT recovery and read redirects
+
+`ADEX_BROWSER_DIRECT_FALLBACK=1` explicitly permits a failed local proxy CONNECT
+to fall back to a direct socket to the same previously validated public IP:443.
+Default is disabled. Recovery happens before returning CONNECT 200 and before TLS
+or HTTP bytes; it never retries a dispatched operation, resolves alternative DNS,
+or changes a write approval. Both isolated browser runners receive this setting.
+
+For GET/HEAD navigation, fetch the first response with redirects/retries disabled.
+A same-site HTTPS Location (private PSL aware) is validated and pinned before the
+browser follows it, because Chromium may skip route interception on redirects.
+This narrowly extends the website read scope to its same-site navigation redirect.
+It does not grant arbitrary cross-site reads or authorize any POST redirect.
+Website verification pages remain BLOCKED_EXTERNAL pending actual completion.
+
+### Live speech transcript
+
+iOS AdexSpeech emits `partial {session_id,text}` from actual recognition results
+after checking the active plugin call. Web subscribes before starting capture,
+accepts only the current gesture ID, and removes the listener after settlement.
+Web SpeechRecognition interim results use the same preview callback. The transcript
+is transient panel state; partial results do not send messages. Release sends the
+final transcript once; cancellation/unmount never sends it. No server API/schema
+or new database migration is introduced.

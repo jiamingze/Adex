@@ -5,12 +5,18 @@ listener exists only for the lifetime of the credential-free browser child.
 """
 
 import asyncio
+import os
 from adex_tools.runners.browser_config import upstream_proxy
 
 
 class BrowserEgress:
-    def __init__(self, pinned, proxy=None):
+    def __init__(self, pinned, proxy=None, direct_fallback=None):
         self.upstream_proxy = upstream_proxy(proxy)
+        self.direct_fallback = (
+            (os.getenv("ADEX_BROWSER_DIRECT_FALLBACK", "0") == "1")
+            if direct_fallback is None
+            else direct_fallback
+        )
         self.pinned = pinned
         self.active = 0
         self.connections = set()
@@ -41,18 +47,33 @@ class BrowserEgress:
                 return
             # The trusted local proxy receives a pinned IP, never target DNS or cookies.
             # TLS stays end-to-end in Chromium with the original hostname/certificate.
-            if self.upstream_proxy:
-                remote, upstream = await asyncio.wait_for(asyncio.open_connection(*self.upstream_proxy), 6)
-                target = self.pinned[host] + ":443"
-                upstream.write(f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n".encode("ascii"))
-                await upstream.drain()
-                response = await asyncio.wait_for(remote.readuntil(b"\r\n\r\n"), 6)
-                status = response.split(b"\r\n", 1)[0].split()
-                if len(status) < 2 or status[1] != b"200":
-                    writer.write(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n")
-                    await writer.drain()
-                    return
-            else:
+            try:
+                if self.upstream_proxy:
+                    remote, upstream = await asyncio.wait_for(
+                        asyncio.open_connection(*self.upstream_proxy), 6
+                    )
+                    target = self.pinned[host] + ":443"
+                    upstream.write(f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n".encode("ascii"))
+                    await upstream.drain()
+                    response = await asyncio.wait_for(remote.readuntil(b"\r\n\r\n"), 6)
+                    status = response.split(b"\r\n", 1)[0].split()
+                    if len(status) < 2 or status[1] != b"200":
+                        raise OSError("BROWSER_PROXY_CONNECT_REJECTED")
+                else:
+                    remote, upstream = await asyncio.wait_for(
+                        asyncio.open_connection(self.pinned[host], 443), 6
+                    )
+            except (OSError, TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
+                if not self.upstream_proxy or not self.direct_fallback:
+                    raise
+                if upstream:
+                    upstream.close()
+                    try:
+                        await asyncio.wait_for(upstream.wait_closed(), 1)
+                    except (OSError, TimeoutError):
+                        pass
+                # Only connection establishment may fall back, before TLS or any HTTP
+                # request bytes are sent. Never retry a dispatched POST or change DNS.
                 remote, upstream = await asyncio.wait_for(asyncio.open_connection(self.pinned[host], 443), 6)
             writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             await writer.drain()

@@ -14,6 +14,16 @@ def access_block(view):
     text = "\n".join(
         n.get("name", "") for n in view.get("nodes", []) if n.get("role") in ("heading", "StaticText")
     )
+    if re.search(
+        r"(?:^|[\s_-])(?:安全验证|京东验证|人机验证|security verification|verify you are human)(?:$|[\s_-])",
+        view.get("title", ""),
+        re.I,
+    ):
+        return {
+            "code": "WEBSITE_VERIFICATION_REQUIRED",
+            "message": "网站要求完成安全验证，尚未取得查询结果；请在网站页面完成验证后继续。",
+            "availability": "BLOCKED_EXTERNAL",
+        }
     status = (view.get("network") or {}).get("document_status")
     if status in (403, 429) or re.search(
         r"IP存在风险|检测到.{0,12}异常流量|访问过于频繁|操作太频繁", text, re.I

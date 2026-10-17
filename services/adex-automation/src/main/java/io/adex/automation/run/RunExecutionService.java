@@ -271,6 +271,8 @@ public class RunExecutionService {
                         : code.startsWith("MUSIC_")
                             ? "音乐生成未完成：供应商接口拒绝请求或未配置音乐权限。请检查音乐 API 的权限、模型和余额后再发起新请求。"
                             : "本次任务未完成（" + code + "），请查看运行记录。";
+            if (code.startsWith("BROWSER_ERR_") || code.equals("BROWSER_NAVIGATION_TIMEOUT"))
+              message = "网页连接暂时未能建立，尚未取得查询结果，也未提交操作。请稍后重试；如需登录或验证，会在当前会话展示。";
             if (code.equals("PROVIDER_UNKNOWN")) message = "本次供应商调用结果未知，系统已停止自动重试，请核对运行记录。";
             var payload =
                 Map.of(

@@ -91,9 +91,12 @@ public class AdexSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
                         // This path runs once on main, after the gesture identity guard.
                         feedback.impactOccurred()
                         self.task = recognizer.recognitionTask(with: request) { result, error in
-                            if let result = result { self.text = result.bestTranscription.formattedString }
                             DispatchQueue.main.async {
                                 guard self.pending === call else { return }
+                                if let result = result {
+                                    self.text = result.bestTranscription.formattedString
+                                    self.notifyListeners("partial", data: ["session_id": id, "text": self.text])
+                                }
                                 if error != nil { self.fail("SPEECH_RECOGNITION_FAILED") }
                                 else if result?.isFinal == true { self.finish() }
                             }
