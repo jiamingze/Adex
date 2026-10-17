@@ -140,7 +140,7 @@ function chatFromUrl() {
 function App() {
   const [assistantTab, setAssistantTab] = useState<AssistantTab>("suggestions");
   const [locationPrompt, setLocationPrompt] = useState(false);
-  const locationChoice = useRef<((mode: LocationMode) => void) | null>(null);
+  const locationChoice = useRef<{ conversation: string; resolve: (mode: LocationMode | null) => void } | null>(null);
   const [modelLabel, setModelLabel] = useState("");
   const [user, setUser] = useState("");
   const [guest, setGuest] = useState(false);
@@ -556,6 +556,14 @@ function App() {
     // when a reply finishes so Today/Todos do not retain the pre-action cache.
     if (user && !guest && !busy) void matrixResource.load(true).catch(() => {});
   }, [busy, user, guest]);
+  useEffect(() => {
+    const request = locationChoice.current;
+    if (request && (!user || page !== "chat" || current !== request.conversation)) {
+      locationChoice.current = null;
+      setLocationPrompt(false);
+      request.resolve(null);
+    }
+  }, [page, current, user]);
   async function newConversation() {
     try {
       const c = await api.createConversation("新对话");
@@ -607,10 +615,23 @@ function App() {
           files,
         };
         if (locationRelevant(content)) {
-          if (!locationPreference().mode) {
+          // Show the user's question before asking for location in the same chat.
+          // No model invocation or location access happens before this consent.
+          setOptimistic({
+            id: logical.id,
+            seq: Math.max(0, ...messages.map((m) => m.seq)) + 1,
+            role: "user",
+            content,
+            conv,
+          });
+          if (!locationPreference().mode || locationPreference().mode === "manual") {
             setLocationPrompt(true);
-            await new Promise<LocationMode>((resolve) => { locationChoice.current = resolve; });
+            const choice = await new Promise<LocationMode | null>((resolve) => {
+              locationChoice.current = { conversation: conv, resolve };
+            });
+            if (choice === null) throw new DOMException("Location request cancelled", "AbortError");
           }
+          setProgress("正在准备查询");
           logical.clientLocation = await currentLocation();
         }
         pending.current = logical;
@@ -641,6 +662,7 @@ function App() {
     } catch (e) {
       setBusy(false);
       setOptimistic(null);
+      if (e instanceof DOMException && e.name === "AbortError") return;
       // Keep recognized speech as an editable draft if the network send fails.
       setDraft((existing) => existing || text);
       setChatError(errorMessage(e));
@@ -689,7 +711,6 @@ function App() {
   const unread = notifications.filter((n) => !n.read).length;
   return (
     <div className="shell">
-      {locationPrompt && <LocationConsent onChoose={(mode) => { setLocationPrompt(false); locationChoice.current?.(mode); locationChoice.current = null; }} />}
       <aside className={`sidebar ${mobile ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-icon">
@@ -1174,7 +1195,13 @@ function App() {
                       </div>
                     </article>
                   ))}
-                  {(busy || submitting) && (
+                  {locationPrompt ? (
+                    <LocationConsent onChoose={(mode) => {
+                      setLocationPrompt(false);
+                      locationChoice.current?.resolve(mode);
+                      locationChoice.current = null;
+                    }} />
+                  ) : (busy || submitting) && (
                     <article className="message assistant">
                       <div className="message-avatar">
                         <Sparkles size={16} />

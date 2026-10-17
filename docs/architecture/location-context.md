@@ -55,3 +55,16 @@ search evidence or state it cannot verify, never invent weather.
 No location history table, background tracking, new business service or second
 scheduler. This feature provides query context; it does not claim confirmed hotel
 star ratings, live inventory/prices, navigation distance, or booking capability.
+
+
+## In-chat consent UX · 2026-10-18
+
+For the first location-relevant message, render the question and an inline assistant
+card with “使用当前位置” / “暂不授权”. No application dialog or city text field is
+shown. Clicking the primary action records consent and requests an approximate
+foreground fix; only the mandatory OS/browser permission sheet may appear. Legacy manual-location data remains readable at the API boundary, but the UI no
+longer asks users to type a city; an old manual preference requests fresh device
+consent on the next relevant chat. Navigating away while consent is pending cancels that unsent
+request and releases the composer rather than authorizing a different conversation.
+Denial/unavailable location must never become a guessed location. Real iPhone
+permission behavior still requires a device check.

@@ -175,3 +175,12 @@ html.voice-capture-active *,
 
 .voice-bottom-sheet .voice-transcript { width:100%; max-width:640px; max-height:min(160px,24svh); overflow-y:auto; margin:0 auto 14px; padding:0 4px; font-size:20px; line-height:1.6; font-weight:500; color:#252b37; overflow-wrap:anywhere; white-space:pre-wrap; text-align:left; flex-shrink:0; }
 .voice-bottom-sheet.cancelling .voice-transcript { color:#96313b; opacity:.65; }
+
+
+/* Location consent stays in the conversation, without an additional modal. */
+.location-consent{border:1px solid var(--border);border-radius:18px;padding:18px;max-width:460px}
+.location-consent strong{font-size:15px}
+.location-consent p{margin:10px 0 14px;font-size:14px;line-height:1.6;color:var(--muted)}
+.location-consent small{display:block;margin-top:12px;color:var(--muted);font-size:12px;line-height:1.5}
+.location-consent-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.location-consent-actions .primary{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:24px}

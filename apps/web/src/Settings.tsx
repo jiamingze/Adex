@@ -117,9 +117,8 @@ export function Settings({
                 <>
                   <h2>常规</h2>
                   <div className="setting-row"><div><strong>当前位置</strong><p>仅用于天气和附近推荐，不后台追踪；查询时近似位置会发送给 Adex 和查询服务。</p></div>
-                  <select aria-label="位置使用方式" value={locationPrefs.mode || "off"} onChange={e=>{const mode=e.target.value as LocationMode;saveLocationPreference(mode,locationPrefs.city);setLocationPrefs({...locationPrefs,mode});}}>
-                  <option value="off">不使用位置</option><option value="device">按需使用设备位置</option><option value="manual">手动城市或区域</option></select></div>
-                  {locationPrefs.mode === "manual" && <label>城市或区域<input aria-label="手动城市或区域" maxLength={120} value={locationPrefs.city} placeholder="例如：上海市徐汇区" onChange={e=>{setLocationPrefs({...locationPrefs,city:e.target.value});saveLocationPreference("manual",e.target.value);}}/></label>}
+                  <select aria-label="位置使用方式" value={locationPrefs.mode === "device" ? "device" : "off"} onChange={e=>{const mode=e.target.value as LocationMode;saveLocationPreference(mode,locationPrefs.city);setLocationPrefs({...locationPrefs,mode});}}>
+                  <option value="off">不使用位置</option><option value="device">按需使用设备位置</option></select></div>
 
                   <p>调整外观与聊天方式，偏好会保存在当前设备。</p>
                   <div className="setting-row">
