@@ -2,6 +2,6 @@
 name = "adex-dev"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["httpx==0.28.1", "psycopg[binary]==3.2.6", "pytest==8.3.5", "openapi-spec-validator==0.7.2"]
+dependencies = ["httpx==0.28.1", "psycopg[binary]==3.3.6", "pytest==8.3.5", "openapi-spec-validator==0.9.0"]
 [dependency-groups]
-dev = ["ruff==0.11.9"]
+dev = ["ruff==0.17.0"]
