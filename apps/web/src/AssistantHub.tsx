@@ -790,8 +790,11 @@ export function AssistantHub({
               disabled={busy}
               onClick={() =>
                 act(async () => {
-                  const token = await requestPush();
-                  const result = await assistantApi.registerPush(token);
+                  const device = await requestPush();
+                  const result = await assistantApi.registerPush(device.token, device.environment);
+                  const preferences = await assistantApi.preferences();
+                  await assistantApi.savePreferences({ ...preferences, enabled: true, push_enabled: true });
+                  setPrefs({ ...preferences, enabled: true, push_enabled: true });
                   localStorage.setItem("adex.pushDevice", result.id);
                   setNotice(
                     result.availability === "BLOCKED_EXTERNAL"

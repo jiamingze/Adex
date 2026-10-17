@@ -152,7 +152,7 @@ public class AdexNotificationCoordinator: NSObject, UNUserNotificationCenterDele
         }
         completionHandler()
     }
-    public func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { completionHandler([]) }
+    public func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { completionHandler([.banner, .sound]) }
 }
 
 @objc(AdexPushPlugin)
@@ -164,7 +164,12 @@ public class AdexPushPlugin: CAPPlugin, CAPBridgedPlugin {
     public override func load() {
         let coordinator = AdexNotificationCoordinator.shared
         coordinator.configure()
-        coordinator.onToken = { [weak self] token in self?.registration?.resolve(["token": token]); self?.registration = nil }
+        coordinator.onToken = { [weak self] token in
+            let mode = Bundle.main.object(forInfoDictionaryKey: "AdexAPNSEnvironment") as? String
+            guard mode == "development" || mode == "production" else { self?.registration?.reject("APNS_SIGNING_NOT_CONFIGURED"); self?.registration = nil; return }
+            self?.registration?.resolve(["token": token, "environment": mode == "development" ? "sandbox" : "production"])
+            self?.registration = nil
+        }
         coordinator.onError = { [weak self] in self?.registration?.reject("APNS_REGISTRATION_UNAVAILABLE"); self?.registration = nil }
         coordinator.onTap = { [weak self] id in self?.notifyListeners("tap", data: ["notification_id": id]) }
     }

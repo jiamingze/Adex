@@ -519,3 +519,27 @@ def test_scopes_and_legacy_route_cannot_bypass_action_approval(client, db):
         ).fetchone()["state"]
         == "PENDING"
     )
+
+
+def test_push_setup_status_and_idempotent_test_notification(client, db):
+    status = client.get("/api/v1/push/status")
+    status.raise_for_status()
+    assert status.json()["availability"] == "CONFIGURED_UNVERIFIED"
+    assert "token_cipher" not in status.text and "token_hash" not in status.text
+    event = str(uuid4())
+    conv = client.post(
+        "/api/v1/conversations", json={"title": "TEST_FIXTURE push test"}
+    ).json()["id"]
+    first = client.post(
+        "/api/v1/push/test", json={"event_id": event, "conversation_id": conv}
+    )
+    first.raise_for_status()
+    second = client.post(
+        "/api/v1/push/test", json={"event_id": event, "conversation_id": conv}
+    )
+    second.raise_for_status()
+    assert first.json()["notification_id"] == second.json()["notification_id"]
+    limited = client.post(
+        "/api/v1/push/test", json={"event_id": str(uuid4()), "conversation_id": conv}
+    )
+    assert limited.status_code == 429

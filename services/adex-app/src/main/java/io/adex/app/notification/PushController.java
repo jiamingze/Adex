@@ -20,6 +20,16 @@ public class PushController {
     return service.register(auth.owner(r), b);
   }
 
+  @GetMapping("/api/v1/push/status")
+  public Object status(HttpServletRequest r) {
+    return service.status(auth.owner(r));
+  }
+
+  @PostMapping("/api/v1/push/test")
+  public Object test(HttpServletRequest r, @RequestBody Map<String, Object> b) {
+    return service.test(auth.owner(r), b);
+  }
+
   @DeleteMapping("/api/v1/push/devices/{id}")
   public Object revoke(HttpServletRequest r, @PathVariable UUID id) {
     return service.revoke(auth.owner(r), id);

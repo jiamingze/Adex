@@ -70,8 +70,8 @@ separate from the Tools connector key.
 Use an APNs-capable Apple team, App ID and provisioning profile. The opt-in
 `apps/ios/ios/push.xcconfig` supplies the push entitlement; use `development` for
 sandbox signing and the matching production entitlement/environment for distribution.
-Default Personal Team builds do not claim APNs capability. The current UI registers
-sandbox devices; production distribution/environment selection requires its own check.
+Default Personal Team builds do not claim APNs capability. The UI registers the environment reported by the signed native build; production
+distribution still requires a matching profile and production-capable APNs key.
 Users must explicitly authorize/register notifications and enable push preferences.
 
 ## Verification and external boundaries / 验证边界

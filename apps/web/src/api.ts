@@ -158,8 +158,11 @@ export const api = {
   },
   logout: async () => {
     try {
+      const device = localStorage.getItem("adex.pushDevice");
+      if (device) await request(`/push/devices/${device}`, "DELETE").catch(() => {});
       await request("/auth/logout", "POST");
     } finally {
+      localStorage.removeItem("adex.pushDevice");
       setToken("");
       await clearSession();
     }

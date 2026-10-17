@@ -3572,6 +3572,55 @@
           }
         }
       }
+    },
+    "/api/v1/push/status": {
+      "get": {
+        "summary": "Owner-scoped APNs setup and recent delivery status",
+        "responses": {
+          "200": {
+            "description": "Configuration and delivery metadata; excludes device tokens and credentials"
+          }
+        },
+        "operationId": "getPushStatus"
+      }
+    },
+    "/api/v1/push/test": {
+      "post": {
+        "summary": "Queue an idempotent generic push test for an owned conversation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event_id",
+                  "conversation_id"
+                ],
+                "properties": {
+                  "event_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "conversation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durable notification identifier, not a device-delivery receipt"
+          },
+          "429": {
+            "description": "One new test per 30 seconds per owner"
+          }
+        },
+        "operationId": "sendPushTest"
+      }
     }
   },
   "components": {

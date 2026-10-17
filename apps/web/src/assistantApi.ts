@@ -119,10 +119,10 @@ export const assistantApi = {
       matrixResource.invalidate(true);
       return result;
     }),
-  registerPush: (token: string) =>
+  registerPush: (token: string, environment: "sandbox" | "production") =>
     request<{ id: string; availability: string }>("/push/devices", "POST", {
       token,
-      environment: "sandbox",
+      environment,
     }),
   revokePush: (id: string) => request(`/push/devices/${id}`, "DELETE"),
   resume: (id: string) =>

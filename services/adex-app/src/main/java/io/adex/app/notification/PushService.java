@@ -37,7 +37,7 @@ public class PushService {
           UUID id = existing.isEmpty() ? Kernel.id() : Kernel.uuid(existing.getFirst().get("id"));
           String cipher = SecretEnvelope.push().seal(device, owner + ":" + id);
           k.db.update(
-              "INSERT INTO push_devices(id,owner_id,token_hash,token_cipher,environment) VALUES(?,?,?,?,?) ON CONFLICT(token_hash) DO UPDATE SET owner_id=excluded.owner_id,token_cipher=excluded.token_cipher,environment=excluded.environment,active=true",
+              "INSERT INTO push_devices(id,owner_id,token_hash,token_cipher,environment) VALUES(?,?,?,?,?) ON CONFLICT(token_hash) DO UPDATE SET owner_id=excluded.owner_id,token_cipher=excluded.token_cipher,environment=excluded.environment,created_at=CASE WHEN push_devices.owner_id<>excluded.owner_id OR NOT push_devices.active THEN clock_timestamp() ELSE push_devices.created_at END,active=true",
               id,
               owner,
               Kernel.hash(device),
@@ -57,6 +57,54 @@ public class PushService {
     return Map.of("ok", true);
   }
 
+  public Object status(UUID owner) {
+    return Map.of(
+        "availability",
+        ApnsTransport.configured() ? "CONFIGURED_UNVERIFIED" : "BLOCKED_EXTERNAL",
+        "devices",
+        k.db.queryForObject(
+            "SELECT count(*) FROM push_devices WHERE owner_id=? AND active", Long.class, owner),
+        "deliveries",
+        k.db.queryForList(
+            "SELECT p.status,p.error_code,p.completed_at FROM push_deliveries p JOIN notifications n ON n.id=p.notification_id WHERE n.owner_id=? ORDER BY n.created_at DESC LIMIT 5",
+            owner));
+  }
+
+  public Object test(UUID owner, Map<String, Object> body) {
+    UUID event = Kernel.uuid(body.get("event_id")), conv = Kernel.uuid(body.get("conversation_id"));
+    if (event == null || conv == null) throw Kernel.error(400, "INVALID_PUSH_TEST");
+    return k.tx.execute(
+        tx -> {
+          k.row(
+              "SELECT id FROM conversations WHERE id=? AND owner_id=? AND deleted_at IS NULL",
+              conv,
+              owner);
+          k.db.queryForObject(
+              "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
+              Object.class,
+              "push-test:" + owner);
+          var existing =
+              k.db.queryForList(
+                  "SELECT id FROM notifications WHERE event_id=? AND owner_id=?", event, owner);
+          if (!existing.isEmpty()) return Map.of("notification_id", existing.getFirst().get("id"));
+          if (k.db.queryForObject(
+                  "SELECT count(*) FROM notifications WHERE owner_id=? AND title='Adex 推送测试' AND created_at>now()-interval '30 seconds'",
+                  Long.class,
+                  owner)
+              > 0) throw Kernel.error(429, "PUSH_TEST_RATE_LIMITED");
+          UUID id = Kernel.id();
+          k.db.update(
+              "INSERT INTO notifications(id,event_id,owner_id,conversation_id,title,body,importance) VALUES(?,?,?,?,?,?,100)",
+              id,
+              event,
+              owner,
+              conv,
+              "Adex 推送测试",
+              "测试通知，点击后回到关联会话。");
+          return Map.of("notification_id", id);
+        });
+  }
+
   @Scheduled(fixedDelay = 3000)
   public void deliver() {
     try {
@@ -64,7 +112,7 @@ public class PushService {
       k.db.update(
           "UPDATE push_deliveries SET status='UNKNOWN',error_code='DISPATCH_INTERRUPTED' WHERE status='IN_FLIGHT' AND dispatched_at<now()-interval '2 minutes'");
       k.db.update(
-          "INSERT INTO push_deliveries(notification_id,device_id,status,apns_id) SELECT n.id,d.id,?,gen_random_uuid() FROM notifications n JOIN push_devices d ON d.owner_id=n.owner_id AND d.active JOIN notification_preferences p ON p.owner_id=n.owner_id WHERE p.enabled AND p.push_enabled AND n.importance>=p.min_importance AND NOT n.read AND n.created_at>now()-interval '1 day' ON CONFLICT DO NOTHING",
+          "INSERT INTO push_deliveries(notification_id,device_id,status,apns_id) SELECT n.id,d.id,?,gen_random_uuid() FROM notifications n JOIN push_devices d ON d.owner_id=n.owner_id AND d.active JOIN notification_preferences p ON p.owner_id=n.owner_id WHERE p.enabled AND p.push_enabled AND n.importance>=p.min_importance AND NOT n.read AND n.created_at>now()-interval '1 day' AND n.created_at>=d.created_at ON CONFLICT DO NOTHING",
           ApnsTransport.configured() ? "PREPARED" : "BLOCKED_EXTERNAL");
       if (!ApnsTransport.configured()) return;
       k.db.update("UPDATE push_deliveries SET status='PREPARED' WHERE status='BLOCKED_EXTERNAL'");

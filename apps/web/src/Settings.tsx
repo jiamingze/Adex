@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PushNotifications } from "./PushNotifications";
 import { accountApi, type Conversation } from "./api";
 import { preferences, applyPreferences } from "./preferences";
 import { Button } from "@adex/ui-web";
@@ -215,6 +216,9 @@ export function Settings({
                   )}
                   {tab === "通知" && (
                     <>
+                      <PushNotifications
+                        conversationId={conversations[0]?.id}
+                      />
                       <label>
                         <input
                           type="checkbox"

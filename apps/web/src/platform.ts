@@ -34,8 +34,8 @@ export async function stopSpeech(){if(native){const id=nativeSpeechId;if(id)awai
 
 if(native){window.addEventListener("keyboardWillShow",()=>document.documentElement.classList.add("keyboard-open"));window.addEventListener("keyboardWillHide",()=>document.documentElement.classList.remove("keyboard-open"));}
 
-const push = registerPlugin<{request():Promise<{token:string}>;pending():Promise<{notification_id:string}>;acknowledge():Promise<void>;addListener(name:string,callback:(event:{notification_id:string})=>void):Promise<{remove():Promise<void>}>}>('AdexPush');
-export async function requestPush(){if(!native)throw new Error('请在 iOS 客户端授权通知');return (await push.request()).token;}
+const push = registerPlugin<{request():Promise<{token:string;environment:"sandbox"|"production"}>;pending():Promise<{notification_id:string}>;acknowledge():Promise<void>;addListener(name:string,callback:(event:{notification_id:string})=>void):Promise<{remove():Promise<void>}>}>('AdexPush');
+export async function requestPush(){if(!native)throw new Error('请在 iOS 客户端授权通知');return await push.request();}
 export function listenPush(handler:(id:string)=>Promise<void>){
  if(!native)return ()=>{};
  let disposed=false,subscription:{remove():Promise<void>}|undefined;

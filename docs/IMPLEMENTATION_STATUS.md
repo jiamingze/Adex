@@ -561,3 +561,34 @@ same-Run completion. The isolated first-login fixture expires the synthetic prof
 left by the preceding test; earlier failures exposed test-state reuse, not a real
 merchant login success. The other five existing operator cases passed in the prior
 module run. Automatic preparation also has a regression asserting no write grant.
+
+### 2026-10-17 · Developer Program APNs activation
+
+User explicitly requested native task-result push after enrolling in Apple Developer
+Program. Paid team and current signing identity were verified. With explicit approval,
+a Sandbox APNs provider key was created through Apple's portal and configured only
+in the private server environment; private .p8 and signing settings are excluded from
+Git. Local signed app/profile both contain `aps-environment=development`, and native
+Info.plist environment matches. Profile validity was 364 days at verification.
+
+Existing Automation/outbox -> App notification -> push delivery remains unchanged.
+Native registration now reports the signed environment; explicit enrollment enables
+push preferences, previously-enabled devices refresh tokens, and logout revokes the
+registered device where reachable. Settings has enrollment/status and an idempotent,
+rate-limited test notification scoped to an owned conversation. Foreground banner
+presentation is enabled. New/reassigned/reactivated devices do not backfill older
+notifications. Payloads retain generic text and conversation/run/action identifiers.
+
+Validation: `mvn -q -pl services/adex-app -am test package`, `make check-style`, Web
+build, `make test-client` (21 passed), `uv run python scripts/test_stack.py
+tests/integration/test_connectors.py -q` (9 passed), OpenAPI (93 operations), secrets
+and diff checks; signed Xcode build and signed/profile/native-environment inspection.
+App restarted, all four readiness endpoints HTTP 200. Updated signed iOS package
+installed and launched (both device commands exit 0). See ADR 004 and
+`docs/architecture/apns-activation.md` for setup and environment limits.
+
+Pending physical acceptance: no active APNs device token has yet been registered.
+User must enable iPhone task push in Settings -> Notifications and accept the OS
+permission. Real APNs acceptance, lock-screen display and tap-to-original-Run are
+NOT yet verified. Isolated APNs fixture results are not reported as device delivery.
+This key/profile setup verifies development Sandbox only, not TestFlight production.

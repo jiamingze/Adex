@@ -66,7 +66,7 @@ import { Notes } from "./Notes";
 import { Tools } from "./Tools";
 import { Settings } from "./Settings";
 import { accountApi, workspaceApi } from "./api";
-import { native } from "./platform";
+import { native, requestPush } from "./platform";
 import { VoiceInput } from "./VoiceInput";
 import { AttachmentMenu } from "./AttachmentMenu";
 import { LiveResponse } from "./LiveResponse";
@@ -185,6 +185,13 @@ function App() {
     { id: string; name: string }[]
   >([]);
   const composerInput = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!ready || guest || !native || !localStorage.getItem("adex.pushDevice")) return;
+    // APNs tokens can rotate. Re-register previously enabled devices for the
+    // authenticated owner; never turn notification preferences back on here.
+    void requestPush().then(device => assistantApi.registerPush(device.token, device.environment))
+      .then(result => localStorage.setItem("adex.pushDevice", result.id)).catch(() => {});
+  }, [ready, guest]);
   const voiceSurface = useRef<HTMLButtonElement>(null);
   const [composerFocused, setComposerFocused] = useState(false);
   useEffect(() => {

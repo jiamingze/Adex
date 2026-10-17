@@ -28,3 +28,6 @@ apps/ios/ios/App/App/public/
 .idea/
 **/.idea/
 *.iml
+
+# APNs signing keys (downloadable only once; keep outside version control)
+*.p8
