@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.10.9 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.1 AS uv
 FROM python:3.12-slim-bookworm
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked rm -f /etc/apt/apt.conf.d/docker-clean && apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends ffmpeg
 COPY --from=uv /uv /usr/local/bin/uv
