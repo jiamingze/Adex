@@ -26,3 +26,11 @@ async def test_todo_semantics_and_no_invented_owner():
     assert await todo_draft(runtime, "owner", "turn", "不要创建待办") is None
     assert await todo_draft(runtime, "owner", "turn", "你好") is None
     assert runtime.calls == 3
+
+
+def test_unspecified_priority_is_deferred_to_app():
+    from adex_agent.routing.productivity import TodoDraft
+
+    draft = TodoDraft(title="准备周报")
+    assert draft.important is None and draft.urgent is None and draft.due_at is None
+    assert TodoDraft(title="买零食", important=False, urgent=True).important is False

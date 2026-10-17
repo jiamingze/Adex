@@ -14,16 +14,17 @@ from adex_agent.models.provider import ProviderFailure
 class TodoDraft(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     title: str = Field(min_length=1, max_length=200)
-    important: bool = False
-    urgent: bool = False
+    important: bool | None = None
+    urgent: bool | None = None
     due_at: str | None = None
+    description: str = Field(default="", max_length=16000)
 
 
 SYSTEM = """TODO_ROUTE_V1：理解用户是否要求在Adex待办清单创建一件事。
-只返回JSON {"todo":null} 或 {"todo":{"title":"简洁具体行动标题","important":false,"urgent":false,"due_at":null}}。
+只返回JSON {"todo":null} 或 {"todo":{"title":"简洁具体行动标题","description":"行动的具体内容与要求","important":null,"urgent":null,"due_at":null}}。
 待办、代办、待处理、加入清单、记一件要做的事均可能表示创建意图，结合用户语义。
 否定、讨论如何实现、询问功能、已完成事项不是创建。不要根据助手历史中的承诺创建。
-只在用户明确表示重要/紧急时标记，缺省false。明确截止日期用带时区ISO8601，无截止日期null。
+重要性和紧急度仅在用户明确表达时返回true或false，未指定返回null，由App默认设为重要不紧急。明确截止日期用带时区ISO8601，无截止日期null，由App设为创建后24小时。description忠实整理具体要求，不编造未提及的信息。
 不要把定时执行/联网搜索理解为待办创建。标题不要保留“帮我创建待办”等指令前缀。"""
 
 

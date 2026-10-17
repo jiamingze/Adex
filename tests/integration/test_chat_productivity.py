@@ -35,7 +35,7 @@ def chat(client, text):
 
 
 def test_todo_chat_creates_owned_item_once(client, db):
-    conv, path, body, answer = chat(client, "把准备项目周报加入我的待办，很重要")
+    conv, path, body, answer = chat(client, "把准备项目周报加入我的待办")
     assert "已添加到你的待办" in answer["content"]
     tasks = [
         t
@@ -44,6 +44,20 @@ def test_todo_chat_creates_owned_item_once(client, db):
     ]
     assert len(tasks) == 1 and tasks[0]["important"] and not tasks[0]["urgent"]
     assert tasks[0]["status"] == "TODO"
+    row = db.execute(
+        "SELECT m.due_at,t.created_at FROM app.matrix_tasks m JOIN app.turns t ON t.id=m.source_turn_id WHERE m.id=%s",
+        (tasks[0]["id"],),
+    ).fetchone()
+    assert (row["due_at"] - row["created_at"]).total_seconds() == 86400
+    for label in (
+        "**任务**",
+        "**详情**",
+        "**截止时间**",
+        "**重要程度**：重要",
+        "**紧急程度**：不紧急",
+    ):
+        assert label in answer["content"]
+    assert tasks[0]["description"] in answer["content"]
     client.post(path, json=body).raise_for_status()
     assert (
         db.execute(
@@ -52,6 +66,22 @@ def test_todo_chat_creates_owned_item_once(client, db):
         ).fetchone()["n"]
         == 1
     )
+
+
+def test_explicit_priority_overrides_default(client):
+    conv, _, _, answer = chat(client, "把准备项目周报加入待办，不重要但紧急")
+    task = next(
+        t
+        for t in client.get("/api/v1/matrix").json()["items"]
+        if t["conversation_id"] == conv
+    )
+    assert task["important"] is False and task["urgent"] is True
+    assert "**重要程度**：不重要" in answer["content"]
+    update = dict(task, title="修改标题")
+    update.pop("description")
+    response = client.patch("/api/v1/matrix/" + task["id"], json=update)
+    response.raise_for_status()
+    assert response.json()["description"] == task["description"]
 
 
 def test_one_minute_chat_executes_and_backfills(client, db):

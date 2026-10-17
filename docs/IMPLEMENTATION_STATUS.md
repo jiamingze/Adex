@@ -645,3 +645,20 @@ OpenAPI (**93 operations**), secrets and diff checks passed. The isolated stack
 claims and invokes the existing worker explicitly for deterministic execution;
 the local deployed Agent has its background claim loop enabled. Migration 020 was
 applied locally; App/Agent restarted and all four readiness checks returned 200.
+
+### 2026-10-17 · Chat todo defaults and complete creation receipt
+
+Unspecified importance/urgency now remain nullable in Agent proposals; the App
+applies important=true, urgent=false and durable turn.created_at + 24 hours when
+no deadline is provided. Explicit priorities/dates override defaults. Migration
+021 adds a normalized description; manual updates omitting it preserve the value.
+The chat reply is rendered from the persisted row with task, details, deadline in
+Asia/Shanghai, importance, urgency and status. Existing todos are unchanged.
+
+Validation: `mvn -q -pl services/adex-app -am test package`, `make check-style`,
+Agent productivity tests (2 passed), isolated PG/HTTP defaults/deadline/replay,
+explicit-priority/description-preservation and ownership/revision tests (3 passed
+in 2.82s), secret scan and diff checks. Migration applied locally and App/Agent
+restarted. This server-side change works with the currently installed iOS client;
+no signing or native capability change is required. Fixture model responses are
+labelled and do not claim real semantic-provider acceptance.

@@ -196,8 +196,9 @@ class MockProvider:
                 if any(w in query for w in ("不要", "如何", "怎么"))
                 else {
                     "title": "TEST_FIXTURE 准备项目周报",
-                    "important": "重要" in query,
-                    "urgent": "紧急" in query,
+                    "description": "TEST_FIXTURE 汇总项目进展和风险",
+                    "important": False if "不重要" in query else True if "重要" in query else None,
+                    "urgent": False if "不紧急" in query else True if "紧急" in query else None,
                     "due_at": None,
                 }
             )

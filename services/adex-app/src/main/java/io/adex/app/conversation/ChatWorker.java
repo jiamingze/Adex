@@ -235,7 +235,7 @@ public class ChatWorker {
             @SuppressWarnings("unchecked")
             var draft = (Map<String, Object>) e.get("draft");
             var saved = matrix.fromChat(owner, conv, t, draft);
-            finalContent = "已添加到你的待办：" + saved.get("title") + "。可在待办页查看和完成。";
+            finalContent = matrix.chatReceipt(saved);
           }
           if (type.equals("task.requested")) {
             emit(t, "正在创建任务", "turn.progress");

@@ -19,3 +19,12 @@ rather than claiming completion. Time zone defaults to Asia/Shanghai.
 Voice hold/release submits the final recognized text once through the normal chat
 send path. Slide-up/cancel, empty speech and interrupted capture do not send.
 If sending becomes unavailable, retain the recognized draft instead of losing it.
+
+Chat todo defaults (2026-10-17): omitted/null importance means important=true,
+urgency means urgent=false, due_at means durable turn.created_at + 24 hours.
+Explicit false/true and explicit timestamps take precedence. Defaults are App-owned
+and stable across retries. Optional description is normalized by Agent and persisted
+in App migration 021; manual edits omitting description preserve it. The success
+reply formats title, description, actual saved deadline (Asia/Shanghai), importance,
+urgency and status from the committed row, never the uncommitted model proposal.
+Existing todos are not retroactively changed. No reminder is implicitly scheduled.
