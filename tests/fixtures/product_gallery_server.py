@@ -56,7 +56,7 @@ class GalleryHandler(Handler):
                     "event_seq": 0,
                 }
             )
-        if path.startswith("/api/v1") or path.startswith("/assets/"):
+        if path.startswith("/api/v1") or path.startswith(("/assets/", "/brand/")):
             return super().do_GET()
         raw = (
             (ROOT / "index.html")

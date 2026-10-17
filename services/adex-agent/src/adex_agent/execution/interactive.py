@@ -13,7 +13,13 @@ class InteractiveTurnService:
 
     async def events(self, body):
         try:
-            from adex_agent.routing.intent import original_music_intent, search_intent, background_kind
+            from adex_agent.routing.intent import (
+                original_music_intent,
+                search_intent,
+                background_kind,
+                video_intent,
+                catalog_music_intent,
+            )
 
             latest = next(
                 (m["content"] for m in reversed(body.context["messages"]) if m["role"] == "user"), ""
@@ -99,8 +105,8 @@ class InteractiveTurnService:
                     + "\n"
                 )
                 return
-            if re.search(r"(生成|制作|创作|做).*(视频|短片)", latest):
-                duration_match = re.search(r"(\d+)\s*秒", latest)
+            if video_intent(latest):
+                duration_match = re.search(r"(?<!\d)(\d{1,8})\s{0,16}秒", latest)
                 duration = int(duration_match[1]) if duration_match else 5
                 if not 2 <= duration <= 30:
                     raise ProviderFailure("INVALID_MEDIA_DURATION")
@@ -124,7 +130,7 @@ class InteractiveTurnService:
             if original_music_intent(latest):
                 audio_limit = 600
                 duration = min(180, audio_limit)
-                match = re.search(r"(\d+(?:\.\d+)?)\s*(分钟|秒)", latest)
+                match = re.search(r"(?<![\d.])(\d{1,8}(?:\.\d{1,6})?)\s{0,16}(分钟|秒)", latest)
                 if match:
                     duration = float(match[1]) * (60 if match[2] == "分钟" else 1)
                 if not 1 <= duration <= audio_limit:
@@ -162,7 +168,7 @@ class InteractiveTurnService:
                     + "\n"
                 )
                 return
-            if re.search(r"(搜索|找|推荐|播放).*(歌曲|音乐|歌单)|(歌曲|音乐|歌单).*(搜索|推荐)", latest):
+            if catalog_music_intent(latest):
                 from psycopg.types.json import Jsonb
                 from adex_kernel.core import digest
 

@@ -85,8 +85,11 @@ public class ArtifactApi {
       String safeDiagram = raw.replaceAll("-->|->>|-->>|->|<--|<->", "");
       if (kind.equals("DIAGRAM")
           && (raw.length() > 20000
-              || safeDiagram.matches(
-                  "(?is).*([<>]|%%\\{|javascript:|https?://|\\bclick\\b|\\bstyle\\b|\\bclassDef\\b).*")
+              || java.util.regex.Pattern.compile(
+                      "[<>]|%%\\{|javascript:|https?://|\\bclick\\b|\\bstyle\\b|\\bclassDef\\b",
+                      java.util.regex.Pattern.CASE_INSENSITIVE)
+                  .matcher(safeDiagram)
+                  .find()
               || !raw.matches("(?s)\\s*(flowchart|graph|sequenceDiagram|classDiagram)\\b.*")))
         throw Kernel.error(400, "UNSAFE_DIAGRAM");
       String name =

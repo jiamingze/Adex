@@ -2,7 +2,7 @@
 name = "adex-kernel"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["fastapi==0.115.12", "httpx==0.28.1", "psycopg[binary,pool]==3.2.6"]
+dependencies = ["fastapi==0.143.3", "starlette>=1.3.1", "httpx==0.28.1", "psycopg[binary,pool]==3.2.6"]
 [build-system]
 requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"

@@ -227,5 +227,7 @@ async def test_read_redirect_pins_only_same_site_and_never_follows_in_fetch(loca
     await broker.forward(route)
     route.fetch.assert_awaited_once_with(max_redirects=0, max_retries=0, timeout=10000)
     assert broker.admit.await_count == (1 if admitted else 0)
-    assert ("passport.example.com" in broker.read_hosts) is admitted
+    assert broker.read_hosts == (
+        {"www.example.com", "passport.example.com"} if admitted else {"www.example.com"}
+    )
     route.fulfill.assert_awaited_once_with(response=response)

@@ -277,7 +277,7 @@ class Handler(SimpleHTTPRequestHandler):
             if fault and fault.value == "actions" and path == "/actions":
                 return self.reply({"code": "TEST_FIXTURE_UNAVAILABLE"}, 503)
             return self.reply(DATA.get(path, {"items": []}))
-        if parsed.path.startswith("/assets/"):
+        if parsed.path.startswith(("/assets/", "/brand/")):
             return super().do_GET()
         raw = (ROOT / "index.html").read_bytes()
         if parse_qs(parsed.query).get("keyboard_controls") == ["1"]:
@@ -290,10 +290,10 @@ class Handler(SimpleHTTPRequestHandler):
             )
         self.send_response(200)
         fault = parse_qs(parsed.query).get("fault", [""])[0]
-        if fault:
-            self.send_header(
-                "Set-Cookie", f"fixture_fault={fault}; Path=/; SameSite=Strict"
-            )
+        for flag in ("calendar-plan", "notes-read-timeout", "matrix-timeout", "actions", "notes-save-delay"):
+            if fault == flag:
+                self.send_header("Set-Cookie", f"fixture_fault={flag}; Path=/; SameSite=Strict")
+                break
         self.send_header("Content-Type", "text/html")
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()

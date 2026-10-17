@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # Shared with intent routing: accepting a duration must never depend on a second regex.
-RELATIVE_TIME = re.compile(r"([一二三四五六七八九十两\d]+)\s*(分钟|小时|秒)\s*(?:之?后)")
+RELATIVE_TIME = re.compile(
+    r"(?<![一二三四五六七八九十两\d])([一二三四五六七八九十两\d]{1,8})\s{0,16}(分钟|小时|秒)\s{0,16}(?:之?后)"
+)
 
 
 class ScheduleDraft(BaseModel):
@@ -47,7 +49,7 @@ def daily_chat_draft(text):
     if not re.search(r"每天|每日|每晚|每早", text):
         return None
     match = re.search(
-        r"(?:每天|每日|每晚|每早)\s*(上午|早上|早晨|晚上|下午)?\s*([零一二三四五六七八九十两\d]{1,3})(?:点|:|：)([零一二三四五六七八九十\d]{1,3}分?|半)?",
+        r"(?:每天|每日|每晚|每早)\s{0,16}(上午|早上|早晨|晚上|下午)?\s{0,16}([零一二三四五六七八九十两\d]{1,3})(?:点|:|：)([零一二三四五六七八九十\d]{1,3}分?|半)?",
         text,
     )
     if not match:
@@ -114,7 +116,7 @@ def relative_chat_draft(text):
         count = digits.get(raw, 0)
     seconds = count * {"分钟": 60, "小时": 3600, "秒": 1}[match[2]]
     instruction = text[match.end() :].strip(" ，,：:")
-    instruction = re.sub(r"^(?:请|帮我|给我|给)\s*", "", instruction).strip()
+    instruction = re.sub(r"^(?:请|帮我|给我|给)", "", instruction).strip()
     if not 1 <= seconds <= 31536000 or not instruction:
         return None
     return {

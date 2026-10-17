@@ -176,3 +176,52 @@ GitHub CodeQL default setup is configured for Actions, Java/Kotlin,
 JavaScript/TypeScript and Python. Swift requires a separate reproducible Xcode build
 configuration and is not claimed as covered by this default scan. The native build
 and signing acceptance remain separate from Linux CI and static analysis.
+
+
+### Imported dependency alerts and remediation
+
+The initial empty Dependabot list was observed before dependency graph import
+finished; it was not a final clean security result. Once imported, the graph
+reported vulnerable Vite, terminal regex, UUID, KaTeX, Starlette and pytest versions.
+Updated Vite to 6.4.3 and Mermaid to 12.2; refreshed compatible transitive patches.
+A scoped `xcode>uuid` override uses 11.1.1 (CommonJS), preserving the parser's v4 API;
+the actual project parses and generates a valid 24-character Xcode identifier.
+FastAPI 0.143.3 with Starlette >=1.3.1 and pytest 9.1.1 / pytest-asyncio 1.4.0
+resolve the Python findings. All three lockfiles are regenerated. Major runtime
+upgrades such as Python 3.14 or Spring Boot 4 are not part of this repair.
+
+Local `pnpm audit --registry https://registry.npmjs.org`: zero known advisories in
+all severity categories. `uv tool run pip-audit` against each installed root,
+Agent and Tools environment: no known vulnerabilities. The same npm and pinned
+pip-audit checks are added to CI; registry/service availability failures remain
+visible. Current known-advisory audits do not constitute a general security proof.
+
+After the dependency changes: `make test` passed (bootstrap 12, client 22,
+Agent 81, Tools 103, Java tests and OpenAPI 93 operations); Web build, style and
+architecture checks passed. A signed iPhone build and installation also passed.
+The repository history was additionally checked across 1,185 blobs for the existing
+credential patterns without printing values; none matched. The production database
+was not used as a development test fixture.
+
+
+### CodeQL text-processing hardening contract
+
+The initial CodeQL scan also identifies polynomial backtracking on untrusted chat,
+model output and diagram text. Replace wildcard intent scans with ordered literal
+searches that preserve same-line ordering; cap numeric/whitespace fields to the
+actual scheduling/media contract; strip JSON fences with string boundaries. Browser
+host validation must check individual DNS labels and length rather than ambiguous
+repeated groups. Diagram validation must tokenize arrow/angle characters without
+using HTML-removal substitutions. Keep existing routes, owner checks and approvals.
+Tests cover long near-misses, JSON/code preservation, duration overflow, bad DNS
+labels and diagram tags. Fix test URL assertions to compare hosts exactly; reject
+invalid synthetic cookie flags rather than reflecting them into response headers.
+No database migration or service contract change is needed.
+
+
+Hardening verification: Agent 87 tests, Tools 119 policy/provider tests plus three
+loopback fixture/header/asset regressions, client 22 tests, Java 11 tests and OpenAPI
+93 operations passed. `make build`, `make check-style`, Ruff and architecture checks
+passed. Full isolated integration after text hardening: **73 passed in 286.67s**.
+CodeQL is left enabled so the final commit is rescanned rather than dismissing
+findings manually. Its remote result is checked separately before release.

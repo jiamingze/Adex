@@ -29,7 +29,9 @@ def test_cipher_bound_to_resource_and_missing_key_blocks(monkeypatch):
 def test_fixture_cannot_redirect_production(monkeypatch):
     monkeypatch.setenv("ADEX_CONNECTOR_TEST_FIXTURE", "true")
     monkeypatch.setenv("ADEX_DB_URL", "postgresql://localhost/adex_dev")
-    assert google.endpoint("gmail").startswith("https://gmail.googleapis.com")
+    from urllib.parse import urlsplit
+
+    assert urlsplit(google.endpoint("gmail")).hostname == "gmail.googleapis.com"
 
 
 def test_action_headers_and_fields_validated():

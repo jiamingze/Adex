@@ -15,7 +15,7 @@ def dns(*addresses):
 def test_public_destination_and_explicit_allowlist(monkeypatch):
     monkeypatch.delenv("ADEX_BROWSER_ALLOWED_HOSTS", raising=False)
     monkeypatch.delenv("ADEX_BROWSER_MODE", raising=False)
-    assert "docs.python.org" in admitted_hosts("https://docs.python.org/3/")
+    assert admitted_hosts("https://docs.python.org/3/")[0] == "docs.python.org"
     monkeypatch.setenv("ADEX_BROWSER_MODE", "allowlist")
     with pytest.raises(HTTPException):
         admitted_hosts("https://docs.python.org/3/")

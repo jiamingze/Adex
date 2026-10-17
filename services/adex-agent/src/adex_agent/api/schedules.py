@@ -34,9 +34,9 @@ async def schedule_draft(request: Request, body: DraftRequest):
                 result = event["content"]
         if not result:
             raise HTTPException(502, detail="DRAFT_PARSE_FAILED")
-        import re
+        from adex_kernel.text import strip_json_fence
 
-        result = re.sub(r"^```(?:json)?\s*|\s*```$", "", result.strip())
+        result = strip_json_fence(result)
         parsed = json.loads(result)
         if "clarification" in parsed:
             return {"clarification": str(parsed["clarification"])[:500]}

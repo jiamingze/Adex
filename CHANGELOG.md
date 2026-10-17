@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### 2026-10-18 — In-chat location permission
+
+- Replace the location modal/city entry with an inline chat card and a single “Use current location” action; retain the OS permission sheet.
+- Show the question before consent, and cancel pending consent when leaving the conversation or signing out so the composer is released.
+
+### 2026-10-18 — Text and fixture hardening
+
+- Replace wildcard intent scans with ordered literal matching; bound schedule/media numeric fields and strip outer JSON fences without backtracking.
+- Validate DNS labels individually, tokenize diagram arrows, and use direct pattern searches for artifact validation.
+- Canonicalize fixture cookies and serve brand assets correctly in the synthetic gallery; add adversarial text, policy and header/asset regressions.
+
+### 2026-10-18 — Dependency security refresh
+
+- Update FastAPI/Starlette and pytest/pytest-asyncio to patched versions across all Python environments; regenerate reproducible locks.
+- Update Vite within version 6 and Mermaid within version 12; patch vulnerable terminal regex dependencies and scope a CommonJS-compatible UUID override to the legacy Xcode parser.
+- Add npm and pinned Python dependency audits to CI. Local audits report no known vulnerabilities; native Xcode parsing and signed device build remain compatible.
+
 ### 2026-10-18 — Repository reliability and community
 
 - Fix a shared-suite reminder test that counted unrelated model invocations; assert no model invocation for the specific reminder Run, including redelivery.

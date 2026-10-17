@@ -49,8 +49,12 @@ def admitted_hosts(url):
         host = urlsplit(url).hostname or ""
         # No IP literals, single-label hosts, alternate numeric IP forms or DNS
         # suffix guessing. Every admitted DNS answer is validated below as well.
-        valid = bool(
-            re.fullmatch(r"(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}", host)
+        labels = host.split(".")
+        valid = (
+            len(host) <= 253
+            and len(labels) >= 2
+            and bool(re.fullmatch(r"[a-z]{2,63}", labels[-1]))
+            and all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels[:-1])
         )
         if not valid or not allowed_url(url, (host,)) or (mode == "allowlist" and host not in configured):
             raise ValueError()

@@ -30,6 +30,12 @@ jobs:
         run: |
           python3 scripts/ci_chromium_profile.py > /tmp/adex-chromium.apparmor
           sudo apparmor_parser -r /tmp/adex-chromium.apparmor
+      - name: Dependency vulnerability audit
+        run: |
+          pnpm audit --registry https://registry.npmjs.org
+          for environment in . services/adex-agent services/adex-tools; do
+            uv tool run pip-audit==2.10.1 --path "$environment/.venv/lib/python3.12/site-packages"
+          done
       - run: make build
       - name: Unit and contract tests
         run: python3 scripts/ci_run.py make test

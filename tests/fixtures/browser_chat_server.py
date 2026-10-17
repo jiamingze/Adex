@@ -135,10 +135,16 @@ class InlineHandler(GalleryHandler):
             stage = path.rsplit("/", 1)[-1]
             if stage not in STAGES:
                 return self.reply({}, 404)
+            # Return a canonical fixture cookie, never reflect URL text into a header.
+            cookie = {
+                "login": "adex_browser_demo=login; Path=/; SameSite=Lax",
+                "review": "adex_browser_demo=review; Path=/; SameSite=Lax",
+                "done": "adex_browser_demo=done; Path=/; SameSite=Lax",
+            }.get(stage)
+            if cookie is None:
+                return self.reply({}, 404)
             self.send_response(302)
-            self.send_header(
-                "Set-Cookie", f"adex_browser_demo={stage}; Path=/; SameSite=Lax"
-            )
+            self.send_header("Set-Cookie", cookie)
             self.send_header("Location", "/c/" + CONVERSATION)
             self.end_headers()
             return

@@ -52,8 +52,18 @@ def proposal(snapshot):
     elif text in ("你记住了什么", "你记住了什么？", "查看记忆"):
         operation = op("list")
     else:
-        change = re.match(r"把记忆[“\"](.+?)[”\"]更新为[“\"](.+?)[”\"]", text)
-        forget = re.match(r"忘记关于(.+)的记忆", text)
+        change = None
+        line = text.split("\n", 1)[0]
+        if line.startswith(("把记忆“", '把记忆"')):
+            boundary = re.search(r'[”"]更新为[“"]', line)
+            if boundary:
+                original = line[4 : boundary.start()]
+                tail = line[boundary.end() :]
+                ends = [i for quote in ("”", '"') if (i := tail.find(quote)) >= 0]
+                if original and ends and min(ends) > 0:
+                    change = (None, original, tail[: min(ends)])
+        before, separator, _ = line.removeprefix("忘记关于").rpartition("的记忆")
+        forget = (None, before) if line.startswith("忘记关于") and separator and before else None
         save = re.match(r"(?:请)?记住[：:](.+)", text, re.S)
         if change or forget:
             target_text = change[1] if change else forget[1]
