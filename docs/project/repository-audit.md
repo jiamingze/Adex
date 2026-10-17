@@ -167,3 +167,12 @@ graph, Dependabot alerts, Dependabot security updates and grouped security updat
 are enabled. Existing secret scanning and push protection remain enabled. No
 credentials, wider contributor permissions or automatic dependency merges were
 created. See [SECURITY.md](../../SECURITY.md) for the private reporting entry point.
+
+
+Version-update PRs are limited to one per ecosystem and grouped; automatic major
+runtime/framework upgrades are excluded from version updates and require a focused
+migration. This does not disable vulnerability alerts or security-update PRs.
+GitHub CodeQL default setup is configured for Actions, Java/Kotlin,
+JavaScript/TypeScript and Python. Swift requires a separate reproducible Xcode build
+configuration and is not claimed as covered by this default scan. The native build
+and signing acceptance remain separate from Linux CI and static analysis.

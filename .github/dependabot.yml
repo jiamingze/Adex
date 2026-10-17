@@ -3,13 +3,16 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: {interval: monthly}
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
     groups:
       actions: {patterns: ['*']}
   - package-ecosystem: npm
     directory: /
     schedule: {interval: weekly, day: monday}
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       frontend-minor:
         patterns: ['*']
@@ -17,7 +20,10 @@ updates:
   - package-ecosystem: maven
     directory: /
     schedule: {interval: weekly, day: monday}
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       java-minor:
         patterns: ['*']
@@ -25,7 +31,10 @@ updates:
   - package-ecosystem: uv
     directories: [/, /services/adex-agent, /services/adex-tools]
     schedule: {interval: weekly, day: monday}
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       python-minor:
         patterns: ['*']
@@ -33,4 +42,11 @@ updates:
   - package-ecosystem: docker
     directories: [/services/adex-app, /services/adex-automation, /services/adex-agent, /services/adex-tools]
     schedule: {interval: monthly}
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      images-minor:
+        patterns: ['*']
+        update-types: [minor, patch]
