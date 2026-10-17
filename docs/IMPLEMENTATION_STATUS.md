@@ -587,8 +587,24 @@ App restarted, all four readiness endpoints HTTP 200. Updated signed iOS package
 installed and launched (both device commands exit 0). See ADR 004 and
 `docs/architecture/apns-activation.md` for setup and environment limits.
 
-Pending physical acceptance: no active APNs device token has yet been registered.
-User must enable iPhone task push in Settings -> Notifications and accept the OS
-permission. Real APNs acceptance, lock-screen display and tap-to-original-Run are
-NOT yet verified. Isolated APNs fixture results are not reported as device delivery.
+Physical follow-up: one real Sandbox device registered after OS authorization and
+push preferences were enabled. Two generic test notifications received real APNs
+`ACCEPTED` responses without provider errors; corresponding owner-authenticated
+notification-resume requests returned HTTP 200. These tests have no Run and do not
+prove scheduled Run recovery or lock-screen presentation. The user reported no
+visible effect on tap: the target conversation was already displayed. The client
+now closes the notification overlay and shows dismissible notification content in
+chat even for same-conversation taps, without inserting a synthetic AI message.
+Phone UX acceptance of this feedback and real scheduled Run recovery remain pending.
 This key/profile setup verifies development Sandbox only, not TestFlight production.
+
+The temporary public tunnel expired during acceptance (`Tunnel not found`). Local
+login remained successful; a replacement tunnel passed actual public login HTTP
+200 and a rebuilt iOS app was installed/launched. This is temporary connectivity,
+not a fixed production endpoint; use a stable HTTPS gateway for dependable access.
+
+Tap-feedback validation: `make test-client` (21 passed), `make check-style`
+(including architecture checks), Web TypeScript/Vite build, secret scan and
+`git diff --check` passed. This is client presentation feedback, with no schema,
+API, task-state or scheduling changes. Real scheduled-task/Run end-to-end device
+acceptance remains separate from the generic test notification.

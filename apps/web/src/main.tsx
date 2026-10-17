@@ -153,6 +153,11 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
+  const [pushArrival, setPushArrival] = useState<{
+    conversationId: string;
+    title: string;
+    body: string;
+  } | null>(null);
   const [connected, setConnected] = useState(false);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
@@ -208,6 +213,24 @@ function App() {
         setCurrent(result.conversation_id);
         setPage("chat");
         setMobile(false);
+        setShowNotifications(false);
+        setError("");
+        setPushArrival({
+          conversationId: result.conversation_id,
+          title: "已打开通知对应的聊天",
+          body: "",
+        });
+        // A test or repeated tap may target the conversation already on screen.
+        // Show durable notification content without inventing a chat message.
+        const items = (await api.notifications().catch(() => ({ items: [] })))
+          .items;
+        const notification = items.find((item) => item.id === id);
+        if (notification)
+          setPushArrival({
+            conversationId: result.conversation_id,
+            title: notification.title,
+            body: notification.body,
+          });
       } catch (e) {
         setError(errorMessage(e));
         throw e;
@@ -961,6 +984,21 @@ function App() {
           )}
         {page === "chat" && (
           <div className="chat-page">
+            {pushArrival?.conversationId === current && (
+              <div className="push-arrival" role="status">
+                <div>
+                  <strong>{pushArrival.title}</strong>
+                  {pushArrival.body && <p>{pushArrival.body}</p>}
+                </div>
+                <button
+                  className="icon-button"
+                  aria-label="关闭通知内容"
+                  onClick={() => setPushArrival(null)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
             <div
               className="chat-scroll"
               ref={chatScroll.ref}
