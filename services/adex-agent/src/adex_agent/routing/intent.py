@@ -1,4 +1,5 @@
 import re
+from adex_agent.routing.schedule import RELATIVE_TIME
 
 
 def travel_intent(text):
@@ -49,8 +50,9 @@ def original_music_intent(text):
 
 def schedule_intent(text):
     return bool(
-        re.search(
-            r"[一二三四五六七八九十两\d]+\s*(?:分钟|小时|秒)\s*后.+|(创建|设置|安排|新建).*(定时任务|定时|提醒)|(每天|每日|每晚|每早|明天|每隔).*(帮我|整理|搜索|搜集|提醒|汇总|推送|发送|发我|发给我|监控)|(?:定时|定期).*(整理|搜索|提醒|汇总|发送)",
+        RELATIVE_TIME.search(text)
+        or re.search(
+            r"(创建|设置|安排|新建).*(定时任务|定时|提醒)|(每天|每日|每晚|每早|明天|每隔).*(帮我|整理|搜索|搜集|提醒|汇总|推送|发送|发我|发给我|监控)|(?:定时|定期).*(整理|搜索|提醒|汇总|发送)",
             text,
         )
     ) and not bool(

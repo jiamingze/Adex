@@ -1,7 +1,13 @@
+import re
+
 from datetime import datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+# Shared with intent routing: accepting a duration must never depend on a second regex.
+RELATIVE_TIME = re.compile(r"([一二三四五六七八九十两\d]+)\s*(分钟|小时|秒)\s*(?:之?后)")
 
 
 class ScheduleDraft(BaseModel):
@@ -94,7 +100,7 @@ def relative_chat_draft(text):
     """Relative duration stays relative until App anchors it to durable turn time."""
     import re
 
-    match = re.search(r"([一二三四五六七八九十两\d]+)\s*(分钟|小时|秒)\s*(?:之?后)", text)
+    match = RELATIVE_TIME.search(text)
     if not match:
         return None
     raw = match[1]

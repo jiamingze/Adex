@@ -64,3 +64,27 @@ def test_ten_minute_delivery_request():
     text = "10分钟后发我下最新的新闻"
     assert schedule_intent(text)
     assert relative_chat_draft(text)["delay_seconds"] == 600
+
+
+@pytest.mark.parametrize(
+    "text,seconds",
+    [
+        ("1分钟之后帮我整一下重要的新闻", 60),
+        ("1分钟之后帮我整理一下重要的新闻", 60),
+        ("2分钟之后帮我搜一下今天最新的全球新闻", 120),
+        ("10分钟之后发我最新新闻", 600),
+        ("十分钟之后提醒我喝水", 600),
+    ],
+)
+def test_relative_route_and_parser_share_duration_grammar(text, seconds):
+    from adex_agent.routing.intent import schedule_intent
+    from adex_agent.routing.schedule import relative_chat_draft
+
+    assert schedule_intent(text)
+    assert relative_chat_draft(text)["delay_seconds"] == seconds
+
+
+def test_negated_relative_after_variant_is_not_created():
+    from adex_agent.routing.intent import schedule_intent
+
+    assert not schedule_intent("不要1分钟之后提醒我")

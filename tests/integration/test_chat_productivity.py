@@ -85,7 +85,7 @@ def test_explicit_priority_overrides_default(client):
 
 
 def test_one_minute_chat_executes_and_backfills(client, db):
-    conv, path, body, answer = chat(client, "1分钟后给整理一条最新的新闻")
+    conv, path, body, answer = chat(client, "1分钟之后帮我整一下重要的新闻")
     assert "已设置" in answer["content"]
     schedule = next(
         s
