@@ -1,8 +1,16 @@
-JAVA_HOME ?= /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+# Respect setup-java / user JAVA_HOME. Fall back to Homebrew only when it exists;
+# Linux Java installations work through PATH without a macOS-only JAVA_HOME.
+ifeq ($(origin JAVA_HOME),undefined)
+ifneq ($(wildcard /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home),)
+JAVA_HOME := /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+endif
+endif
 MAVEN_OPTS ?= -Djava.net.preferIPv4Stack=true
 export MAVEN_OPTS
+ifneq ($(strip $(JAVA_HOME)),)
 export JAVA_HOME
 export PATH := $(JAVA_HOME)/bin:$(PATH)
+endif
 .PHONY: doctor setup build test test-contract up-dev down-dev status test-integration format check-style test-client
 
 doctor:

@@ -85,7 +85,16 @@ def test_deadline_notification_and_idempotent_delivery(client, db):
     )
     assert str(notification["conversation_id"]) == str(run["origin_conversation_id"])
     assert str(notification["run_id"]) == run["id"]
-    before = db.execute("SELECT count(*) AS n FROM agent.invocations").fetchone()["n"]
+
+    # Other integration modules legitimately leave model calls in this shared test DB.
+    # The invariant is no LLM call for THIS deterministic reminder Run.
+    def invocation_count():
+        return db.execute(
+            "SELECT count(*) AS n FROM agent.invocations WHERE invocation_key LIKE %s",
+            ("run:" + run["id"] + ":%",),
+        ).fetchone()["n"]
+
+    assert invocation_count() == 0
     db.execute(
         "UPDATE automation.outbox SET delivered_at=NULL,next_attempt_at=now() WHERE run_id=%s",
         (run["id"],),
@@ -102,11 +111,7 @@ def test_deadline_notification_and_idempotent_delivery(client, db):
         ).fetchone()["n"]
         == 1
     )
-    assert (
-        db.execute("SELECT count(*) AS n FROM agent.invocations").fetchone()["n"]
-        == before
-        == 0
-    )
+    assert invocation_count() == 0
 
 
 def test_completed_task_suppresses_already_scheduled_reminder(client, db):
