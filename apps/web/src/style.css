@@ -172,5 +172,3 @@ html.voice-capture-active *,
   .voice-bottom-sheet .voice-wave i { animation: none; height: 24px; }
   .voice-bottom-sheet .voice-wave i:nth-child(2n) { height: 42px; }
 }
-
-.push-arrival{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:8px 16px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--panel);font-size:13px;flex-shrink:0}.push-arrival>div{min-width:0}.push-arrival strong{font-weight:600}.push-arrival p{margin:4px 0 0;color:var(--muted);line-height:1.5}
