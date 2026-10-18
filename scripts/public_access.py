@@ -3,6 +3,7 @@ import argparse
 import os
 import re
 import signal
+import sys
 import subprocess
 import time
 from pathlib import Path
@@ -33,7 +34,7 @@ def launch(name, command, cwd=root, env=None):
     (state / (name + '.pid')).write_text(str(process.pid))
 
 if mode == 'stop':
-    stop('public-tunnel'); stop('public-web'); print('Public access stopped')
+    stop('public-awake'); stop('public-tunnel'); stop('public-web'); print('Public access stopped')
 elif mode == 'status' or (alive('public-tunnel') and alive('public-web') and (state / 'public-url.txt').exists() and gateway_ready((state / 'public-url.txt').read_text().strip())):
     if alive('public-tunnel') and alive('public-web'):
         url = (state / 'public-url.txt').read_text().strip()
@@ -43,8 +44,12 @@ elif mode == 'status' or (alive('public-tunnel') and alive('public-web') and (st
     else: print('Public access is not running')
 else:
     if not (root / 'apps/web/dist/index.html').exists(): raise SystemExit('Build Web first: make build')
-    stop('public-tunnel'); stop('public-web')
+    stop('public-awake'); stop('public-tunnel'); stop('public-web')
     launch('public-tunnel', ['cloudflared', 'tunnel', '--protocol', os.getenv('ADEX_TUNNEL_PROTOCOL', 'http2'), '--edge-ip-version', '4', '--url', 'http://127.0.0.1:4173', '--no-autoupdate'])
+    # Keep this Mac-hosted server reachable during idle display sleep. The assertion
+    # ends with the tunnel process; system power settings are never changed.
+    if sys.platform == 'darwin':
+        launch('public-awake', ['caffeinate', '-i', '-w', (state / 'public-tunnel.pid').read_text().strip()])
     url = None
     for _ in range(120):
         matches = re.findall(r'https://[a-z-]+\.trycloudflare\.com', (state / 'public-tunnel.log').read_text())

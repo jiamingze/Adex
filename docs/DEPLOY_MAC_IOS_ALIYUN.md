@@ -34,3 +34,5 @@ Official references: https://developer.apple.com/help/account/basics/about-your-
 真机安装前需完成 Xcode 许可及首次组件初始化，在 Xcode Accounts 登录 Apple 账号并选择 Personal Team，连接并信任 iPhone，按系统要求开启开发者模式。只有 devicectl 安装及启动成功才视为真机完成。
 
 Quick Tunnel 的进程存活不代表入口有效：服务端可能返回 `Unauthorized: Tunnel not found`、530 或 DNS 错误。`public_access.py status` 现在验证公网 App 的未登录 JSON 响应，失效时返回非零；`start` 会替换失效隧道。更换后必须重新打包 iOS。临时隧道不提供稳定域名或可用性承诺；长期手机使用应部署固定 HTTPS 网关，并通过 `ADEX_IOS_API_URL` 打包。此检查不会自动修改已安装客户端的地址。
+
+macOS 本机入口启动时，会用随隧道进程结束的 `caffeinate -i -w PID` 阻止空闲系统休眠，允许屏幕正常熄灭；`stop` 同时释放该断言，不修改全局电源设置。在电池上运行会增加耗电，建议接通电源。合盖、手动睡眠、关机或网络中断仍可能使公网入口不可用；唤醒后须重新验证入口，不能把本机临时隧道视为长期在线服务器。
