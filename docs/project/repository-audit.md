@@ -225,3 +225,20 @@ loopback fixture/header/asset regressions, client 22 tests, Java 11 tests and Op
 passed. Full isolated integration after text hardening: **73 passed in 286.67s**.
 CodeQL is left enabled so the final commit is rescanned rather than dismissing
 findings manually. Its remote result is checked separately before release.
+
+
+The next remote scan automatically closed 27 findings and isolated two remaining
+parser patterns. Fenced HTML/Mermaid source extraction now scans canonical header
+lines and closing delimiters with string indexes; malformed/missing fences remain
+unchanged. Diagram angle validation uses a literal character scanner, not a regex
+that resembles HTML filtering. Additional Java tests preserve source bodies and
+exercise long malformed headers. Neither finding is manually dismissed.
+
+
+Remaining-parser checks: `make build`, `make test`, `make check-style`, Ruff and
+secret scan passed (Java 14, Agent 87, Tools 122, client 22; OpenAPI 93 operations).
+`uv run python scripts/test_stack.py tests/integration/test_workspace.py -q`:
+**14 passed in 3.82s**, including fenced sequence-diagram edits, private file readback
+and active-content rejection. App and Tools recognize all six supported arrow tokens
+consistently, including `-->>`. The preceding full isolated suite passed 73 tests;
+the final GitHub workflow runs it again on the parser commit.

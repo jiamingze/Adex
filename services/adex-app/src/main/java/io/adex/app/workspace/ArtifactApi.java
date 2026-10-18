@@ -75,20 +75,15 @@ public class ArtifactApi {
         throw Kernel.error(400, "SOURCE_CONTENT_REQUIRED");
       String raw = text;
       if (kind.equals("GAME") || kind.equals("DIAGRAM")) {
-        var matcher =
-            java.util.regex.Pattern.compile(
-                    "```(?:html|mermaid)\\s*\\n([\\s\\S]*?)```",
-                    java.util.regex.Pattern.CASE_INSENSITIVE)
-                .matcher(text);
-        if (matcher.find()) raw = matcher.group(1);
+        raw = ArtifactSource.fenced(text);
       }
-      String safeDiagram = raw.replaceAll("-->|->>|-->>|->|<--|<->", "");
       if (kind.equals("DIAGRAM")
           && (raw.length() > 20000
+              || ArtifactSource.hasUnsafeAngles(raw)
               || java.util.regex.Pattern.compile(
-                      "[<>]|%%\\{|javascript:|https?://|\\bclick\\b|\\bstyle\\b|\\bclassDef\\b",
+                      "%%\\{|javascript:|https?://|\\bclick\\b|\\bstyle\\b|\\bclassDef\\b",
                       java.util.regex.Pattern.CASE_INSENSITIVE)
-                  .matcher(safeDiagram)
+                  .matcher(raw)
                   .find()
               || !raw.matches("(?s)\\s*(flowchart|graph|sequenceDiagram|classDiagram)\\b.*")))
         throw Kernel.error(400, "UNSAFE_DIAGRAM");

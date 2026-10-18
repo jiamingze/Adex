@@ -354,11 +354,22 @@ def test_diagram_source_edit_validates_arrows_and_rejects_active_content(client)
     assert client.get(
         f"/api/v1/files/{response.json()['file_id']}/content"
     ).text.startswith("flowchart TD")
+    fenced = client.post(
+        f"/api/v1/artifacts/{diagram}/versions",
+        json={
+            "expected_revision": 1,
+            "source": {"content": "说明\n```mermaid\nsequenceDiagram\n A-->>B: hello\n```\n结束"},
+        },
+    )
+    fenced.raise_for_status()
+    assert client.get(
+        f"/api/v1/files/{fenced.json()['file_id']}/content"
+    ).text == "sequenceDiagram\n A-->>B: hello\n"
     assert (
         client.post(
             f"/api/v1/artifacts/{diagram}/versions",
             json={
-                "expected_revision": 1,
+                "expected_revision": 2,
                 "source": {"content": "flowchart TD\n A[<script>alert(1)</script>]"},
             },
         ).status_code
