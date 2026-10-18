@@ -32,3 +32,5 @@ Official references: https://developer.apple.com/help/account/basics/about-your-
 先运行 `uv run python scripts/public_access.py start`，再运行 `uv run python scripts/prepare_ios.py`。iOS 独立资源目录为 `apps/ios/web-dist`，API 使用 `.local-data/public-url.txt` 中的 HTTPS 公网地址，也可通过 `ADEX_IOS_API_URL` 指定固定 HTTPS origin。不会覆盖 Web dist。Native 端启用消息快照轮询以兼容隧道 SSE 限制。Quick Tunnel 地址改变后需重新打包安装；本机服务和隧道必须持续运行，电脑睡眠时无法访问。
 
 真机安装前需完成 Xcode 许可及首次组件初始化，在 Xcode Accounts 登录 Apple 账号并选择 Personal Team，连接并信任 iPhone，按系统要求开启开发者模式。只有 devicectl 安装及启动成功才视为真机完成。
+
+Quick Tunnel 的进程存活不代表入口有效：服务端可能返回 `Unauthorized: Tunnel not found`、530 或 DNS 错误。`public_access.py status` 现在验证公网 App 的未登录 JSON 响应，失效时返回非零；`start` 会替换失效隧道。更换后必须重新打包 iOS。临时隧道不提供稳定域名或可用性承诺；长期手机使用应部署固定 HTTPS 网关，并通过 `ADEX_IOS_API_URL` 打包。此检查不会自动修改已安装客户端的地址。

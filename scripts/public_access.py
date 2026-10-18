@@ -7,6 +7,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from public_health import gateway_ready
+
 root = Path(__file__).resolve().parents[1]
 state = root / '.local-data'
 state.mkdir(exist_ok=True)
@@ -32,9 +34,12 @@ def launch(name, command, cwd=root, env=None):
 
 if mode == 'stop':
     stop('public-tunnel'); stop('public-web'); print('Public access stopped')
-elif mode == 'status' or (alive('public-tunnel') and alive('public-web')):
+elif mode == 'status' or (alive('public-tunnel') and alive('public-web') and (state / 'public-url.txt').exists() and gateway_ready((state / 'public-url.txt').read_text().strip())):
     if alive('public-tunnel') and alive('public-web'):
-        print((state / 'public-url.txt').read_text())
+        url = (state / 'public-url.txt').read_text().strip()
+        if not gateway_ready(url):
+            raise SystemExit('Public gateway is unreachable; run public_access.py start to replace the expired tunnel. Rebundle iOS after the URL changes.')
+        print(url)
     else: print('Public access is not running')
 else:
     if not (root / 'apps/web/dist/index.html').exists(): raise SystemExit('Build Web first: make build')
