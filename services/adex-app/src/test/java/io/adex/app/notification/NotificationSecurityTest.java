@@ -18,6 +18,18 @@ class NotificationSecurityTest {
   }
 
   @Test
+  void taskTitlesAreBoundedAndSingleLine() {
+    assertEquals("任务已完成", NotificationTitle.completed(null));
+    assertEquals("科技新闻 · 已完成", NotificationTitle.completed("科技新闻"));
+    assertEquals("科技新闻 · 未完成", NotificationTitle.label("科技新闻", "未完成"));
+    assertFalse(NotificationTitle.compact("测试\n标题\u202E").contains("\n"));
+    assertEquals(
+        29,
+        NotificationTitle.compact("😀".repeat(40))
+            .codePointCount(0, NotificationTitle.compact("😀".repeat(40)).length()));
+  }
+
+  @Test
   void quietHoursCrossMidnight() {
     assertTrue(
         NotificationPreferences.quiet(
@@ -28,7 +40,7 @@ class NotificationSecurityTest {
   }
 
   @Test
-  void pushContainsOnlyGenericTextAndIdentifiers() {
+  void pushContainsTaskTitleButNeverResultBody() {
     var id = UUID.randomUUID();
     var payload =
         ApnsTransport.payload(
@@ -41,10 +53,13 @@ class NotificationSecurityTest {
                 UUID.randomUUID(),
                 "action_id",
                 UUID.randomUUID(),
+                "title",
+                "科技新闻 · 已完成",
                 "body",
                 "PRIVATE EMAIL CONTENT"));
     assertEquals(id.toString(), payload.get("notification_id"));
     assertFalse(payload.toString().contains("PRIVATE EMAIL"));
+    assertTrue(payload.toString().contains("科技新闻"));
     assertTrue(payload.containsKey("action_id"));
   }
 }

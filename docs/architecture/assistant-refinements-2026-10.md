@@ -67,3 +67,19 @@ delete, and always revalidate. This is not a cross-account persistent cache.
   and external-source semantic quality remain device/provider acceptance work.
 - Markdown toggle is an icon immediately before Save, with accessible label/title;
   reading uses a pencil icon and editing uses an eye/preview icon.
+
+### Task card and notification titles
+
+Result outbox may include `task_title` from the authoritative schedule title or Run
+instruction. App bounds it to a short single-line notification title. APNs now carries
+that title at the user's request, while the result body remains generic on the lock
+screen; no email/result body is copied into push alerts. No schema migration.
+Task cards keep title/copy and a fixed action group in two grid columns, including
+mobile; status moves into the metadata row and duplicate description is omitted.
+
+Observed task-card/title verification: `make build test check-style`, Java recheck
+`mvn -B test` (App 11 + Automation 4), and isolated productivity/connector integration
+(14 passed in 103.68s). At 375×812, the synthetic schedule card is 337×117px;
+title and both 40px action buttons share the same top coordinate, with document
+width/scroll width both 375px. Signed iOS build succeeded. External APNs delivery
+is not inferred from the loopback fixture; notification body remains generic.

@@ -122,6 +122,7 @@ def test_one_minute_chat_executes_and_backfills(client, db):
         ]
     )
     assert len(notifications) == 1
+    assert "新闻" in notifications[0]["title"]
     messages = client.get(path).json()["items"]
     assert len([m for m in messages if m["role"] == "assistant"]) >= 2
     assert (

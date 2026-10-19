@@ -1436,13 +1436,13 @@ function App() {
               )}
               {schedules.map((s) => (
                 <div className="schedule-row" key={s.id}>
-                  <div className="row-icon">
-                    <CalendarClock size={20} />
-                  </div>
-                  <div className="row-main">
+                  <div className="schedule-copy">
                     <strong>{s.title}</strong>
-                    <p>{s.instruction}</p>
+                    {s.instruction !== s.title && <p title={s.instruction}>{s.instruction}</p>}
                     <div className="row-meta">
+                      <Badge tone={s.status === "ACTIVE" ? "green" : "muted"}>
+                        {statusText[s.status]}
+                      </Badge>
                       <span>
                         <Clock3 size={12} />
                         {s.kind === "DAILY"
@@ -1455,9 +1455,6 @@ function App() {
                       <span>下次：{fmt(s.next_fire_at, s.timezone)}</span>
                     </div>
                   </div>
-                  <Badge tone={s.status === "ACTIVE" ? "green" : "muted"}>
-                    {statusText[s.status]}
-                  </Badge>
                   {["ACTIVE", "PAUSED"].includes(s.status) && (
                     <div className="schedule-actions" role="group" aria-label="任务操作">
                       <button

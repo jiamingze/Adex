@@ -232,7 +232,10 @@ public class ResultAttachmentService {
                             && browser.get("action_id") != null
                         ? Kernel.uuid(browser.get("action_id"))
                         : null,
-                "BROWSER".equals(kind) && !"result".equals(delivery) ? "网页任务需要你处理" : "任务已完成",
+                "BROWSER".equals(kind) && !"result".equals(delivery)
+                    ? "网页任务需要你处理"
+                    : NotificationTitle.label(
+                        b.get("task_title"), "ERROR".equals(kind) ? "未完成" : "已完成"),
                 content);
           return Map.of("ok", true);
         });

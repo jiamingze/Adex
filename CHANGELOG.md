@@ -168,3 +168,10 @@ Initial public repository packaging. The code predates the first Git commit; dat
   successful answers, preserving cancellation and forgetting invariants.
 - Add App migration 019, scoped Agent planning endpoint, deterministic regression tests
   and separate synthetic real-provider checks.
+
+### 2026-10-19 — Compact task cards and contextual push titles
+
+- Keep task title/copy beside fixed pause/delete controls at phone widths; place
+  status in compact metadata and hide duplicate descriptions.
+- Notifications include a bounded task-title excerpt; APNs carries that title
+  with a generic body, preserving conversation/Run/action routing identifiers.

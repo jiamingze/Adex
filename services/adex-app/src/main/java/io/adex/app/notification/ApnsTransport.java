@@ -45,7 +45,14 @@ public class ApnsTransport {
     payload.put(
         "aps",
         Map.of(
-            "alert", Map.of("title", "Adex", "body", "有一条任务结果或重要事项，请打开查看。"), "sound", "default"));
+            "alert",
+            Map.of(
+                "title",
+                NotificationTitle.compact(notification.getOrDefault("title", "Adex")),
+                "body",
+                "有一条任务结果或重要事项，请打开查看。"),
+            "sound",
+            "default"));
     for (String field : List.of("id", "conversation_id", "run_id", "action_id"))
       if (notification.get(field) != null)
         payload.put(

@@ -252,6 +252,16 @@ public class RunExecutionService {
                       "artifact",
                       state.getOrDefault("artifact", Map.of())));
           payload.put("notify", notify);
+          Object taskTitle = run.get("instruction");
+          if (run.get("schedule_id") != null) {
+            var titles =
+                k.db.queryForList(
+                    "SELECT title FROM schedules WHERE id=? AND owner_id=?",
+                    run.get("schedule_id"),
+                    run.get("owner_id"));
+            if (!titles.isEmpty()) taskTitle = titles.getFirst().get("title");
+          }
+          payload.put("task_title", taskTitle);
           k.db.update(
               "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id,delivery_key) DO"
                   + " NOTHING",
@@ -294,23 +304,25 @@ public class RunExecutionService {
               message = "网页连接暂时未能建立，尚未取得查询结果，也未提交操作。请稍后重试；如需登录或验证，会在当前会话展示。";
             if (code.equals("PROVIDER_UNKNOWN")) message = "本次供应商调用结果未知，系统已停止自动重试，请核对运行记录。";
             var payload =
-                Map.of(
-                    "event_id",
-                    event,
-                    "run_id",
-                    id,
-                    "owner_id",
-                    run.get("owner_id"),
-                    "origin_conversation_id",
-                    run.get("origin_conversation_id"),
-                    "content",
-                    message,
-                    "memory_revision",
-                    b.get("memory_revision"),
-                    "schema_version",
-                    1,
-                    "kind",
-                    "ERROR");
+                new LinkedHashMap<String, Object>(
+                    Map.of(
+                        "event_id",
+                        event,
+                        "run_id",
+                        id,
+                        "owner_id",
+                        run.get("owner_id"),
+                        "origin_conversation_id",
+                        run.get("origin_conversation_id"),
+                        "content",
+                        message,
+                        "memory_revision",
+                        b.get("memory_revision"),
+                        "schema_version",
+                        1,
+                        "kind",
+                        "ERROR"));
+            payload.put("task_title", run.get("instruction"));
             k.db.update(
                 "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id,delivery_key) DO NOTHING",
                 event,

@@ -131,3 +131,9 @@ owner; input latitude/longitude, output daily dates/values/units/timezone/source
 fetched_at. A 503 is absence of evidence, never a fabricated forecast. System
 permission and explicit client consent precede device positioning; manual city and
 no-location paths remain usable. See docs/architecture/location-context.md.
+
+Task result delivery can carry optional `task_title` from Automation's schedule
+or Run instruction. App produces a short single-line title for in-app/APNs
+notifications; `ERROR` results are labelled unfinished. APNs includes that title
+and existing ownership-resolved identifiers, but keeps the alert body generic.
+This does not authorize copying full result bodies or connector messages to APNs.

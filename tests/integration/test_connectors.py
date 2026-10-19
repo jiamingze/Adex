@@ -293,6 +293,8 @@ def test_offline_push_and_resume_original_run(client, db):
         and payload["run_id"] == run["id"]
         and payload["action_id"] == action["id"]
     )
+    assert payload["aps"]["alert"]["title"] == notification["title"]
+    assert payload["aps"]["alert"]["body"] == "有一条任务结果或重要事项，请打开查看。"
     fast = client.get(f"/api/v1/notifications/{notification['id']}/resume?include_run=false")
     fast.raise_for_status()
     assert fast.json()["conversation_id"] == conv

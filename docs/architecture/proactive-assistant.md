@@ -31,7 +31,7 @@ execution; Automation remains the only task scheduler/recovery owner.
 - Task matrix organizes manual tasks by importance/urgency, supports revision-checked
   updates and optional links to existing Runs. Suggestions can be added by the user.
 - APNs HTTP/2 adapter uses ES256 provider authentication, encrypted device tokens,
-  durable dispatch/acceptance/UNKNOWN state and generic lock-screen text. Payload IDs
+  durable dispatch/acceptance/UNKNOWN state, a bounded task-title excerpt and generic lock-screen body (the owner requested contextual titles). Payload IDs
   reference notification/conversation/run/action. Authenticated resume validates owner
   before restoring the original conversation and Run. Apple acceptance is not proof of
   device display or reading.
