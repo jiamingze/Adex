@@ -1822,3 +1822,18 @@
 html.native-app .shell{animation:adex-launch-reveal .18s ease-out}
 @keyframes adex-launch-reveal{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){html.native-app .shell{animation:none}}
+
+/* Keep pause/resume and delete adjacent, including wrapped mobile task rows. */
+.schedule-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin-left: auto;
+}
+.schedule-actions .icon-button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}

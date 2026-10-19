@@ -1459,7 +1459,7 @@ function App() {
                     {statusText[s.status]}
                   </Badge>
                   {["ACTIVE", "PAUSED"].includes(s.status) && (
-                    <>
+                    <div className="schedule-actions" role="group" aria-label="任务操作">
                       <button
                         className="icon-button"
                         aria-label={
@@ -1485,7 +1485,7 @@ function App() {
                       >
                         <Trash2 size={16} />
                       </button>
-                    </>
+                    </div>
                   )}
                 </div>
               ))}
