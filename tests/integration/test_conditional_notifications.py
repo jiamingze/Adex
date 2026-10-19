@@ -48,6 +48,8 @@ def test_conditional_results_backfill_chat_but_only_met_creates_notification(
         ("MET", "810", False),
         ("MET", "790", True),
         ("MISSING", "790", False),
+        ("LEGACY", "790", False),
+        ("LEGACY_FAIL", "", False),
         ("FAIL", "", False),
     ]:
         rid, attempt, ref = str(uuid4()), str(uuid4()), str(uuid4())
@@ -55,12 +57,14 @@ def test_conditional_results_backfill_chat_but_only_met_creates_notification(
             "notification_policy": "CONDITION_MET",
             "notification_condition": RULE,
         }
+        if status.startswith("LEGACY"):
+            request = {"notification_policy": "EVERY_RUN"}
         db.execute(
             "INSERT INTO automation.runs(id,schedule_id,owner_id,origin_conversation_id,instruction,status,epoch,attempt_id,worker_id,lease_until,request) VALUES(%s,%s,%s,%s,'fixture','RUNNING',1,%s,'fixture',now()+interval '60 seconds',%s)",
             (rid, sid, owner, conv, attempt, Jsonb(request)),
         )
         run = {"id": rid, "owner_id": owner, "epoch": 1, "attempt_id": attempt}
-        if status == "FAIL":
+        if status in {"FAIL", "LEGACY_FAIL"}:
             write(
                 run, "fail", {"code": "SEARCH_UNAVAILABLE", "memory_revision": revision}
             ).raise_for_status()
@@ -71,7 +75,7 @@ def test_conditional_results_backfill_chat_but_only_met_creates_notification(
                 "content": f"TEST_FIXTURE {rid}",
                 "artifact": {},
             }
-            if status != "MISSING":
+            if status not in {"MISSING", "LEGACY"}:
                 state["notification_assessment"] = {
                     "condition": RULE,
                     "status": status,
@@ -205,3 +209,26 @@ def test_worker_records_unknown_condition_silently_when_search_is_unavailable(
         ).fetchone()["n"]
         == 1
     )
+
+
+def test_existing_schedule_rule_update_is_revision_checked(client, db):
+    conv = client.post('/api/v1/conversations', json={'title': 'rule repair fixture'}).json()['id']
+    created = client.post('/api/v1/automations', json={
+        'origin_conversation_id': conv, 'title': 'fixture', 'instruction': 'TEST_FIXTURE',
+        'kind': 'INTERVAL', 'interval_seconds': 600, 'timezone': 'Asia/Shanghai',
+        'first_fire_at': (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+    }, headers={'Idempotency-Key': str(uuid4())})
+    created.raise_for_status()
+    saved = created.json()
+    path = '/api/v1/automations/' + saved['id']
+    patch = {'revision': saved['revision'], 'notification_policy': 'CONDITION_MET', 'notification_condition': RULE}
+    import httpx
+    assert httpx.patch(str(client.base_url).rstrip('/') + path, json=patch, trust_env=False).status_code == 401
+    assert client.patch(path, json={'revision': saved['revision']}).status_code == 400
+    updated = client.patch(path, json=patch)
+    updated.raise_for_status()
+    assert updated.json()['task_request']['notification_condition'] == RULE
+    assert updated.json()['status'] == 'ACTIVE'
+    assert client.patch(path, json=patch).status_code == 409
+    assert client.patch(path, json={'revision': updated.json()['revision'], 'notification_policy': 'CONDITION_MET'}).status_code == 400
+    assert client.patch(path, json={'revision': updated.json()['revision'], 'notification_policy': 'EVERY_RUN'}).status_code == 200

@@ -116,9 +116,13 @@ public class ScheduleService {
 
   public Object update(Map<String, Object> claims, UUID id, Map<String, Object> b) {
     UUID owner = Kernel.uuid(claims.get("owner"));
-    String status = Kernel.text(b, "status", 20);
-    if (!Set.of("ACTIVE", "PAUSED", "CANCELLED").contains(status))
+    String status = b.containsKey("status") ? Kernel.text(b, "status", 20) : null;
+    if (status != null && !Set.of("ACTIVE", "PAUSED", "CANCELLED").contains(status))
       throw Kernel.error(400, "INVALID_STATUS");
+    if (status == null && !b.containsKey("notification_policy"))
+      throw Kernel.error(400, "EMPTY_SCHEDULE_UPDATE");
+    if (b.containsKey("notification_condition") && !b.containsKey("notification_policy"))
+      throw Kernel.error(400, "INVALID_NOTIFICATION_CONDITION");
     long rev = Kernel.number(b, "revision");
     return k.tx.execute(
         s -> {
@@ -128,7 +132,21 @@ public class ScheduleService {
             throw Kernel.error(409, "SCHEDULE_TERMINAL");
           if (((Number) old.get("revision")).longValue() != rev)
             throw Kernel.error(409, "REVISION_CONFLICT");
-          k.db.update("UPDATE schedules SET status=?,revision=revision+1 WHERE id=?", status, id);
+          var request =
+              new LinkedHashMap<String, Object>(k.decode(String.valueOf(old.get("task_request"))));
+          if (b.containsKey("notification_policy")) {
+            // Replace only the notification rule; preserve capability-specific task inputs.
+            request.remove("notification_policy");
+            request.remove("notification_condition");
+            var ruleBody = new LinkedHashMap<String, Object>(b);
+            ruleBody.put("task_request", request);
+            request = new LinkedHashMap<>(NotificationRules.request(ruleBody));
+          }
+          k.db.update(
+              "UPDATE schedules SET status=?,task_request=?::jsonb,revision=revision+1 WHERE id=?",
+              status == null ? old.get("status") : status,
+              k.encode(request),
+              id);
           return k.row("SELECT * FROM schedules WHERE id=?", id);
         });
   }

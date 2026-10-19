@@ -787,3 +787,11 @@ App 026 adds optional `users.nickname`; GET/PATCH `/api/v1/me` expose the owned 
 ## Conditional task notifications · 2026-10-20
 
 Schedule drafts and creation accept CONDITION_MET with an explicit typed condition. Agent semantically interprets the user request, freezes tool evidence in the existing plan checkpoint and assesses the condition in the result checkpoint. Automation verifies condition correspondence, evidence freshness and numeric comparisons before setting notify. Failed/unknown/unmet checks retain original-conversation results but create no notification records, so cannot enqueue APNs. Existing EVERY_RUN/CHANGES_ONLY remain supported. No migration. Semantic decisions are evidence-backed model judgments, not exchange-grade market feeds; actual sources may remain unavailable. Existing tasks are not silently reclassified. See [contract and boundaries](architecture/conditional-notifications.md).
+
+
+## 2026-10-20 — Existing conditional schedule repair
+
+- Existing schedules can replace their notification rule through revision-checked PATCH; no migration, no immutable Run rewrite. Current conditional rules additionally gate older Run completion/failure.
+- Model MET / NOT_MET / UNKNOWN continues through the evidence validator and Automation final gate; missing/negative/unknown/failure stays silent while origin-conversation delivery persists.
+- Observed: `pnpm generate:contracts`, `make format`, `make build test check-style` passed (App 12, Automation 5, Agent 98, Tools 124; architecture and formatting passed). `uv run python scripts/test_stack.py tests/integration/test_conditional_notifications.py`: **4 passed in 16.14s**, including rule revision conflict, unauthenticated update rejection, missing condition validation, legacy in-flight success/failure suppression and existing MET/NOT_MET/UNKNOWN delivery. `uv run python scripts/check_secrets.py` passed.
+- Operational repair used authenticated App APIs to apply conditional rules to the affected existing monitors; user data and credentials are excluded from source. No new real market-data or profitable-trade acceptance claim; subjective conditions remain model judgments and unavailable evidence stays UNKNOWN.

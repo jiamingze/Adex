@@ -17,3 +17,6 @@ No migration: rules fit existing schedules.task_request / runs.request; assessme
 - Focused final conditional suite: **3 passed in 14.87s**, adding execution through the actual BackgroundWorker with unavailable search → immutable UNKNOWN assessment → conversation result, zero notification rows. This deliberately missing external service is not a real market-data acceptance test.
 - Browser synthetic task list shows the condition policy. Source/model fixtures are explicitly marked TEST_FIXTURE and do not validate live gold quotes.
 - No database migration. Local services updated. iOS web bundle built, but device build/install is BLOCKED_EXTERNAL because the connected iPhone became unavailable; existing mobile chat uses the updated backend routing. Existing automatic task policies are not rewritten.
+
+## Updating existing schedules
+PATCH /automations/{id} accepts revision plus status and/or notification_policy + notification_condition. Rules replace only notification fields, preserve other task_request fields, require owner and revision validation, and never rewrite immutable Run snapshots. A current conditional schedule rule is an additional completion gate, so an older EVERY_RUN execution without a matching assessment stays silent. No migration required. Operational repairs use authenticated APIs, never test writes against user data.

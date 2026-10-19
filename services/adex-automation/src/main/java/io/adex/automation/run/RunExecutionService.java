@@ -231,6 +231,21 @@ public class RunExecutionService {
                         .strip()
                         .equals(String.valueOf(previous.getFirst().get("result")).strip());
           }
+          // Read without taking a schedule lock after the Run lock (delete locks in reverse order).
+          // A tightened rule must silence old snapshots lacking its matching assessment.
+          if (run.get("schedule_id") != null) {
+            var schedules =
+                k.db.queryForList(
+                    "SELECT task_request FROM schedules WHERE id=?", run.get("schedule_id"));
+            if (!schedules.isEmpty()) {
+              var current = k.decode(String.valueOf(schedules.getFirst().get("task_request")));
+              if (io.adex.automation.schedule.NotificationRules.conditional(current))
+                notify =
+                    notify
+                        && io.adex.automation.schedule.NotificationRules.conditionMet(
+                            current, state);
+            }
+          }
           UUID event = Kernel.id();
           var payload =
               new LinkedHashMap<String, Object>(
@@ -325,8 +340,19 @@ public class RunExecutionService {
                         "kind",
                         "ERROR"));
             payload.put("task_title", run.get("instruction"));
-            if (io.adex.automation.schedule.NotificationRules.conditional(
-                k.decode(String.valueOf(run.get("request"))))) payload.put("notify", false);
+            boolean conditionalFailure =
+                io.adex.automation.schedule.NotificationRules.conditional(
+                    k.decode(String.valueOf(run.get("request"))));
+            if (run.get("schedule_id") != null) {
+              var schedules =
+                  k.db.queryForList(
+                      "SELECT task_request FROM schedules WHERE id=?", run.get("schedule_id"));
+              if (!schedules.isEmpty())
+                conditionalFailure |=
+                    io.adex.automation.schedule.NotificationRules.conditional(
+                        k.decode(String.valueOf(schedules.getFirst().get("task_request"))));
+            }
+            if (conditionalFailure) payload.put("notify", false);
             k.db.update(
                 "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id,delivery_key) DO NOTHING",
                 event,

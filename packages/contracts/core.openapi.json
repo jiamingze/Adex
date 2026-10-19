@@ -4272,12 +4272,24 @@
           "revision": {
             "type": "integer",
             "minimum": 1
+          },
+          "notification_policy": {
+            "type": "string",
+            "enum": [
+              "EVERY_RUN",
+              "CHANGES_ONLY",
+              "CONDITION_MET"
+            ],
+            "default": "EVERY_RUN"
+          },
+          "notification_condition": {
+            "$ref": "#/components/schemas/NotificationCondition"
           }
         },
         "required": [
-          "status",
           "revision"
-        ]
+        ],
+        "description": "Revision-checked status and/or notification rule update. Existing Run snapshots remain immutable; tightened notification rules also gate completion of older runs."
       },
       "ScheduleDraftInput": {
         "type": "object",

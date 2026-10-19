@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update existing schedule notification rules with owner/revision checks. Tightened conditional rules also suppress older Run snapshots and failures without matching evidence; retain conversation history.
+
 - Use a save icon in note details and tighten toolbar/title/body spacing in both reading and editing modes.
 
 - Keep task pause/resume and delete icons together, with delete on the right on mobile and desktop.
