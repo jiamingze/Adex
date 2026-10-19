@@ -505,3 +505,24 @@ test("location fixes expire and irrelevant chat never triggers positioning", () 
   assert.equal(locationRelevant("附近有什么五星级酒店"),true);
   assert.equal(locationRelevant("帮我写一篇技术方案"),false);
 });
+
+test('approval groups keep uncertainty separate and retain individual identities', async () => {
+  const { groupActions, taskTimeGroup } = await import('../../.local-data/client-tests/todayModel.js');
+  const items = [{id:'a',kind:'browser.request',state:'PENDING'}, {id:'b',kind:'browser.request',state:'PENDING'}, {id:'c',kind:'browser.request',state:'UNKNOWN'}];
+  const groups = groupActions(items);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups[0].items.map(i=>i.id), ['a','b']);
+  assert.equal(taskTimeGroup(null, new Date(2026,9,20)), '以后');
+  assert.equal(taskTimeGroup(new Date(2026,9,19).toISOString(), new Date(2026,9,20)), '已逾期');
+  assert.equal(taskTimeGroup(new Date(2026,9,20,23).toISOString(), new Date(2026,9,20)), '今天');
+});
+
+test('evening planning uses tomorrow calendar window, not today', () => {
+  const draft = planningPrompt({tasks:[],schedules:[],calendar:{connected:true,partial:false,events:[
+    {id:'old',summary:'今日会议',start:{date:'2026-10-20'},end:{date:'2026-10-21'}},
+    {id:'new',summary:'明日会议',start:{date:'2026-10-21'},end:{date:'2026-10-22'}}
+  ]}}, new Date(2026,9,20,23));
+  assert.match(draft,/明天最值得/);
+  assert.match(draft,/明日会议/);
+  assert.doesNotMatch(draft,/今日会议/);
+});

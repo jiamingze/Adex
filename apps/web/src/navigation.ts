@@ -13,13 +13,13 @@ export const pages = [
 export type Page = (typeof pages)[number];
 export const pageLabels: Record<Page, string> = {
   today: "今日",
-  chat: "聊天",
+  chat: "对话",
   tasks: "自动任务",
   memory: "个人记忆",
-  workspace: "笔记",
+  workspace: "资料",
   tools: "音乐与工具",
   settings: "我的设置",
-  matrix: "待办",
+  matrix: "任务",
   assistant: "主动助手",
 };
 export function isPage(value: unknown): value is Page {

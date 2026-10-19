@@ -138,3 +138,5 @@ If Adex is useful to you, a star helps others find it. Share what you build in [
 Integration tests use isolated databases and explicitly labelled external fixtures, not personal keys. Keep real provider tests opt-in and cost-bounded. Read the [community guidelines](CODE_OF_CONDUCT.md) and report vulnerabilities via [SECURITY.md](SECURITY.md).
 
 [MIT](LICENSE). Independent project, not affiliated with OpenAI, Alibaba Cloud or MiniMax. Provider names identify integrations; dependencies and content retain their own rights.
+
+The unified workspace uses **Today · Conversations · Tasks · Materials**: grouped reviews, deadline-based todos, automation history, notes and private generated reports/files. Relevant conversations can reference current owned tasks/notes, schedules, and previously authorized iPhone calendars. See the [experience contract](docs/architecture/unified-assistant-experience.md) for snapshot limits and privacy boundaries.

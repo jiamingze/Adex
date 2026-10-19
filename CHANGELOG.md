@@ -187,3 +187,11 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - Filter obvious authentication-code/reset-link mail subjects from normal model metadata.
 - App migration 024; existing four services, scheduler, checkpoints, approvals and
   effects remain authoritative. See Muse gap review for external/unimplemented areas.
+
+### Unified personal assistant workspace (2026-10-20)
+
+- Unified primary navigation: 今日 / 对话 / 任务 / 资料, retaining existing deep links.
+- Grouped duplicate action reviews on Today; expanding a group opens individual reviews, never batch consent. Evening planning uses tomorrow's calendar window.
+- Shared owner-scoped todo/note context and Automation-owned schedule observations in chat. Native iPhone calendar snapshots are bounded, validated, and cleared from turns after completion/cancellation; no L3 write.
+- Deadline groups and compact priority labels; automation active/paused/history/execution views; notes plus private reports/files in Materials.
+- Migration: App 025. External site execution and autonomous replanning remain separately gated.

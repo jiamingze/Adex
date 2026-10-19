@@ -1,3 +1,4 @@
+import { taskTimeGroup } from "./todayModel";
 import { TaskPriority } from "./TaskPriority";
 import { usePageScroll } from "./usePageScroll";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -100,8 +101,6 @@ export function TaskMatrix() {
     setDue(localDate(task?.due_at ?? null));
     setEditor({ task, quadrant });
   }
-  const active = tasks.filter((t) => t.status === "TODO");
-  const completed = tasks.length - active.length;
   const visible = tasks
     .filter(
       (t) =>
@@ -110,7 +109,12 @@ export function TaskMatrix() {
     )
     .sort(
       (a, b) =>
-        Number(a.status === "DONE") - Number(b.status === "DONE") ||
+        ["已逾期", "今天", "即将到期", "以后"].indexOf(
+          taskTimeGroup(a.due_at),
+        ) -
+          ["已逾期", "今天", "即将到期", "以后"].indexOf(
+            taskTimeGroup(b.due_at),
+          ) ||
         Number(b.important) * 2 +
           Number(b.urgent) -
           (Number(a.important) * 2 + Number(a.urgent)) ||
@@ -133,22 +137,6 @@ export function TaskMatrix() {
           正在更新，已有任务可继续查看
         </p>
       )}
-      <div className="matrix-overview">
-        <span>
-          <strong>{snapshot.data ? active.length : "—"}</strong>待办
-        </span>
-        <span>
-          <strong>
-            {snapshot.data
-              ? active.filter((t) => t.important && t.urgent).length
-              : "—"}
-          </strong>
-          优先处理
-        </span>
-        <span>
-          <strong>{snapshot.data ? completed : "—"}</strong>已完成
-        </span>
-      </div>
       <div className="matrix-toolbar">
         <label className="matrix-search">
           <Search size={17} />
@@ -202,39 +190,48 @@ export function TaskMatrix() {
         <div className="matrix-loading">暂时无法读取待办，请重试。</div>
       ) : (
         <section className="flat-tasks" aria-label="事项列表">
-          {visible.map((t) => (
-            <article
-              className={`attention-row ${t.status === "DONE" ? "is-done" : ""}`}
-              key={t.id}
-            >
-              <button
-                className="attention-check"
-                aria-label={`${t.status === "DONE" ? "恢复" : "完成"}任务 ${t.title}`}
-                disabled={pending}
-                onClick={() =>
-                  act(() =>
-                    assistantApi.saveTask({
-                      ...t,
-                      status: t.status === "DONE" ? "TODO" : "DONE",
-                    }),
-                  )
-                }
+          {visible.map((t, index) => (
+            <div key={t.id}>
+              {(index === 0 ||
+                taskTimeGroup(visible[index - 1].due_at) !==
+                  taskTimeGroup(t.due_at)) && (
+                <h3 className="task-day-heading">{taskTimeGroup(t.due_at)}</h3>
+              )}
+              <article
+                className={`attention-row ${t.status === "DONE" ? "is-done" : ""}`}
+                key={t.id}
               >
-                {t.status === "DONE" ? (
-                  <Check size={17} />
-                ) : (
-                  <Circle size={17} />
-                )}
-              </button>
-              <button
-                className="attention-title"
-                onClick={() => open(quadrantOf(t), t)}
-              >
-                <strong>{t.title}</strong>
-                <small>{t.due_at ? dueLabel(t.due_at) : "未设截止时间"}</small>
-              </button>
-              <TaskPriority important={t.important} urgent={t.urgent} />
-            </article>
+                <button
+                  className="attention-check"
+                  aria-label={`${t.status === "DONE" ? "恢复" : "完成"}任务 ${t.title}`}
+                  disabled={pending}
+                  onClick={() =>
+                    act(() =>
+                      assistantApi.saveTask({
+                        ...t,
+                        status: t.status === "DONE" ? "TODO" : "DONE",
+                      }),
+                    )
+                  }
+                >
+                  {t.status === "DONE" ? (
+                    <Check size={17} />
+                  ) : (
+                    <Circle size={17} />
+                  )}
+                </button>
+                <button
+                  className="attention-title"
+                  onClick={() => open(quadrantOf(t), t)}
+                >
+                  <strong>{t.title}</strong>
+                  <small>
+                    {t.due_at ? dueLabel(t.due_at) : "未设截止时间"}
+                  </small>
+                </button>
+                <TaskPriority important={t.important} urgent={t.urgent} />
+              </article>
+            </div>
           ))}
           {!visible.length && (
             <p className="experience-empty">

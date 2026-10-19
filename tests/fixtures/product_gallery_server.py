@@ -9,6 +9,15 @@ from urllib.parse import urlparse
 
 from experience_server import CONVERSATION, DATA, ROOT, Handler, iso
 
+DATA["/actions"]["items"] += [
+    {"id": f"browser-review-{i}", "kind": "browser.request", "connection_id": "fixture-browser",
+     "state": "UNKNOWN", "request_hash": "TEST_FIXTURE", "expires_at": iso(24),
+     "request": {"origin_conversation_id": CONVERSATION, "payload": {"title": f"演示网页结果 {i+1}"}}}
+    for i in range(5)
+]
+DATA["/files"] = {"items": []}
+DATA["/artifacts"]["items"] = [{"id":"fixture-report", "title":"个人助手 · 设计研究", "kind":"REPORT", "revision":1}]
+DATA["/artifacts/fixture-report/versions"] = {"items":[{"id":"fixture-version","revision":1,"file_id":None,"source":{"content":"# 设计研究\n\n这是合成示例资料，不含用户信息。\n\n- 统一任务与对话\n- 让进度可观察\n- 敏感操作逐项审批"}}]}
 DATA["/me"]["username"] = "演示用户"
 DATA["/conversations"]["items"] = [
     {"id": CONVERSATION, "title": "设计一个可靠的个人助手", "updated_at": iso(-1)},

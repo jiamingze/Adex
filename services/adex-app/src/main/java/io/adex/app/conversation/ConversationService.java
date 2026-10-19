@@ -105,10 +105,12 @@ public class ConversationService {
                   owner,
                   id)) memory.remove(owner, (UUID) m.get("id"));
           k.db.update("DELETE FROM summaries WHERE conversation_id=?", id);
-          k.db.update("UPDATE turns SET client_location=NULL WHERE conversation_id=?", id);
+          k.db.update(
+              "UPDATE turns SET client_location=NULL,client_calendar=NULL WHERE conversation_id=?",
+              id);
           k.db.update("UPDATE users SET memory_revision=memory_revision+1 WHERE id=?", owner);
           k.db.update(
-              "UPDATE turns SET status='CANCELLED',client_location=NULL,epoch=epoch+1,lease_until=NULL WHERE conversation_id=? AND status IN ('QUEUED','RUNNING')",
+              "UPDATE turns SET status='CANCELLED',client_location=NULL,client_calendar=NULL,epoch=epoch+1,lease_until=NULL WHERE conversation_id=? AND status IN ('QUEUED','RUNNING')",
               id);
           k.db.update("UPDATE conversations SET deleted_at=now() WHERE id=?", id);
           return Map.of("ok", true);
@@ -124,7 +126,7 @@ public class ConversationService {
           chat.own(owner, id);
           k.row("SELECT id FROM conversations WHERE id=? FOR UPDATE", id);
           k.db.update(
-              "UPDATE turns SET status='CANCELLED',client_location=NULL,epoch=epoch+1,lease_until=NULL WHERE conversation_id=? AND status IN ('QUEUED','RUNNING')",
+              "UPDATE turns SET status='CANCELLED',client_location=NULL,client_calendar=NULL,epoch=epoch+1,lease_until=NULL WHERE conversation_id=? AND status IN ('QUEUED','RUNNING')",
               id);
           chat.event(id, "turn.cancelled", Map.of());
           return Map.of("ok", true);

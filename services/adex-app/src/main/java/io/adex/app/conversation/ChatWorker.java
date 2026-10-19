@@ -37,7 +37,7 @@ public class ChatWorker {
           k.tx.executeWithoutResult(
               tx -> {
                 if (k.db.update(
-                        "UPDATE turns SET status='FAILED',client_location=NULL,error_code='CHAT_TIMEOUT',lease_until=NULL WHERE id=? AND epoch=? AND attempt_id=? AND status='RUNNING'",
+                        "UPDATE turns SET status='FAILED',client_location=NULL,client_calendar=NULL,error_code='CHAT_TIMEOUT',lease_until=NULL WHERE id=? AND epoch=? AND attempt_id=? AND status='RUNNING'",
                         t.get("id"),
                         t.get("epoch"),
                         t.get("attempt_id"))
@@ -161,6 +161,54 @@ public class ChatWorker {
       var ctx = chat.context(owner, conv, upto);
       if (t.get("client_location") != null)
         ctx.put("client_location", k.decode(String.valueOf(t.get("client_location"))));
+      if (t.get("client_calendar") != null)
+        ctx.put("client_calendar", k.decode(String.valueOf(t.get("client_calendar"))));
+      // Cross-service read happens after the App transaction releases its row locks.
+      // Automation remains the sole schedule authority; a failed read is unknown, not empty.
+      if (ctx.containsKey("personal_context")) {
+        try {
+          var observed =
+              (Map<?, ?>)
+                  k.call(
+                      "automation",
+                      "schedule:read",
+                      owner,
+                      null,
+                      "GET",
+                      "/internal/automations",
+                      null);
+          var items = (List<?>) observed.getOrDefault("items", null);
+          ctx.put(
+              "automation_context",
+              Map.of(
+                  "as_of",
+                  String.valueOf(t.get("created_at")),
+                  "items",
+                  items == null
+                      ? List.of()
+                      : items.stream()
+                          .limit(20)
+                          .map(
+                              item -> {
+                                var row = (Map<?, ?>) item;
+                                Map<String, Object> summary = new LinkedHashMap<>();
+                                for (String field :
+                                    List.of(
+                                        "id",
+                                        "title",
+                                        "status",
+                                        "kind",
+                                        "next_fire_at",
+                                        "timezone")) summary.put(field, row.get(field));
+                                return summary;
+                              })
+                          .toList(),
+                  "limit",
+                  20));
+        } catch (Exception unavailable) {
+          ctx.put("automation_context", Map.of("availability", "UNAVAILABLE"));
+        }
+      }
       t.put("memory_revision", ctx.get("memory_revision"));
       emit(t, "", "turn.started");
       var body =
@@ -297,7 +345,7 @@ public class ChatWorker {
         k.tx.executeWithoutResult(
             s -> {
               if (k.db.update(
-                      "UPDATE turns SET status='FAILED',client_location=NULL,error_code=?,lease_until=NULL WHERE id=?"
+                      "UPDATE turns SET status='FAILED',client_location=NULL,client_calendar=NULL,error_code=?,lease_until=NULL WHERE id=?"
                           + " AND epoch=? AND attempt_id=? AND status='RUNNING'",
                       code,
                       id,

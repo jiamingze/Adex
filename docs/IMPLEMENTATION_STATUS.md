@@ -771,3 +771,7 @@ snooze uses timestamp eligibility, not another scheduler. Obvious login/reset ma
 subjects are masked before ordinary model context. Real website login/transactions,
 additional connectors and per-user VM/eBPF/confidential isolation are not claimed.
 See [comparison, contracts and acceptance](architecture/muse-gap-review.md).
+
+## Unified assistant workspace · 2026-10-20
+
+Implemented 今日 / 对话 / 任务 / 资料 navigation with legacy route compatibility, grouped action reviews, deadline task groups, automation lifecycle filters, and private report/file browsing. Chat receives bounded App-owned todo/note observations and Automation-owned schedules. On iPhone, relevant questions can read previously authorized system calendars; transient payloads use migration 025 with idempotency hashes and terminal cleanup. See [contracts and boundaries](architecture/unified-assistant-experience.md). No claim of external shopping/publishing acceptance or autonomous goal pursuit is implied.

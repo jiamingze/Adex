@@ -7,13 +7,16 @@ export function TaskPriority({
   urgent: boolean;
 }) {
   return (
-    <span className="priority-pair">
-      <span className={`priority-tag ${important ? "important" : "normal"}`}>
-        {important ? "重要" : "不重要"}
-      </span>
-      <span className={`priority-tag ${urgent ? "critical" : "normal"}`}>
-        {urgent ? "紧急" : "不紧急"}
-      </span>
+    <span
+      className={`priority-tag ${important && urgent ? "critical" : important ? "important" : urgent ? "urgent" : "normal"}`}
+    >
+      {important && urgent
+        ? "优先处理"
+        : important
+          ? "重要"
+          : urgent
+            ? "紧急"
+            : "常规"}
     </span>
   );
 }

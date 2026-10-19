@@ -1,3 +1,4 @@
+import { resultExcerpt } from "./todayModel";
 import { usePageScroll } from "./usePageScroll";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -415,7 +416,7 @@ export function Notes() {
               </strong>
               <span>
                 {noteDrafts.has(note.id) ? "未保存草稿 · " : ""}
-                {note.preview.slice(0, 90) || "暂无内容"}
+                {resultExcerpt(note.preview).slice(0, 90) || "暂无内容"}
               </span>
               <small>
                 {new Date(note.updated_at).toLocaleDateString("zh-CN")}

@@ -3,7 +3,6 @@ import {
   MessageSquare,
   Check,
   NotebookPen,
-  CalendarClock,
   Sparkles,
   Brain,
   Play,
@@ -21,7 +20,6 @@ const primary = [
 ] as const;
 const secondary = [
   { id: "assistant", icon: Sparkles },
-  { id: "tasks", icon: CalendarClock },
   { id: "memory", icon: Brain },
   { id: "tools", icon: Play },
   { id: "settings", icon: Settings2 },
@@ -38,8 +36,12 @@ export function WorkspaceNavigation({
       <div className="section-label">日常</div>
       {primary.map((item) => (
         <button
-          className={`nav-item ${page === item.id ? "active" : ""}`}
-          aria-current={page === item.id ? "page" : undefined}
+          className={`nav-item ${page === item.id || (item.id === "matrix" && page === "tasks") ? "active" : ""}`}
+          aria-current={
+            page === item.id || (item.id === "matrix" && page === "tasks")
+              ? "page"
+              : undefined
+          }
           key={item.id}
           onClick={() => onNavigate(item.id)}
         >
@@ -78,18 +80,16 @@ export function MobileNavigation({
     >
       {primary.map((item) => (
         <button
-          aria-current={page === item.id ? "page" : undefined}
+          aria-current={
+            page === item.id || (item.id === "matrix" && page === "tasks")
+              ? "page"
+              : undefined
+          }
           key={item.id}
           onClick={() => onNavigate(item.id)}
         >
           <item.icon size={20} />
-          <span>
-            {item.id === "matrix"
-              ? "待办"
-              : item.id === "workspace"
-                ? "笔记"
-                : pageLabels[item.id]}
-          </span>
+          <span>{pageLabels[item.id]}</span>
         </button>
       ))}
     </nav>

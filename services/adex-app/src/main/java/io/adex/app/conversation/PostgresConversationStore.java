@@ -68,6 +68,8 @@ public class PostgresConversationStore implements ConversationStore {
     String content = Kernel.text(body, "content", 16000);
     var location = io.adex.app.location.LocationContext.normalize(body.get("client_location"));
     String locationHash = location == null ? "" : Kernel.hash(k.encode(location));
+    var calendar = CalendarContext.normalize(body.get("client_calendar"));
+    String calendarHash = calendar == null ? "" : Kernel.hash(k.encode(calendar));
     boolean search = Boolean.TRUE.equals(body.get("web_search"));
     String model = body.get("model") == null ? "" : String.valueOf(body.get("model"));
     if (!Set.of("", "qwen3.8-max", "minimax").contains(model))
@@ -90,7 +92,8 @@ public class PostgresConversationStore implements ConversationStore {
           if (!exists.isEmpty()) {
             var m = exists.getFirst();
             var t = k.row("SELECT * FROM turns WHERE id=?", m.get("id"));
-            if (!locationHash.equals(t.get("location_hash"))
+            if (!calendarHash.equals(t.get("calendar_hash"))
+                || !locationHash.equals(t.get("location_hash"))
                 || !model.equals(t.get("model"))
                 || !content.equals(m.get("content"))
                 || !Boolean.valueOf(search)
@@ -146,14 +149,16 @@ public class PostgresConversationStore implements ConversationStore {
               conv,
               conv);
           k.db.update(
-              "INSERT INTO turns(id,conversation_id,owner_id,web_search,model,client_location,location_hash) VALUES(?,?,?,?,?,?::jsonb,?)",
+              "INSERT INTO turns(id,conversation_id,owner_id,web_search,model,client_location,location_hash,client_calendar,calendar_hash) VALUES(?,?,?,?,?,?::jsonb,?,?::jsonb,?)",
               id,
               conv,
               owner,
               search,
               model,
               location == null ? null : k.encode(location),
-              locationHash);
+              locationHash,
+              calendar == null ? null : k.encode(calendar),
+              calendarHash);
           k.db.update(
               "INSERT INTO outbox(id,kind,resource_id) VALUES(?,'turn.dispatch',?)",
               Kernel.id(),
@@ -177,7 +182,7 @@ public class PostgresConversationStore implements ConversationStore {
           own(owner, conv);
           var messages =
               k.db.queryForList(
-                  "SELECT id,seq,role,content FROM (SELECT id,seq,role,content FROM messages WHERE"
+                  "SELECT id,seq,role,content,created_at FROM (SELECT id,seq,role,content,created_at FROM messages WHERE"
                       + " conversation_id=? AND seq<=? AND (?::timestamptz IS NULL OR"
                       + " created_at>?::timestamptz) ORDER BY seq DESC LIMIT 24) m ORDER BY seq",
                   conv,
@@ -216,6 +221,30 @@ public class PostgresConversationStore implements ConversationStore {
                 k.db.queryForList(
                     "SELECT g.id,g.title,g.outcome,count(t.id) AS total,count(t.id) FILTER(WHERE t.status='DONE') AS done FROM assistant_goals g LEFT JOIN goal_tasks l ON l.goal_id=g.id LEFT JOIN matrix_tasks t ON t.id=l.task_id AND t.owner_id=g.owner_id WHERE g.owner_id=? AND g.status='ACTIVE' GROUP BY g.id ORDER BY g.created_at DESC LIMIT 10",
                     owner));
+          if (!Boolean.TRUE.equals(user.get("is_guest"))
+              && latestRequest.matches(
+                  "(?is).*?(待办|待辦|任务|安排|日程|笔记|资料|计划|优先|todo|notes|schedule).*")) {
+            // Existing App-owned records only. Deleted notes are never revived from an index.
+            result.put(
+                "personal_context",
+                Map.of(
+                    "as_of",
+                    messages.isEmpty()
+                        ? "unknown"
+                        : String.valueOf(messages.getLast().get("created_at")),
+                    "read_only",
+                    true,
+                    "tasks",
+                    k.db.queryForList(
+                        "SELECT id,left(title,200) AS title,important,urgent,due_at,status FROM matrix_tasks WHERE owner_id=? AND status='TODO' ORDER BY important DESC,urgent DESC,due_at ASC NULLS LAST,id LIMIT 20",
+                        owner),
+                    "notes",
+                    k.db.queryForList(
+                        "SELECT id,title,left(content,800) AS excerpt,updated_at FROM notes WHERE owner_id=? AND deleted_at IS NULL ORDER BY pinned DESC,updated_at DESC LIMIT 8",
+                        owner),
+                    "limits",
+                    "最多20项未完成待办、8篇最近笔记摘录；不是全部资料，也不是执行回执"));
+          }
           result.put(
               "memory_enabled",
               !Boolean.FALSE.equals(
@@ -253,7 +282,7 @@ public class PostgresConversationStore implements ConversationStore {
             throw Kernel.error(409, "MEMORY_REVISION_CHANGED");
           int n =
               k.db.update(
-                  "UPDATE turns SET status='COMPLETED',client_location=NULL,lease_until=NULL WHERE id=? AND epoch=? AND"
+                  "UPDATE turns SET status='COMPLETED',client_location=NULL,client_calendar=NULL,lease_until=NULL WHERE id=? AND epoch=? AND"
                       + " attempt_id=? AND status='RUNNING' AND lease_until>clock_timestamp()",
                   turn.get("id"),
                   turn.get("epoch"),

@@ -4080,6 +4080,9 @@
           },
           "client_location": {
             "$ref": "#/components/schemas/ClientLocation"
+          },
+          "client_calendar": {
+            "$ref": "#/components/schemas/ClientCalendar"
           }
         },
         "required": [
@@ -4802,6 +4805,77 @@
             "items": {
               "type": "object",
               "additionalProperties": true
+            }
+          }
+        }
+      },
+      "ClientCalendar": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "observed_at",
+          "timezone",
+          "partial",
+          "events"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "device"
+            ]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "partial": {
+            "type": "boolean"
+          },
+          "events": {
+            "type": "array",
+            "maxItems": 40,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "title",
+                "start",
+                "end",
+                "all_day",
+                "location",
+                "organizer"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "all_day": {
+                  "type": "boolean"
+                },
+                "location": {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                "organizer": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              }
             }
           }
         }

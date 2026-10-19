@@ -141,3 +141,6 @@ uv run python scripts/check_secrets.py
 [社区欢迎帖](https://github.com/jiamingze/Adex/discussions/1) · [安装问答](https://github.com/jiamingze/Adex/discussions/categories/q-a) · [可认领的入门任务](https://github.com/jiamingze/Adex/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
 
 如果 Adex 对你有帮助，欢迎点一颗 Star，让更多人发现它。也欢迎分享自己的使用场景、安装经验和作品；一个可复现的问题或聚焦的 PR 同样有价值。
+
+
+新版工作空间统一为 **今日 / 对话 / 任务 / 资料**：聚合待核对操作、按截止日期组织待办、集中查看自动安排与执行记录，保存笔记及私有报告、文件。相关对话可读取当前账户的待办、笔记摘录、自动任务，以及已授权的 iPhone 系统日历。数据范围与临时快照清理机制见[体验契约](docs/architecture/unified-assistant-experience.md)。

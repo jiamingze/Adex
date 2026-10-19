@@ -1215,6 +1215,7 @@ export interface components {
             /** @enum {string} */
             model?: "qwen3.8-max" | "minimax";
             client_location?: components["schemas"]["ClientLocation"];
+            client_calendar?: components["schemas"]["ClientCalendar"];
         };
         MemoryInput: {
             content: string;
@@ -1416,6 +1417,24 @@ export interface components {
             done: number;
             tasks: {
                 [key: string]: unknown;
+            }[];
+        };
+        ClientCalendar: {
+            /** @enum {string} */
+            source: "device";
+            /** Format: date-time */
+            observed_at: string;
+            timezone: string;
+            partial: boolean;
+            events: {
+                title: string;
+                /** Format: date-time */
+                start: string;
+                /** Format: date-time */
+                end: string;
+                all_day: boolean;
+                location: string;
+                organizer: string;
             }[];
         };
     };

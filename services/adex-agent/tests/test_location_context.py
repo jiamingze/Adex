@@ -82,3 +82,16 @@ async def test_manual_city_grounds_search_without_device_or_weather_permission()
     )
     assert core.call.call_args.args[3] == "/internal/search"
     assert "上海" in core.call.call_args.args[4]["query"]
+
+
+async def test_native_calendar_is_transient_and_stale_snapshot_is_not_evidence():
+    redis = SimpleNamespace(get=AsyncMock(), set=AsyncMock())
+    context = {"client_calendar": {"observed_at": datetime.now(timezone.utc).isoformat(), "events": [{"title": "CALENDAR_FIXTURE"}], "partial": False}, "messages": [{"role": "user", "content": "我的会议安排"}]}
+    assert await ContextService(None, redis).working(context) is context
+    redis.set.assert_not_awaited()
+    core = SimpleNamespace(call=AsyncMock(return_value={}))
+    messages = await ContextService(core).messages(context)
+    assert "CALENDAR_FIXTURE" in messages[0]["content"]
+    context["client_calendar"]["observed_at"] = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    messages = await ContextService(core).messages(context)
+    assert "CALENDAR_FIXTURE" not in messages[0]["content"]

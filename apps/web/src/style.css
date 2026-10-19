@@ -184,3 +184,24 @@ html.voice-capture-active *,
 .location-consent small{display:block;margin-top:12px;color:var(--muted);font-size:12px;line-height:1.5}
 .location-consent-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
 .location-consent-actions .primary{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:24px}
+
+/* Unified assistant shell: navigation stays outside each independently scrolling page. */
+.workspace-segments { display:flex; flex-shrink:0; gap:4px; padding:8px 20px; border-bottom:1px solid #edf0ed; background:#fff; }
+.workspace-segments button,.workspace-filters button {border:0;background:transparent;color:#717976;padding:10px 14px;border-radius:10px;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap;}
+.workspace-segments button[aria-current="page"],.workspace-filters button[aria-pressed="true"] {background:#edf4f0;color:#285b48;font-weight:600;}
+.workspace-filters {display:flex;gap:4px;margin:0 0 16px;overflow-x:auto;}
+.chat-brand {font-size:21px;letter-spacing:-.5px;}
+.secondary-model-picker select {font-size:12px!important;color:#68746d!important;max-width:132px;}
+.schedule-last-run {display:block;color:#7a827e;font-size:12px;margin-top:8px;}
+.task-day-heading {font-size:12px;color:#7a827e;margin:20px 0 4px;font-weight:500;}
+.flat-tasks .attention-row {border-bottom:1px solid #f0f2f0;}
+.today-grid>.experience-card {box-shadow:none;}
+@media(max-width:600px){.workspace-segments{padding:6px 16px}.secondary-model-picker select{max-width:106px}.chat-brand{font-size:20px}.workspace-segments button{padding:8px 12px}}
+
+.material-row{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border:0;border-bottom:1px solid #edf0ed;background:transparent;text-align:left;color:inherit;cursor:pointer;}
+.material-row>span{display:grid;gap:5px;flex:1;min-width:0}.material-row strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.material-row small{font-size:12px;color:#78827c}.material-detail-heading{display:flex;align-items:center;gap:8px;margin-bottom:16px}.material-detail-heading h2{font-size:19px}
+
+.approval-group-items{padding:0 0 12px 30px}.approval-group-items button{display:flex;justify-content:space-between;gap:8px;text-align:left;width:100%;border:0;background:#f5f8f6;padding:12px;margin:4px 0;border-radius:8px;color:#315846}.approval-group-items small{display:block;color:#7a827e;font-size:11px;margin:8px 0}
+.today-invitation .experience-primary{background:#285b48;color:white}.today-grid .experience-card{border-color:#edf0ed;border-radius:16px}.today-context strong{font-weight:500}
+
+.chat-identity{position:relative}.chat-identity summary{display:flex;align-items:center;gap:6px;font-size:20px;font-weight:600;cursor:pointer;list-style:none}.chat-identity summary::-webkit-details-marker{display:none}.chat-identity>.chat-model-picker{position:absolute;left:0;top:36px;z-index:30;background:#fff;padding:12px 16px;border:1px solid #e6ebe7;border-radius:12px;box-shadow:0 8px 28px #18291d16;min-width:170px}.chat-identity>.chat-model-picker select{font-size:14px!important;max-width:145px!important}

@@ -21,9 +21,9 @@ import {
   type Signal,
 } from "./assistantApi";
 import {
+  groupActions,
   focusTasks,
   dueCaption,
-  isDueToday,
   awaitingAction,
   planningPrompt,
   recentTaskResults,
@@ -182,6 +182,7 @@ export function Today({
       setCalendarAuthorizing(false);
     }
   }
+  const [expandedActionGroup, setExpandedActionGroup] = useState("");
   const [pending, setPending] = useState("");
   const [taskError, setTaskError] = useState("");
   useEffect(() => {
@@ -232,10 +233,6 @@ export function Today({
   }, [guest]);
   const now = new Date();
   const focus = focusTasks(data.tasks ?? []);
-  const activeRuns =
-    data.runs?.filter((r) =>
-      ["RUNNING", "QUEUED", "UNKNOWN"].includes(r.status),
-    ) ?? [];
   const upcoming =
     data.schedules
       ?.filter((s) => s.status === "ACTIVE" && s.next_fire_at)
@@ -245,7 +242,11 @@ export function Today({
     (a, b) => Number(b.state === "UNKNOWN") - Number(a.state === "UNKNOWN"),
   );
   const attentionRows = [
-    ...attention.map((action) => ({ kind: "action" as const, action })),
+    ...groupActions(attention).map((group) => ({
+      kind: "action" as const,
+      action: group.items[0],
+      group,
+    })),
     ...focus.map((task) => ({ kind: "task" as const, task })),
   ].slice(0, 5);
   const results = recentTaskResults(data.results ?? [], now).slice(0, 5);
@@ -313,8 +314,16 @@ export function Today({
             <Sparkles size={24} />
           </span>
           <div>
-            <h2>{guest ? "有件事想交给助手？" : "今天的安排"}</h2>
-            <p>{guest ? "从一句话开始。" : "日历与待办，先生成计划草稿。"}</p>
+            <h2>
+              {guest
+                ? "有件事想交给助手？"
+                : now.getHours() >= 18
+                  ? "为明天留一点从容"
+                  : "把今天交给有序的安排"}
+            </h2>
+            <p>
+              {guest ? "从一句话开始。" : "结合日程与待办，梳理值得先做的事。"}
+            </p>
           </div>
         </div>
         <button
@@ -325,8 +334,10 @@ export function Today({
           {guest
             ? "和 Adex 聊聊"
             : planning
-              ? "正在读取今日日程…"
-              : "一起安排今天"}
+              ? "正在读取日程…"
+              : now.getHours() >= 18
+                ? "准备明天"
+                : "一起安排今天"}
           <ArrowRight size={16} />
         </button>
       </section>
@@ -379,28 +390,6 @@ export function Today({
         </>
       ) : (
         <>
-          <div className="today-summary">
-            <button onClick={() => onNavigate("matrix")}>
-              <span>今日到期</span>
-              <strong>
-                {data.tasks
-                  ? focus.filter((t) => isDueToday(t.due_at, now)).length
-                  : "—"}
-              </strong>
-            </button>
-            <button onClick={() => onAssistant("actions")}>
-              <span>需要你决定</span>
-              <strong>{data.actions ? attention.length : "—"}</strong>
-            </button>
-            <button onClick={() => onNavigate("tasks")}>
-              <span>后台处理中</span>
-              <strong>
-                {data.runs
-                  ? activeRuns.filter((r) => r.status !== "UNKNOWN").length
-                  : "—"}
-              </strong>
-            </button>
-          </div>
           <div className="today-grid">
             <section className="experience-card today-attention">
               <header>
@@ -450,32 +439,76 @@ export function Today({
                     );
                   })()
                 ) : (
-                  <button
-                    className="attention-row attention-action"
-                    key={"action:" + row.action.id}
-                    onClick={() => onAssistant("actions")}
-                  >
-                    <ShieldCheck size={17} />
-                    <span className="attention-title">
-                      <strong>
-                        {row.action.kind === "browser.request" ? "网页操作待确认" : row.action.kind === "calendar.update"
-                          ? "调整日历安排"
-                          : row.action.kind === "gmail.send"
-                            ? "发送邮件"
-                            : "确认助手操作"}
-                      </strong>
-                      <small>
-                        {row.action.state === "UNKNOWN"
-                          ? "核对执行结果，避免重复操作"
-                          : "查看内容后决定是否执行"}
-                      </small>
-                    </span>
-                    <span
-                      className={`priority-tag ${row.action.state === "UNKNOWN" ? "critical" : "approval"}`}
+                  <div key={row.group.key}>
+                    <button
+                      aria-expanded={
+                        row.group.items.length > 1
+                          ? expandedActionGroup === row.group.key
+                          : undefined
+                      }
+                      className="attention-row attention-action"
+                      key={"action:" + row.action.id}
+                      onClick={() =>
+                        row.group.items.length > 1
+                          ? setExpandedActionGroup(
+                              expandedActionGroup === row.group.key
+                                ? ""
+                                : row.group.key,
+                            )
+                          : onAssistant("actions")
+                      }
                     >
-                      {row.action.state === "UNKNOWN" ? "待核对" : "待确认"}
-                    </span>
-                  </button>
+                      <ShieldCheck size={17} />
+                      <span className="attention-title">
+                        <strong>
+                          {row.action.kind === "browser.request"
+                            ? "网页操作结果待核对"
+                            : row.action.kind === "calendar.update"
+                              ? "调整日历安排"
+                              : row.action.kind === "gmail.send"
+                                ? "发送邮件"
+                                : "确认助手操作"}
+                        </strong>
+                        <small>
+                          {row.group.items.length > 1
+                            ? `${row.group.items.length} 项 · 点开后逐项查看`
+                            : row.action.state === "UNKNOWN"
+                              ? "核对执行结果，避免重复操作"
+                              : "查看内容后决定是否执行"}
+                        </small>
+                      </span>
+                      <span
+                        className={`priority-tag ${row.action.state === "UNKNOWN" ? "critical" : "approval"}`}
+                      >
+                        {row.action.state === "UNKNOWN" ? "待核对" : "待确认"}
+                      </span>
+                    </button>
+                    {expandedActionGroup === row.group.key && (
+                      <div className="approval-group-items">
+                        {row.group.items.map((action, index) => (
+                          <button
+                            key={action.id}
+                            onClick={() =>
+                              action.request?.origin_conversation_id
+                                ? onConversation(
+                                    action.request.origin_conversation_id,
+                                  )
+                                : onAssistant("actions")
+                            }
+                          >
+                            <span>
+                              {typeof action.request?.payload?.title ===
+                              "string"
+                                ? action.request.payload.title.slice(0, 80)
+                                : `第 ${index + 1} 项操作`}
+                            </span>
+                            <ArrowRight size={14} />
+                          </button>
+                        ))}
+                        <small>每项操作分别核对，不会批量授权。</small>
+                      </div>
+                    )}
+                  </div>
                 ),
               )}
               {errors.includes("actions") && sectionState("actions", "")}
@@ -489,7 +522,7 @@ export function Today({
                       : "暂时没有需要处理的事项。"}
                   </p>
                 )}
-              {focus.length + attention.length > 5 && (
+              {focus.length + groupActions(attention).length > 5 && (
                 <p className="attention-more">
                   显示前 5 项 · 其余事项见待办或审批
                 </p>
@@ -694,7 +727,10 @@ export function Today({
                   <Sparkles size={17} />
                   助手发现
                 </h2>
-                <button onClick={() => onAssistant("goals")}>目标<ArrowRight size={14}/></button>
+                <button onClick={() => onAssistant("goals")}>
+                  目标
+                  <ArrowRight size={14} />
+                </button>
                 <button onClick={() => onAssistant("suggestions")}>
                   建议
                   <ArrowRight size={14} />

@@ -1,3 +1,7 @@
+import { todayReads } from "./todayReads";
+import { chatCalendar, type ClientCalendar } from "./chatCalendar";
+import { MaterialLibrary } from "./MaterialLibrary";
+import { TaskNavigation } from "./TaskNavigation";
 import { LocationConsent } from "./LocationConsent";
 import { currentLocation, locationRelevant, locationPreference, type ClientLocation, type LocationMode } from "./locationContext";
 import { matrixResource } from "./matrixResource";
@@ -172,6 +176,10 @@ function App() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
+  useEffect(()=>{setTasksLoaded(false);setSchedules([]);setRuns([]);},[user]);
+  const [automationView, setAutomationView] = useState("ACTIVE");
+  const [materialView, setMaterialView] = useState("notes");
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -250,6 +258,7 @@ function App() {
     model: string;
     files: string[];
     clientLocation?: ClientLocation;
+    clientCalendar?: ClientCalendar;
   } | null>(null);
   useEffect(() => {
     const handler = (event: Event) => {
@@ -290,9 +299,10 @@ function App() {
     return r.items;
   }
   async function refreshTasks() {
-    const [s, r] = await Promise.all([api.schedules(), api.runs()]);
+    const [s, r] = await Promise.all([todayReads.schedules.load(true), todayReads.runs.load(true)]);
     setSchedules(s.items);
     setRuns(r.items);
+    setTasksLoaded(true);
   }
   async function refreshMemory() {
     setMemories((await api.memories()).items);
@@ -658,6 +668,9 @@ function App() {
           setProgress("正在准备查询");
           logical.clientLocation = await currentLocation();
         }
+        setOptimistic({ id: logical.id, seq: Math.max(0, ...messages.map(m => m.seq)) + 1,
+          role: "user", content, conv });
+        logical.clientCalendar = guest ? undefined : await chatCalendar(content);
         pending.current = logical;
       }
       setOptimistic({
@@ -675,6 +688,7 @@ function App() {
         file_ids: files,
         model: chatModel,
         client_location: logical.clientLocation,
+        client_calendar: logical.clientCalendar,
       });
       setBusy(true);
       setOptimistic((previous) =>
@@ -895,7 +909,7 @@ function App() {
               <Menu size={20} />
             </button>
             {page === "chat" ? (
-              <label className="chat-model-picker">
+              <details className="chat-identity"><summary><span>Adex</span><ChevronDown size={14}/></summary><label className="chat-model-picker secondary-model-picker">
                 <span className="sr-only">聊天模型</span>
                 <select
                   aria-label="聊天模型"
@@ -911,9 +925,9 @@ function App() {
                   <option value="minimax">MiniMax</option>
                 </select>
                 <ChevronDown size={14} />
-              </label>
+              </label></details>
             ) : (
-              <span role="heading" aria-level={1}>{page === "today" ? "Today" : page === "matrix" ? "Todo" : pageLabels[page]}</span>
+              <span role="heading" aria-level={1}>{page === "tasks" ? "任务" : pageLabels[page]}</span>
             )}
           </div>
           <div className="top-actions">
@@ -1388,6 +1402,7 @@ function App() {
             </div>
           </div>
         )}
+        {!guest && ["matrix", "tasks"].includes(page) && <TaskNavigation page={page} onNavigate={setPage} />}
         {!guest && page === "tasks" && (
           <div className="content-page">
             <div className="page-heading">
@@ -1399,42 +1414,19 @@ function App() {
                 新建任务
               </Button>
             </div>
-            <div className="stat-grid">
-              <div>
-                <span>正在安排</span>
-                <strong>
-                  {schedules.filter((s) => s.status === "ACTIVE").length}
-                  <small>项任务</small>
-                </strong>
-              </div>
-              <div>
-                <span>正在执行</span>
-                <strong>
-                  {runs.filter((r) => r.status === "RUNNING").length}
-                  <small>项任务</small>
-                </strong>
-              </div>
-              <div>
-                <span>已完成</span>
-                <strong>
-                  {runs.filter((r) => r.status === "COMPLETED").length}
-                  <small>次执行</small>
-                </strong>
-              </div>
-            </div>
-            <div className="list-heading">
-              <h2>我的日程</h2>
-              <span>离开页面后，后台继续执行</span>
-            </div>
-            <div className="schedule-list">
-              {!schedules.length && (
+            {!tasksLoaded && <p className="experience-empty" role="status">正在读取安排…</p>}
+            <nav className="workspace-filters" aria-label="自动安排状态">
+              {[["ACTIVE","已启用"],["PAUSED","已暂停"],["RUNS","执行记录"],["HISTORY","已结束"]].map(([id,label])=><button key={id} aria-pressed={automationView===id} onClick={()=>setAutomationView(id)}>{label}</button>)}
+            </nav>
+            {automationView !== "RUNS" && <div className="schedule-list">
+              {tasksLoaded && !schedules.some(s => automationView === "HISTORY" ? !["ACTIVE","PAUSED"].includes(s.status) : s.status === automationView) && (
                 <Empty
                   icon={<CalendarClock size={26} />}
-                  title="为未来留一个安排"
+                  title="这个分类下还没有安排"
                   text="创建你的第一个定时任务，结果会回到原对话。"
                 />
               )}
-              {schedules.map((s) => (
+              {schedules.filter(s => automationView === "HISTORY" ? !["ACTIVE","PAUSED"].includes(s.status) : s.status === automationView).map((s) => (
                 <div className="schedule-row" key={s.id}>
                   <div className="schedule-copy">
                     <strong>{s.title}</strong>
@@ -1454,6 +1446,7 @@ function App() {
                       </span>
                       <span>下次：{fmt(s.next_fire_at, s.timezone)}</span>
                     </div>
+                    {(() => { const last = runs.find(r=>r.schedule_id===s.id); return last ? <small className="schedule-last-run">最近执行：{fmt(last.created_at)} · {statusText[last.status] || last.status}</small> : <small className="schedule-last-run">尚无执行记录</small>; })()}
                   </div>
                   {["ACTIVE", "PAUSED"].includes(s.status) && (
                     <div className="schedule-actions" role="group" aria-label="任务操作">
@@ -1486,7 +1479,8 @@ function App() {
                   )}
                 </div>
               ))}
-            </div>
+            </div>}
+            {automationView === "RUNS" && <>
             <div className="list-heading">
               <h2>运行记录</h2>
               <span>查看结果与恢复状态</span>
@@ -1547,6 +1541,7 @@ function App() {
                 ))
               )}
             </div>
+            </>}
           </div>
         )}
         {page === "settings" && (
@@ -1578,9 +1573,13 @@ function App() {
           />
         )}
         {!guest && page === "tools" && <Tools conversation={current} />}
-        {!guest && page === "workspace" && (
-          <Notes />
-        )}
+        {!guest && page === "workspace" && <>
+          <nav className="workspace-segments" aria-label="资料分类">
+            <button aria-current={materialView==="notes"?"page":undefined} onClick={()=>setMaterialView("notes")}>笔记</button>
+            <button aria-current={materialView==="files"?"page":undefined} onClick={()=>setMaterialView("files")}>报告与文件</button>
+          </nav>
+          {materialView==="notes" ? <Notes /> : <MaterialLibrary />}
+        </>}
         {!guest && page === "memory" && (
           <MemoryPage
             memories={memories}
