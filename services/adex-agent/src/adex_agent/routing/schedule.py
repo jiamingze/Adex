@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from adex_agent.routing.notification import NotificationCondition
 
 
 # Shared with intent routing: accepting a duration must never depend on a second regex.
@@ -14,6 +15,8 @@ RELATIVE_TIME = re.compile(
 
 class ScheduleDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    notification_policy: Literal["EVERY_RUN", "CHANGES_ONLY", "CONDITION_MET"] = "EVERY_RUN"
+    notification_condition: NotificationCondition | None = None
     title: str = Field(min_length=1, max_length=200)
     instruction: str = Field(min_length=1, max_length=16000)
     kind: Literal["ONCE", "DAILY", "INTERVAL"]
@@ -24,6 +27,8 @@ class ScheduleDraft(BaseModel):
 
     @model_validator(mode="after")
     def validate_rule(self):
+        if (self.notification_policy == "CONDITION_MET") != (self.notification_condition is not None):
+            raise ValueError("Condition and notification policy must agree")
         try:
             ZoneInfo(self.timezone)
         except Exception:

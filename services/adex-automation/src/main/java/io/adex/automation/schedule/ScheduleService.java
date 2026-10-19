@@ -43,7 +43,7 @@ public class ScheduleService {
     String taskKind = String.valueOf(b.getOrDefault("task_kind", "CHAT"));
     if (!Set.of("CHAT", "CONNECTOR_SYNC", "MATRIX_REMINDER").contains(taskKind))
       throw Kernel.error(400, "INVALID_TASK_KIND");
-    Object taskRequest = b.getOrDefault("task_request", Map.of());
+    Object taskRequest = NotificationRules.request(b);
     if (taskKind.equals("CONNECTOR_SYNC")
         && (!(taskRequest instanceof Map<?, ?> request) || request.get("connection_id") == null))
       throw Kernel.error(400, "INVALID_CONNECTOR_SCHEDULE");

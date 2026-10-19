@@ -13,6 +13,7 @@ export type Message = {
 };
 export type Memory = { id: string; content: string; revision: number };
 export type Schedule = {
+  task_request?: {notification_policy?: string; notification_condition?: components["schemas"]["NotificationCondition"]};
   id: string;
   title: string;
   instruction: string;

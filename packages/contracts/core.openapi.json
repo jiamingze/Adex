@@ -4234,6 +4234,18 @@
           },
           "local_time": {
             "type": "string"
+          },
+          "notification_policy": {
+            "type": "string",
+            "enum": [
+              "EVERY_RUN",
+              "CHANGES_ONLY",
+              "CONDITION_MET"
+            ],
+            "default": "EVERY_RUN"
+          },
+          "notification_condition": {
+            "$ref": "#/components/schemas/NotificationCondition"
           }
         },
         "required": [
@@ -5009,6 +5021,42 @@
             "type": "string",
             "maxLength": 40,
             "description": "Display name only; empty resets to username. Trimmed; control characters rejected."
+          }
+        }
+      },
+      "NotificationCondition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "operator",
+          "threshold",
+          "unit"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "semantic",
+              "lt",
+              "lte",
+              "gt",
+              "gte",
+              "eq"
+            ]
+          },
+          "threshold": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 40
           }
         }
       }

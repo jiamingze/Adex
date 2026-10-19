@@ -1482,6 +1482,7 @@ function App() {
                       </span>
                       <span>下次：{fmt(s.next_fire_at, s.timezone)}</span>
                     </div>
+                    {s.task_request?.notification_policy==="CONDITION_MET" && <small className="schedule-last-run schedule-condition" title={s.task_request.notification_condition?.description}>仅满足条件时通知 · {s.task_request.notification_condition?.description}</small>}
                     {(() => { const last = runs.find(r=>r.schedule_id===s.id); return last ? <small className="schedule-last-run">最近执行：{fmt(last.created_at)} · {statusText[last.status] || last.status}</small> : <small className="schedule-last-run">尚无执行记录</small>; })()}
                   </div>
                   {(
@@ -2060,6 +2061,9 @@ function ScheduleModal({
 }) {
   const [title, setTitle] = useState("");
   const [instruction, setInstruction] = useState("");
+  const [notificationPolicy,setNotificationPolicy] = useState<"EVERY_RUN"|"CHANGES_ONLY"|"CONDITION_MET">("EVERY_RUN");
+  const [notificationCondition,setNotificationCondition] = useState<components["schemas"]["NotificationCondition"]|undefined>();
+  const [conditionDraftSource,setConditionDraftSource] = useState("");
   const [kind, setKind] = useState<"ONCE" | "DAILY" | "INTERVAL">("DAILY");
   const [timezone, setTimezone] = useState("Asia/Shanghai");
   const [time, setTime] = useState("08:00");
@@ -2079,6 +2083,7 @@ function ScheduleModal({
         onSubmit={async (e) => {
           e.preventDefault();
           if (busy) return;
+          if(notificationPolicy==="CONDITION_MET" && conditionDraftSource!==instruction){setError("执行内容已修改，请重新生成草稿以确认通知条件。");return;}
           setBusy(true);
           setError("");
           try {
@@ -2088,6 +2093,8 @@ function ScheduleModal({
               kind,
               timezone,
               origin_conversation_id: conv,
+              notification_policy:notificationPolicy,
+              ...(notificationCondition?{notification_condition:notificationCondition}:{}),
               first_fire_at:
                 kind === "ONCE"
                   ? new Date(when).toISOString()
@@ -2166,6 +2173,9 @@ function ScheduleModal({
                   setError(d.clarification);
                   return;
                 }
+                setNotificationPolicy(d.notification_policy || "EVERY_RUN");
+                setNotificationCondition(d.notification_condition);
+                setConditionDraftSource(d.instruction || "");
                 setTitle(d.title || "");
                 setInstruction(d.instruction || "");
                 setKind(d.kind || "DAILY");
@@ -2192,6 +2202,7 @@ function ScheduleModal({
             {busy ? "正在解析…" : "生成草稿"}
           </Button>
           <small>检查下方时间与内容，确认后才会创建任务。</small>
+          {notificationPolicy==="CONDITION_MET" ? <p>仅条件满足时通知：{notificationCondition?.description}。其他结果只回到会话。</p> : <small>通知方式：{notificationPolicy==="CHANGES_ONLY"?"结果有更新时通知":"每次执行后通知"}。如需条件通知，请在上方写明条件并生成草稿。</small>}
         </div>
         <label>
           任务名称

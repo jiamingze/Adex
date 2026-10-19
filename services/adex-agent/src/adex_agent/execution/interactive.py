@@ -52,6 +52,21 @@ class InteractiveTurnService:
                         selected_runtime, body.owner_id, body.invocation_key, latest
                     )
                 if draft:
+                    from adex_agent.routing.notification import notification_plan
+
+                    preferences = await notification_plan(
+                        selected_runtime, body.owner_id, body.invocation_key, latest
+                    )
+                    if preferences.get("clarification"):
+                        yield (
+                            json.dumps(
+                                {"type": "completed", "content": preferences["clarification"]},
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
+                        return
+                    draft.update(preferences)
                     yield (
                         json.dumps({"type": "schedule.requested", "draft": draft}, ensure_ascii=False) + "\n"
                     )

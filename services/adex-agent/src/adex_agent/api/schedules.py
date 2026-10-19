@@ -42,6 +42,12 @@ async def schedule_draft(request: Request, body: DraftRequest):
             return {"clarification": str(parsed["clarification"])[:500]}
         from adex_agent.routing.schedule import ScheduleDraft
 
+        from adex_agent.routing.notification import notification_plan
+
+        preferences = await notification_plan(runtime, body.owner_id, body.request_id, body.instruction)
+        if preferences.get("clarification"):
+            return preferences
+        parsed.update(preferences)
         return ScheduleDraft.model_validate(parsed).model_dump(exclude_none=True)
     except ProviderFailure as exc:
         raise HTTPException(502, detail=exc.code) from None

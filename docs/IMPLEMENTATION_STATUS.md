@@ -783,3 +783,7 @@ Implemented 今日 / 对话 / 任务 / 资料 navigation with legacy route compa
 ## Account nicknames · 2026-10-20
 
 App 026 adds optional `users.nickname`; GET/PATCH `/api/v1/me` expose the owned display profile. Settings → 常规 → 昵称 edits it independently from other settings reads. Greeting/sidebar/avatar use nickname with username fallback. Profile cache is session-local, reset on auth change; delayed saves cannot publish into a different session. Login and owner IDs remain unchanged. See [nickname contract](architecture/account-nickname.md).
+
+## Conditional task notifications · 2026-10-20
+
+Schedule drafts and creation accept CONDITION_MET with an explicit typed condition. Agent semantically interprets the user request, freezes tool evidence in the existing plan checkpoint and assesses the condition in the result checkpoint. Automation verifies condition correspondence, evidence freshness and numeric comparisons before setting notify. Failed/unknown/unmet checks retain original-conversation results but create no notification records, so cannot enqueue APNs. Existing EVERY_RUN/CHANGES_ONLY remain supported. No migration. Semantic decisions are evidence-backed model judgments, not exchange-grade market feeds; actual sources may remain unavailable. Existing tasks are not silently reclassified. See [contract and boundaries](architecture/conditional-notifications.md).

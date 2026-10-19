@@ -216,7 +216,9 @@ public class RunExecutionService {
           // checkpoint and outbox; suppress only identical consecutive check notifications.
           boolean notify = true;
           var request = k.decode(String.valueOf(run.get("request")));
-          if (run.get("schedule_id") != null
+          if (io.adex.automation.schedule.NotificationRules.conditional(request))
+            notify = io.adex.automation.schedule.NotificationRules.conditionMet(request, state);
+          else if (run.get("schedule_id") != null
               && "CHANGES_ONLY".equals(request.get("notification_policy"))) {
             var previous =
                 k.db.queryForList(
@@ -323,6 +325,8 @@ public class RunExecutionService {
                         "kind",
                         "ERROR"));
             payload.put("task_title", run.get("instruction"));
+            if (io.adex.automation.schedule.NotificationRules.conditional(
+                k.decode(String.valueOf(run.get("request"))))) payload.put("notify", false);
             k.db.update(
                 "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id,delivery_key) DO NOTHING",
                 event,

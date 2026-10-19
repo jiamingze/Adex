@@ -187,6 +187,58 @@ class MockProvider:
     async def stream(self, messages):
         latest = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         if any(
+            m.get("content", "").startswith("NOTIFICATION_PLAN_V1")
+            for m in messages
+            if m.get("role") == "system"
+        ):
+            # Deterministic test fixture only; production uses the configured semantic model.
+            import re
+
+            plan = {"notification_policy": "EVERY_RUN"}
+            if any(word in latest for word in ("低于", "高于", "才通知", "满足条件", "重要变化")):
+                match = re.search(r"(低于|高于)(\d+(?:\.\d+)?)\s*(元/克|美元/盎司)", latest)
+                if match:
+                    condition = {
+                        "description": latest[:1000],
+                        "operator": "lt" if match[1] == "低于" else "gt",
+                        "threshold": match[2],
+                        "unit": "CNY/g" if match[3] == "元/克" else "USD/oz",
+                    }
+                    plan = {"notification_policy": "CONDITION_MET", "notification_condition": condition}
+                elif "黄金" in latest:
+                    plan = {"clarification": "请明确黄金报价品种、阈值和单位。"}
+                else:
+                    plan = {
+                        "notification_policy": "CONDITION_MET",
+                        "notification_condition": {
+                            "description": latest[:1000],
+                            "operator": "semantic",
+                            "threshold": "",
+                            "unit": "",
+                        },
+                    }
+            elif any(word in latest for word in ("巡检", "有变化", "有更新")):
+                plan = {"notification_policy": "CHANGES_ONLY"}
+            yield {
+                "type": "completed",
+                "content": json.dumps(plan, ensure_ascii=False),
+                "usage": {},
+                "provider": "mock",
+            }
+            return
+        if any(
+            m.get("content", "").startswith("NOTIFICATION_ASSESS_V1")
+            for m in messages
+            if m.get("role") == "system"
+        ):
+            yield {
+                "type": "completed",
+                "content": json.dumps({"status": "UNKNOWN", "evidence": []}),
+                "usage": {},
+                "provider": "mock",
+            }
+            return
+        if any(
             m.get("content", "").startswith("GOAL_PLAN_V1") for m in messages if m.get("role") == "system"
         ):
             value = json.loads(latest)

@@ -173,6 +173,7 @@ class BackgroundWorker:
                 if saved and saved.get("phase") == "plan" and saved.get("messages"):
                     messages = saved["messages"]
                     evidence = saved.get("travel_evidence")
+                    notification_evidence = saved.get("notification_evidence", [])
                 else:
                     context["messages"].append({"role": "user", "content": run["instruction"], "seq": 0})
                     kind = run.get("kind", "CHAT")
@@ -207,9 +208,24 @@ class BackgroundWorker:
                         or search_intent(run["instruction"])
                         or any(word in run["instruction"] for word in ("简报", "公告", "查价", "比价"))
                     )
+                    conditional = run.get("request", {}).get("notification_policy") == "CONDITION_MET"
+                    evidence_cards = []
                     messages = await self.runtime.messages(
-                        context, search=search, research=kind == "RESEARCH"
+                        context,
+                        search=search or conditional,
+                        research=kind == "RESEARCH",
+                        cards=evidence_cards,
                     )
+                    notification_evidence = []
+                    if conditional:
+                        from .notification import collect_evidence
+
+                        notification_evidence = await collect_evidence(
+                            self.core,
+                            run["owner_id"],
+                            evidence_cards,
+                            run["request"]["notification_condition"],
+                        )
                 state = {
                     "schema_version": 1,
                     "phase": "plan",
@@ -218,7 +234,12 @@ class BackgroundWorker:
                     "completed_steps": [],
                     "travel_evidence": evidence if "evidence" in locals() else None,
                     "pending_effects": [],
-                    "budget": {"max_model_calls": 1},
+                    "notification_evidence": notification_evidence,
+                    "budget": {
+                        "max_model_calls": 2
+                        if run.get("request", {}).get("notification_policy") == "CONDITION_MET"
+                        else 1
+                    },
                 }
                 ref = await self.checkpoints.save_checkpoint(run, f"plan:{run['epoch']}", state, revision)
                 await self.run_write(run, "checkpoint", {"checkpoint_ref": ref})
@@ -242,6 +263,25 @@ class BackgroundWorker:
                     "usage": output["usage"],
                     "provider": output["provider"],
                 }
+            if (
+                run.get("request", {}).get("notification_policy") == "CONDITION_MET"
+                and "notification_assessment" not in result
+            ):
+                from .notification import assess
+
+                result["notification_assessment"] = await assess(
+                    self.runtime,
+                    run["owner_id"],
+                    str(run["id"]) + ":" + str(revision),
+                    run["request"]["notification_condition"],
+                    notification_evidence if "notification_evidence" in locals() else [],
+                )
+                status = result["notification_assessment"]["status"]
+                if status == "UNKNOWN":
+                    # Do not repeat an unverified model price as a current observation.
+                    result["content"] = "本次无法核实通知条件，仅记录到会话，不发通知。"
+                elif status == "NOT_MET":
+                    result["content"] += "\n\n通知条件未满足，本次仅记录到会话，不发通知。"
             if run.get("kind") in ("RESEARCH", "TRAVEL", "GAME", "DIAGRAM") and not result.get(
                 "artifact", {}
             ).get("file_id"):

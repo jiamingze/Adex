@@ -1235,6 +1235,12 @@ export interface components {
             first_fire_at: string;
             interval_seconds?: number;
             local_time?: string;
+            /**
+             * @default EVERY_RUN
+             * @enum {string}
+             */
+            notification_policy: "EVERY_RUN" | "CHANGES_ONLY" | "CONDITION_MET";
+            notification_condition?: components["schemas"]["NotificationCondition"];
         };
         ScheduleUpdate: {
             /** @enum {string} */
@@ -1449,6 +1455,13 @@ export interface components {
         NicknameUpdate: {
             /** @description Display name only; empty resets to username. Trimmed; control characters rejected. */
             nickname: string;
+        };
+        NotificationCondition: {
+            description: string;
+            /** @enum {string} */
+            operator: "semantic" | "lt" | "lte" | "gt" | "gte" | "eq";
+            threshold: string;
+            unit: string;
         };
     };
     responses: never;

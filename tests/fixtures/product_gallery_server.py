@@ -36,6 +36,7 @@ DATA["/notes"]["items"][0].update(
     title=DATA["/notes/fixture-note"]["title"],
     preview="让日历、待办和对话成为一个连续的工作流。",
 )
+DATA["/automations"]["items"][0]["task_request"] = {"notification_policy":"CONDITION_MET","notification_condition":{"description":"TEST_FIXTURE：现货黄金低于指定阈值时通知","operator":"lt","threshold":"800","unit":"CNY/g"}}
 DATA["/goals"] = {"items": [{
     "id": "fixture-goal", "title": "让个人助手稳定上线", "outcome": "完成说明、验证与第一轮反馈收集",
     "status": "ACTIVE", "revision": 1, "total": 3, "done": 1, "created_at": iso(-4),

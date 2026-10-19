@@ -212,3 +212,9 @@ Initial public repository packaging. The code predates the first Git commit; dat
 
 - Add an optional account nickname under Settings → General. Today greetings, sidebar names and avatars use it immediately; clearing restores the login username.
 - Nicknames support up to 40 Unicode code points, including Chinese and emoji. Login identifiers and ownership remain unchanged. App migration 026; authenticated, owner-scoped profile update with guest denial and input validation.
+
+### Conditional task notifications
+
+- Natural-language schedules can preserve an explicit notification condition separately from the work instruction. Creation receipts and task lists show the rule.
+- NOT_MET, UNKNOWN and failed conditional checks still backfill the conversation without creating a notification/APNs delivery; MET requires checkpointed, cited evidence. Numeric thresholds are rechecked using decimal comparison.
+- Price conditions require rendered-page evidence rather than search snippets. Missing access/data stays UNKNOWN. Existing task policies are unchanged; no new scheduler or database migration.
