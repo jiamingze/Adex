@@ -16,11 +16,29 @@ public class IdentityService {
   }
 
   public Map<String, Object> account(UUID id) {
-    return k.row("SELECT username,is_guest FROM users WHERE id=?", id);
+    return k.row("SELECT username,nickname,is_guest FROM users WHERE id=?", id);
   }
 
   public Map<String, Object> me(UUID id) {
-    return k.row("SELECT id,username,is_guest,memory_revision FROM users WHERE id=?", id);
+    return k.row("SELECT id,username,nickname,is_guest,memory_revision FROM users WHERE id=?", id);
+  }
+
+  public Map<String, Object> updateNickname(UUID owner, Map<String, Object> input) {
+    if (!input.keySet().equals(Set.of("nickname"))
+        || !(input.get("nickname") instanceof String raw))
+      throw Kernel.error(400, "INVALID_NICKNAME");
+    String nickname = raw.strip();
+    if (nickname.codePointCount(0, nickname.length()) > 40
+        || raw.codePoints().anyMatch(Character::isISOControl))
+      throw Kernel.error(400, "INVALID_NICKNAME");
+    return k.tx.execute(
+        tx -> {
+          var user = k.row("SELECT is_guest FROM users WHERE id=? FOR UPDATE", owner);
+          if (Boolean.TRUE.equals(user.get("is_guest")))
+            throw Kernel.error(403, "SIGN_IN_REQUIRED");
+          k.db.update("UPDATE users SET nickname=? WHERE id=?", nickname, owner);
+          return me(owner);
+        });
   }
 
   public void logout(String token) {

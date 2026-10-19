@@ -207,3 +207,8 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - The automatic-task trash button now calls a real DELETE endpoint with revision checking, instead of changing the status to CANCELLED. Confirmation explains the permanent removal.
 - Physically removes the schedule/occurrences, fences pending execution and retains detached execution/effect history. Deletion tombstones prevent delayed creation retries from resurrecting schedules.
 - App forwards authenticated ownership; Automation migration 008 preserves service ownership and scheduler/lease mechanisms.
+
+### Account nicknames
+
+- Add an optional account nickname under Settings → General. Today greetings, sidebar names and avatars use it immediately; clearing restores the login username.
+- Nicknames support up to 40 Unicode code points, including Chinese and emoji. Login identifiers and ownership remain unchanged. App migration 026; authenticated, owner-scoped profile update with guest denial and input validation.

@@ -68,4 +68,9 @@ public class IdentityController {
   public Object me(HttpServletRequest r) {
     return service.me(auth.owner(r));
   }
+
+  @PatchMapping("/api/v1/me")
+  public Object updateNickname(HttpServletRequest r, @RequestBody Map<String, Object> input) {
+    return service.updateNickname(auth.owner(r), input);
+  }
 }

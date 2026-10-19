@@ -779,3 +779,7 @@ Implemented 今日 / 对话 / 任务 / 资料 navigation with legacy route compa
 ## Permanent automation deletion · 2026-10-20
 
 `DELETE /api/v1/automations/{id}?revision=N` physically removes the owned schedule and occurrence rows. Existing runs are retained for audit with nullable schedule links; pending execution is cancelled with a higher fencing epoch. Content-free creation-key tombstones reject resurrection. Active, paused and terminal schedules all expose the confirmed-delete UI. See [deletion contract](architecture/schedule-deletion.md); Automation migration 008 required.
+
+## Account nicknames · 2026-10-20
+
+App 026 adds optional `users.nickname`; GET/PATCH `/api/v1/me` expose the owned display profile. Settings → 常规 → 昵称 edits it independently from other settings reads. Greeting/sidebar/avatar use nickname with username fallback. Profile cache is session-local, reset on auth change; delayed saves cannot publish into a different session. Login and owner IDs remain unchanged. See [nickname contract](architecture/account-nickname.md).

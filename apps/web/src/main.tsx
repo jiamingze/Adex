@@ -1,3 +1,5 @@
+import { accountProfile } from "./accountProfile";
+import { accountDisplayName } from "./profileModel";
 import { DeleteScheduleDialog } from "./DeleteScheduleDialog";
 import { todayReads } from "./todayReads";
 import { chatCalendar, type ClientCalendar } from "./chatCalendar";
@@ -11,7 +13,7 @@ import { ReplyNoteAction } from "./ReplyNoteAction";
 import { useChatScroll } from "./useChatScroll";
 import { preferences } from "./preferences";
 import { Cards } from "./Cards";
-import React, { useEffect, useRef, useState, useDeferredValue } from "react";
+import React, { useEffect, useRef, useState, useDeferredValue, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowUp,
@@ -149,6 +151,15 @@ function App() {
   const [modelLabel, setModelLabel] = useState("");
   const [user, setUser] = useState("");
   const [guest, setGuest] = useState(false);
+  const profile = useSyncExternalStore(accountProfile.subscribe,accountProfile.getSnapshot);
+  const displayName = accountDisplayName(user,profile.data?.nickname,guest);
+  useEffect(()=>{
+    if(!user || guest)return;
+    void accountProfile.load().catch(()=>{});
+    const refresh=()=>{if(document.visibilityState==="visible")void accountProfile.load().catch(()=>{});};
+    document.addEventListener("visibilitychange",refresh);
+    return ()=>document.removeEventListener("visibilitychange",refresh);
+  },[user,guest]);
   const [ready, setReady] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authRegister, setAuthRegister] = useState(false);
@@ -894,10 +905,10 @@ function App() {
           </div>
           <div className="profile">
             <div className="avatar">
-              {guest ? "A" : user.slice(0, 1).toUpperCase()}
+              {guest ? "A" : Array.from(displayName)[0]?.toUpperCase()}
             </div>
             <div>
-              <strong>{guest ? "访客" : user}</strong>
+              <strong>{displayName}</strong>
               <small>{guest ? "当前设备的访客空间" : "个人账户"}</small>
             </div>
             <button
@@ -1027,7 +1038,7 @@ function App() {
               setPage("assistant");
             }}
             guest={guest}
-            username={user}
+            username={displayName}
             onNavigate={(p) => {
               setPage(p);
               setError("");
@@ -1175,7 +1186,7 @@ function App() {
                     <article key={m.id} className={`message ${m.role}`}>
                       <div className="message-avatar">
                         {m.role === "user" ? (
-                          user.slice(0, 1).toUpperCase()
+                          Array.from(displayName)[0]?.toUpperCase()
                         ) : (
                           <Sparkles size={16} />
                         )}

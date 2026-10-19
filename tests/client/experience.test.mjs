@@ -541,3 +541,11 @@ test('native read cancellation rejects without publishing late data or retrying'
   controller.abort();await assert.rejects(read,{name:'AbortError'});
   finish({status:200,data:{secret:'old account'},headers:{}});assert.equal(calls,1);
 });
+
+test('nickname display falls back without changing the login identifier',async()=>{
+  const {accountDisplayName}=await import('../../.local-data/client-tests/profileModel.js');
+  assert.equal(accountDisplayName('admin',' 星河 '),'星河');
+  assert.equal(accountDisplayName('admin','  '),'admin');
+  assert.equal(accountDisplayName('admin',undefined),'admin');
+  assert.equal(accountDisplayName('guest_id','nickname',true),'访客');
+});

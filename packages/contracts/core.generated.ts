@@ -49,7 +49,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["updateNickname"];
         trace?: never;
     };
     "/conversations": {
@@ -1438,6 +1438,18 @@ export interface components {
                 organizer: string;
             }[];
         };
+        AccountProfile: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            nickname: string;
+            is_guest: boolean;
+            memory_revision: number;
+        };
+        NicknameUpdate: {
+            /** @description Display name only; empty resets to username. Trimmed; control characters rejected. */
+            nickname: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1562,7 +1574,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Object"];
+                    "application/json": components["schemas"]["AccountProfile"];
                 };
             };
             /** @description Invalid input */
@@ -1587,6 +1599,58 @@ export interface operations {
                 content?: never;
             };
             /** @description Dependency unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateNickname: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NicknameUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated owned profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountProfile"];
+                };
+            };
+            /** @description Invalid nickname or unexpected fields */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Guest account cannot edit profile */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authoritative database unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;

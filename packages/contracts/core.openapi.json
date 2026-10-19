@@ -96,7 +96,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/AccountProfile"
                 }
               }
             }
@@ -112,6 +112,43 @@
           },
           "503": {
             "description": "Dependency unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateNickname",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NicknameUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated owned profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid nickname or unexpected fields"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Guest account cannot edit profile"
+          },
+          "503": {
+            "description": "Authoritative database unavailable"
           }
         }
       }
@@ -4929,6 +4966,49 @@
                 }
               }
             }
+          }
+        }
+      },
+      "AccountProfile": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "is_guest",
+          "memory_revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "is_guest": {
+            "type": "boolean"
+          },
+          "memory_revision": {
+            "type": "integer"
+          }
+        }
+      },
+      "NicknameUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nickname"
+        ],
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Display name only; empty resets to username. Trimmed; control characters rejected."
           }
         }
       }

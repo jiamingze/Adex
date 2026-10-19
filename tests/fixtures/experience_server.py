@@ -419,6 +419,12 @@ class Handler(SimpleHTTPRequestHandler):
         return self.reply({"deleted": True})
 
     def do_PATCH(self):
+        if self.path == "/api/v1/me":
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+            if set(body) != {"nickname"} or not isinstance(body["nickname"], str) or len(body["nickname"].strip()) > 40:
+                return self.reply({"code": "INVALID_NICKNAME"}, 400)
+            DATA["/me"]["nickname"] = body["nickname"].strip()
+            return self.reply(DATA["/me"])
         if self.path.startswith("/api/v1/notes/"):
             fault = SimpleCookie(self.headers.get("Cookie", "")).get("fixture_fault")
             if fault and fault.value == "notes-save-delay":

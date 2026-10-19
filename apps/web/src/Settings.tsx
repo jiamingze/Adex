@@ -1,3 +1,4 @@
+import { AccountNickname } from "./AccountNickname";
 import { locationPreference, saveLocationPreference, type LocationMode } from "./locationContext";
 import { useState, useEffect } from "react";
 import { PushNotifications } from "./PushNotifications";
@@ -116,6 +117,7 @@ export function Settings({
               {tab === "常规" && (
                 <>
                   <h2>常规</h2>
+                  {!guest && <AccountNickname /> }
                   <div className="setting-row"><div><strong>当前位置</strong><p>仅用于天气和附近推荐，不后台追踪；查询时近似位置会发送给 Adex 和查询服务。</p></div>
                   <select aria-label="位置使用方式" value={locationPrefs.mode === "device" ? "device" : "off"} onChange={e=>{const mode=e.target.value as LocationMode;saveLocationPreference(mode,locationPrefs.city);setLocationPrefs({...locationPrefs,mode});}}>
                   <option value="off">不使用位置</option><option value="device">按需使用设备位置</option></select></div>
