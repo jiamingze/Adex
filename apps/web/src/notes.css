@@ -101,7 +101,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 .notes-toolbar > span {
@@ -199,7 +199,7 @@
     gap: 4px;
   }
   .notes-toolbar {
-    margin: 0 0 16px;
+    margin: 0 0 6px;
     gap: 4px;
   }
   .notes-toolbar > span {
@@ -398,4 +398,26 @@
 .note-preview .adex-markdown {
   min-width: 0;
   max-width: 100%;
+}
+
+/* Reading and editing share the same compact spacing below the toolbar. */
+.note-title {
+  margin: 0;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.note-body,
+.note-preview {
+  padding-top: 6px;
+}
+.note-preview .adex-markdown > :first-child {
+  margin-top: 0;
+}
+.notes-toolbar .note-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
 }

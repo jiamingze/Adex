@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use a save icon in note details and tighten toolbar/title/body spacing in both reading and editing modes.
+
 - Keep task pause/resume and delete icons together, with delete on the right on mobile and desktop.
 
 ### 2026-10-19 — Notes, reliable intervals and notification navigation

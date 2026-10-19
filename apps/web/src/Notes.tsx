@@ -8,6 +8,7 @@ import {
   Trash2,
   NotebookPen,
   Check,
+  Save,
   Pencil,
   Eye,
 } from "lucide-react";
@@ -478,12 +479,13 @@ export function Notes() {
                   {editing ? <Eye size={18} /> : <Pencil size={18} />}
                 </button>
                 <button
-                  className="notes-primary"
+                  className="note-save"
+                  aria-label="保存笔记"
+                  title="保存笔记"
                   disabled={busy}
                   onClick={save}
                 >
-                  <Check size={16} />
-                  保存
+                  {saved ? <Check size={18} /> : <Save size={18} />}
                 </button>
               </div>
               {error && (
