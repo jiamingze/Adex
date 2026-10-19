@@ -206,6 +206,7 @@ export const api = {
   schedules: () => request<{ items: Schedule[] }>("/automations"),
   createSchedule: (body: components["schemas"]["ScheduleInput"], key: string) =>
     request<Schedule>("/automations", "POST", body, key),
+  deleteSchedule: (s: Schedule) => request<{ok:boolean;id:string}>(`/automations/${s.id}?revision=${s.revision}`, "DELETE"),
   updateSchedule: (s: Schedule, status: string) =>
     request<Schedule>(`/automations/${s.id}`, "PATCH", {
       status,

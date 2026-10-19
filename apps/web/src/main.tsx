@@ -1,3 +1,4 @@
+import { DeleteScheduleDialog } from "./DeleteScheduleDialog";
 import { todayReads } from "./todayReads";
 import { chatCalendar, type ClientCalendar } from "./chatCalendar";
 import { MaterialLibrary } from "./MaterialLibrary";
@@ -184,6 +185,9 @@ function App() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [scheduleToDelete, setScheduleToDelete] = useState<Schedule|null>(null);
+  const [deletingSchedule, setDeletingSchedule] = useState(false);
+  const [scheduleDeleteError, setScheduleDeleteError] = useState("");
   const [showSchedule, setShowSchedule] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -717,6 +721,27 @@ function App() {
       setError(errorMessage(e));
       await refreshTasks().catch(() => {});
     }
+  }
+  async function deleteSchedule() {
+    if(!scheduleToDelete || deletingSchedule) return;
+    setDeletingSchedule(true);setScheduleDeleteError("");
+    try {
+      await api.deleteSchedule(scheduleToDelete);
+      const items=schedules.filter(item=>item.id!==scheduleToDelete.id);
+      setSchedules(items);todayReads.schedules.accept({items});todayReads.runs.invalidate(true);
+      setScheduleToDelete(null);
+      await refreshTasks().catch(()=>setError("任务已删除，执行记录暂未刷新。"));
+    } catch(error) {
+      if(error instanceof ApiError && error.code === "REVISION_CONFLICT") {
+        try {
+          todayReads.schedules.invalidate(true);todayReads.runs.invalidate(true);
+          await refreshTasks();
+          const latest=todayReads.schedules.getSnapshot().data?.items.find(item=>item.id===scheduleToDelete.id);
+          setScheduleToDelete(latest ?? null);
+          setScheduleDeleteError("任务已更新，请核对后再次确认删除。");
+        } catch {setScheduleDeleteError("任务已更新，请关闭后刷新列表再试。");}
+      } else {setScheduleDeleteError(errorMessage(error));}
+    } finally {setDeletingSchedule(false);}
   }
   async function remember(content: string) {
     try {
@@ -1448,9 +1473,9 @@ function App() {
                     </div>
                     {(() => { const last = runs.find(r=>r.schedule_id===s.id); return last ? <small className="schedule-last-run">最近执行：{fmt(last.created_at)} · {statusText[last.status] || last.status}</small> : <small className="schedule-last-run">尚无执行记录</small>; })()}
                   </div>
-                  {["ACTIVE", "PAUSED"].includes(s.status) && (
+                  {(
                     <div className="schedule-actions" role="group" aria-label="任务操作">
-                      <button
+                      {["ACTIVE", "PAUSED"].includes(s.status) && <button
                         className="icon-button"
                         aria-label={
                           s.status === "ACTIVE" ? "暂停任务" : "恢复任务"
@@ -1467,11 +1492,11 @@ function App() {
                         ) : (
                           <Play size={17} />
                         )}
-                      </button>
+                      </button>}
                       <button
                         className="icon-button"
-                        aria-label="取消日程"
-                        onClick={() => changeSchedule(s, "CANCELLED")}
+                        aria-label={`删除任务 ${s.title}`}
+                        onClick={() => {setScheduleDeleteError("");setScheduleToDelete(s);}}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -1739,6 +1764,7 @@ function App() {
           </div>
         </div>
       )}
+      {scheduleToDelete && <DeleteScheduleDialog schedule={scheduleToDelete} busy={deletingSchedule} error={scheduleDeleteError} onCancel={()=>setScheduleToDelete(null)} onConfirm={deleteSchedule} />}
       {showSchedule && (
         <ScheduleModal
           conversations={conversations}

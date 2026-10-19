@@ -36,6 +36,11 @@ public class AutomationGatewayController {
     return service.update(auth.owner(r), id, b);
   }
 
+  @DeleteMapping("/api/v1/automations/{id}")
+  public Object delete(HttpServletRequest r, @PathVariable UUID id, @RequestParam long revision) {
+    return service.delete(auth.owner(r), id, revision);
+  }
+
   @PostMapping("/api/v1/tasks")
   public Object createTask(
       HttpServletRequest r,

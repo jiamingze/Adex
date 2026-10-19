@@ -32,4 +32,9 @@ public class ScheduleController {
       HttpServletRequest r, @PathVariable UUID id, @RequestBody Map<String, Object> b) {
     return service.update(k.require(r, "app", "schedule:write", id), id, b);
   }
+
+  @DeleteMapping("/internal/automations/{id}")
+  public Object delete(HttpServletRequest r, @PathVariable UUID id, @RequestParam long revision) {
+    return service.delete(k.require(r, "app", "schedule:write", id), id, revision);
+  }
 }

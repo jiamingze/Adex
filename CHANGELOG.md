@@ -201,3 +201,9 @@ Initial public repository packaging. The code predates the first Git commit; dat
 - Use native HTTP for iPhone JSON GETs rather than the WebView proxy, preserving authorization/status and cancelling late results.
 - Subscribe Today to shared resource updates so a recovered read clears the previous error; retain cached contents during failed refreshes and provide per-section retry.
 - Allow a bounded 20-second mobile overview read for cold HTTPS connections. Writes are not retried.
+
+### Permanent automation deletion
+
+- The automatic-task trash button now calls a real DELETE endpoint with revision checking, instead of changing the status to CANCELLED. Confirmation explains the permanent removal.
+- Physically removes the schedule/occurrences, fences pending execution and retains detached execution/effect history. Deletion tombstones prevent delayed creation retries from resurrecting schedules.
+- App forwards authenticated ownership; Automation migration 008 preserves service ownership and scheduler/lease mechanisms.

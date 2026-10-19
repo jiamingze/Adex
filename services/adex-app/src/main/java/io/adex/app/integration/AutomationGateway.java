@@ -37,6 +37,18 @@ public class AutomationGateway {
         "automation", "schedule:write", owner, id, "PATCH", "/internal/automations/" + id, b);
   }
 
+  public Object delete(UUID owner, UUID id, long revision) {
+    if (revision < 1) throw Kernel.error(400, "INVALID_REVISION");
+    return k.call(
+        "automation",
+        "schedule:write",
+        owner,
+        id,
+        "DELETE",
+        "/internal/automations/" + id + "?revision=" + revision,
+        null);
+  }
+
   public Object createTask(UUID owner, Map<String, Object> body, String key) {
     if ("BROWSER".equals(body.get("kind"))
         && Boolean.TRUE.equals(

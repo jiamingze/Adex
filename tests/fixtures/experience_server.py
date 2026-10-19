@@ -394,6 +394,16 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/v1/automations/"):
+            identifier = parsed.path.rsplit("/", 1)[-1]
+            rows = DATA["/automations"]["items"]
+            schedule = next((row for row in rows if row["id"] == identifier), None)
+            if schedule is None:
+                return self.reply({"code": "NOT_FOUND"}, 404)
+            if parse_qs(parsed.query).get("revision") != [str(schedule["revision"])]:
+                return self.reply({"code": "REVISION_CONFLICT"}, 409)
+            DATA["/automations"]["items"] = [row for row in rows if row["id"] != identifier]
+            return self.reply({"ok": True, "id": identifier})
         if not parsed.path.startswith("/api/v1/notes/"):
             return self.reply({"code": "TEST_FIXTURE_WRITE_DISABLED"}, 403)
         key = parsed.path.removeprefix("/api/v1")

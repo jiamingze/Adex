@@ -543,6 +543,9 @@
           },
           "503": {
             "description": "Dependency unavailable"
+          },
+          "410": {
+            "description": "Creation idempotency key belongs to a permanently deleted schedule"
           }
         },
         "requestBody": {
@@ -616,6 +619,55 @@
             }
           }
         ]
+      },
+      "delete": {
+        "operationId": "deleteAutomation",
+        "description": "Physically delete schedule and occurrences; fence pending execution, retain detached audit history. Creation retry cannot resurrect deleted schedule.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted, or already deleted by this owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Revision conflict"
+          },
+          "503": {
+            "description": "Dependency unavailable"
+          }
+        }
       }
     },
     "/tasks": {

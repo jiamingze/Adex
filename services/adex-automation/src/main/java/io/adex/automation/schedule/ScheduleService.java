@@ -60,6 +60,12 @@ public class ScheduleService {
               "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
               Object.class,
               owner + ":" + key);
+          if (k.db.queryForObject(
+                  "SELECT count(*) FROM deleted_schedules WHERE owner_id=? AND idempotency_key=?",
+                  Integer.class,
+                  owner,
+                  key)
+              > 0) throw Kernel.error(410, "SCHEDULE_DELETED");
           var existing =
               k.db.queryForList(
                   "SELECT * FROM schedules WHERE owner_id=? AND idempotency_key=?", owner, key);
@@ -124,6 +130,59 @@ public class ScheduleService {
             throw Kernel.error(409, "REVISION_CONFLICT");
           k.db.update("UPDATE schedules SET status=?,revision=revision+1 WHERE id=?", status, id);
           return k.row("SELECT * FROM schedules WHERE id=?", id);
+        });
+  }
+
+  public Object delete(Map<String, Object> claims, UUID id, long revision) {
+    UUID owner = Kernel.uuid(claims.get("owner"));
+    return k.tx.execute(
+        tx -> {
+          var found =
+              k.db.queryForList(
+                  "SELECT idempotency_key FROM schedules WHERE id=? AND owner_id=?", id, owner);
+          if (found.isEmpty()) {
+            if (k.db.queryForObject(
+                    "SELECT count(*) FROM deleted_schedules WHERE id=? AND owner_id=?",
+                    Integer.class,
+                    id,
+                    owner)
+                == 0) throw Kernel.error(404, "NOT_FOUND");
+            return Map.of("ok", true, "id", id);
+          }
+          String key = String.valueOf(found.getFirst().get("idempotency_key"));
+          // Serialize create retries before locking schedule, matching create's lock order.
+          k.db.queryForObject(
+              "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
+              Object.class,
+              owner + ":" + key);
+          var rows =
+              k.db.queryForList(
+                  "SELECT * FROM schedules WHERE id=? AND owner_id=? FOR UPDATE", id, owner);
+          if (rows.isEmpty())
+            return Map.of("ok", true, "id", id); // Concurrent owned delete committed.
+          var schedule = rows.getFirst();
+          if (((Number) schedule.get("revision")).longValue() != revision)
+            throw Kernel.error(409, "REVISION_CONFLICT");
+          // Schedule -> Run -> attempt. Epoch invalidation rejects late checkpoint/result commits.
+          var active =
+              k.db.queryForList(
+                  "SELECT id,attempt_id FROM runs WHERE schedule_id=? AND status NOT IN ('COMPLETED','FAILED','CANCELLED','UNKNOWN') ORDER BY id FOR UPDATE",
+                  id);
+          for (var run : active) {
+            k.db.update(
+                "UPDATE runs SET status='CANCELLED',epoch=epoch+1,lease_until=NULL,updated_at=now() WHERE id=?",
+                run.get("id"));
+            k.db.update(
+                "UPDATE attempts SET status='CANCELLED',ended_at=now() WHERE id=?",
+                run.get("attempt_id"));
+          }
+          k.db.update(
+              "INSERT INTO deleted_schedules(id,owner_id,idempotency_key) VALUES(?,?,?)",
+              id,
+              owner,
+              key);
+          k.db.update("DELETE FROM schedules WHERE id=? AND owner_id=?", id, owner);
+          return Map.of("ok", true, "id", id);
         });
   }
 }
