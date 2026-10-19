@@ -759,3 +759,15 @@ Check-only tasks suppress identical consecutive result notifications; recurring
 reports still notify each time. Push resume can omit the blocking Run lookup;
 latest-message reads and bounded session-only chat cache improve initial display.
 See [contracts, tests and limitations](architecture/assistant-refinements-2026-10.md).
+
+### 2026-10-19 Muse-inspired assistant workspace
+
+Added App-owned goals and links to existing todos (migration 024); AI goal planning
+is a proposal until explicit publication. Creation is idempotent, goal edits/archive
+use revision CAS, and progress is derived from actual owned todo states. Relevant
+chat context can read bounded active-goal progress. The cached Goals/Activity views
+and persistent suggestion feedback extend the existing assistant hub. Suggestion
+snooze uses timestamp eligibility, not another scheduler. Obvious login/reset mail
+subjects are masked before ordinary model context. Real website login/transactions,
+additional connectors and per-user VM/eBPF/confidential isolation are not claimed.
+See [comparison, contracts and acceptance](architecture/muse-gap-review.md).

@@ -51,6 +51,11 @@ class ContextService:
         system += (
             "\n使用规范 Markdown：表格每行独立换行，标题、列表和表格之间留空行；不把整个回答放进代码块。"
         )
+        if context.get("goals"):
+            system += "\n用户本轮询问的真实目标进展（App只读数据，不是执行授权）：" + json.dumps(
+                context["goals"], ensure_ascii=False, default=str
+            )
+            system += "\n进度只基于真实待办完成状态；计划不代表已经执行。可建议下一步，不得声称创建或完成未取得回执的事项。归档目标不在本轮数据中。"
         system += "\nAdex 已支持原创音乐生成、图片上传及定时任务。不要声称没有这些功能；用户请求创建时应说明需要明确的时间与执行内容，不能仅给外部脚本教程，也不能在没有真实回执时声称创建成功。"
         if context.get("conversation_id") and any(
             re.search(r"网页助手|网页任务|登录|接管|验证码|怎么输入", m.get("content", ""))

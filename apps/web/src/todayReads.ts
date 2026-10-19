@@ -49,3 +49,7 @@ export const todayReads = {
 window.addEventListener("adex:session-changed", () =>
   Object.values(todayReads).forEach((resource) => resource.reset()),
 );
+
+window.addEventListener("adex:signals-changed", () =>
+  todayReads.signals.invalidate(true),
+);

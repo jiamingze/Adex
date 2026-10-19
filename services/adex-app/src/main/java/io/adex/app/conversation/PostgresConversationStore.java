@@ -201,6 +201,21 @@ public class PostgresConversationStore implements ConversationStore {
           result.put("conversation_id", conv);
           result.put("memory_revision", user.get("memory_revision"));
           result.put("messages", messages);
+          String latestRequest =
+              messages.stream()
+                  .filter(m -> "user".equals(m.get("role")))
+                  .reduce((first, last) -> last)
+                  .map(m -> String.valueOf(m.get("content")))
+                  .orElse("");
+          // Bounded owner-scoped read projection; goals are organization, not long-term memory.
+          if (!Boolean.TRUE.equals(user.get("is_guest"))
+              && (latestRequest.contains("目标")
+                  || latestRequest.toLowerCase(Locale.ROOT).contains("goal")))
+            result.put(
+                "goals",
+                k.db.queryForList(
+                    "SELECT g.id,g.title,g.outcome,count(t.id) AS total,count(t.id) FILTER(WHERE t.status='DONE') AS done FROM assistant_goals g LEFT JOIN goal_tasks l ON l.goal_id=g.id LEFT JOIN matrix_tasks t ON t.id=l.task_id AND t.owner_id=g.owner_id WHERE g.owner_id=? AND g.status='ACTIVE' GROUP BY g.id ORDER BY g.created_at DESC LIMIT 10",
+                    owner));
           result.put(
               "memory_enabled",
               !Boolean.FALSE.equals(

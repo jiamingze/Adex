@@ -158,13 +158,17 @@ async def gmail_query(token, query):
                 params={"format": "metadata", "metadataHeaders": ["Subject", "From", "Message-ID"]},
             )
         ).json()
+        from adex_tools.connectors.mail_safety import safe_metadata
+
+        safe_headers, security_redacted = safe_metadata(value.get("payload", {}).get("headers", []))
         result.append(
             {
                 "id": value["id"],
                 "threadId": value.get("threadId"),
                 "historyId": value.get("historyId"),
                 "labelIds": value.get("labelIds", []),
-                "headers": value.get("payload", {}).get("headers", []),
+                "headers": safe_headers,
+                "security_redacted": security_redacted,
             }
         )
     return {

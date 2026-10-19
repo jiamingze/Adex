@@ -69,10 +69,45 @@ public class ProactiveService {
     return count;
   }
 
-  public Object list(UUID owner) {
+  public Object feedback(UUID owner, UUID id, Map<String, Object> b) {
+    String status = Kernel.text(b, "status", 20);
+    if (!Set.of("OPEN", "RESOLVED", "DISMISSED", "SNOOZED").contains(status))
+      throw Kernel.error(400, "INVALID_SIGNAL_STATUS");
+    java.time.OffsetDateTime until = null;
+    if (status.equals("SNOOZED")) {
+      try {
+        until = java.time.OffsetDateTime.parse(String.valueOf(b.get("snoozed_until")));
+      } catch (Exception e) {
+        throw Kernel.error(400, "INVALID_SNOOZE");
+      }
+      var now = java.time.OffsetDateTime.now();
+      if (!until.isAfter(now) || until.isAfter(now.plusDays(30)))
+        throw Kernel.error(400, "INVALID_SNOOZE");
+    }
+    var snoozed = until;
+    return k.tx.execute(
+        tx -> {
+          k.row("SELECT id FROM proactive_signals WHERE id=? AND owner_id=? FOR UPDATE", id, owner);
+          if (k.db.update(
+                  "UPDATE proactive_signals SET status=?,snoozed_until=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=?",
+                  status,
+                  snoozed,
+                  id,
+                  owner,
+                  Kernel.number(b, "revision"))
+              != 1) throw Kernel.error(409, "REVISION_CONFLICT");
+          if (Set.of("RESOLVED", "DISMISSED").contains(status))
+            k.db.update(
+                "UPDATE notifications SET read=true WHERE event_id=? AND owner_id=?", id, owner);
+          return k.row("SELECT * FROM proactive_signals WHERE id=? AND owner_id=?", id, owner);
+        });
+  }
+
+  public Object list(UUID owner, boolean includeClosed) {
     return Kernel.items(
         k.db.queryForList(
-            "SELECT * FROM proactive_signals WHERE owner_id=? ORDER BY created_at DESC LIMIT 100",
-            owner));
+            "SELECT * FROM proactive_signals WHERE owner_id=? AND (? OR status='OPEN' OR (status='SNOOZED' AND snoozed_until<=clock_timestamp())) ORDER BY importance DESC,created_at DESC LIMIT 100",
+            owner,
+            includeClosed));
   }
 }

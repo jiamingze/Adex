@@ -187,6 +187,23 @@ class MockProvider:
     async def stream(self, messages):
         latest = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         if any(
+            m.get("content", "").startswith("GOAL_PLAN_V1") for m in messages if m.get("role") == "system"
+        ):
+            value = json.loads(latest)
+            yield {
+                "type": "completed",
+                "content": json.dumps(
+                    {
+                        "title": value["title"],
+                        "outcome": value.get("outcome", ""),
+                        "steps": ["TEST_FIXTURE：整理范围与完成标准", "TEST_FIXTURE：检查结果并记录"],
+                    }
+                ),
+                "usage": {},
+                "provider": "mock",
+            }
+            return
+        if any(
             m.get("content", "").startswith("TODO_ROUTE_V1") for m in messages if m.get("role") == "system"
         ):
             # Explicit deterministic fixture, not evidence of live model semantics.

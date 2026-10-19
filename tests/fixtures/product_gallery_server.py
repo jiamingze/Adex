@@ -27,6 +27,17 @@ DATA["/notes"]["items"][0].update(
     title=DATA["/notes/fixture-note"]["title"],
     preview="让日历、待办和对话成为一个连续的工作流。",
 )
+DATA["/goals"] = {"items": [{
+    "id": "fixture-goal", "title": "让个人助手稳定上线", "outcome": "完成说明、验证与第一轮反馈收集",
+    "status": "ACTIVE", "revision": 1, "total": 3, "done": 1, "created_at": iso(-4),
+    "tasks": [{"id": f"goal-task-{i}", "title": title, "important": True, "urgent": False,
+               "status": "DONE" if i == 0 else "TODO", "revision": 1, "due_at": iso(20),
+               "run_id": None, "conversation_id": None}
+              for i, title in enumerate(["整理安装说明", "验证手机端流程", "收集体验反馈"])]
+}]}
+for signal in DATA["/signals"]["items"]:
+    signal.update(status="OPEN", revision=1)
+
 MESSAGES = [
     {"role": "user", "content": "帮我梳理一个可靠的个人助手应该怎么设计。"},
     {

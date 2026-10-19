@@ -1568,6 +1568,8 @@ function App() {
         {!guest && page === "assistant" && (
           <AssistantHub
             initialTab={assistantTab}
+            onTabChange={setAssistantTab}
+            onOpenConversation={(id)=>{setCurrent(id);setPage("chat");}}
             conversation={current}
             onConversationCreated={(c) => {
               setCurrent(c.id);

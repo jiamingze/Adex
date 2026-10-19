@@ -1,3 +1,5 @@
+import { GoalWorkspace } from "./GoalWorkspace";
+import { ActivityWorkspace } from "./ActivityWorkspace";
 import { BrowserPanel } from "./BrowserPanel";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -17,8 +19,12 @@ import {
   Bell,
   RefreshCw,
   ArrowRight,
+  Target,
+  Activity,
 } from "lucide-react";
 export type AssistantTab =
+  | "goals"
+  | "activity"
   | "browser"
   | "suggestions"
   | "actions"
@@ -28,12 +34,17 @@ export function AssistantHub({
   conversation,
   onConversationCreated,
   initialTab = "suggestions",
+  onOpenConversation,
+  onTabChange,
 }: {
   conversation: string;
   onConversationCreated: (conversation: Conversation) => void;
   initialTab?: AssistantTab;
+  onOpenConversation:(id:string)=>void;
+  onTabChange?:(tab:AssistantTab)=>void;
 }) {
   const [tab, setTab] = useState<AssistantTab>(initialTab);
+  const [signalHistory,setSignalHistory]=useState(false);
   const [loading, setLoading] = useState(true);
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const conversationCreation = useRef<Promise<string> | null>(null);
@@ -60,7 +71,7 @@ export function AssistantHub({
     const results = await Promise.allSettled([
       assistantApi.connections(),
       assistantApi.actions(),
-      assistantApi.signals(),
+      assistantApi.signals(signalHistory),
       assistantApi.preferences(),
     ]);
     const [c, a, s, p] = results;
@@ -81,7 +92,7 @@ export function AssistantHub({
   }
   useEffect(() => {
     refresh().finally(() => setLoading(false));
-  }, []);
+  }, [signalHistory]);
   async function act(work: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
@@ -162,7 +173,7 @@ export function AssistantHub({
     <div className="content-page assistant-hub">
       <div className="page-heading">
         <div>
-          <p>连接日历与邮件，发现重要事项；对外操作始终由你确认。</p>
+          <p>把目标、日常安排与重要变化放在一起；对外操作始终由你确认。</p>
         </div>
         <button
           className="experience-icon"
@@ -177,6 +188,8 @@ export function AssistantHub({
         {(
           [
             { id: "suggestions", label: "建议", icon: Sparkles },
+            { id: "goals", label: "目标", icon: Target },
+            { id: "activity", label: "活动", icon: Activity },
             { id: "actions", label: "待确认", icon: ShieldCheck },
             { id: "connections", label: "连接服务", icon: Link2 },
             { id: "preferences", label: "通知", icon: Bell },
@@ -188,6 +201,7 @@ export function AssistantHub({
             aria-pressed={tab === item.id}
             onClick={() => {
               setTab(item.id);
+              onTabChange?.(item.id);
               setError("");
               setNotice("");
             }}
@@ -201,7 +215,7 @@ export function AssistantHub({
           </button>
         ))}
       </nav>
-      {loading && (
+      {loading && !["goals","activity"].includes(tab) && (
         <p className="experience-empty" role="status">
           正在整理助手状态…
         </p>
@@ -217,6 +231,8 @@ export function AssistantHub({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {tab === "goals" && <GoalWorkspace />}
+      {tab === "activity" && <ActivityWorkspace onOpen={onOpenConversation} />}
       {tab === "browser" && <BrowserPanel conversation={conversation} onConversationCreated={onConversationCreated} />}
       <section className="assistant-section" hidden={tab !== "connections"}>
         <h2>连接服务</h2>
@@ -641,14 +657,22 @@ export function AssistantHub({
         ))}
       </section>
       <section className="assistant-section" hidden={tab !== "suggestions"}>
-        <h2>主动建议</h2>
+        <div className="agent-section-heading"><div><h2>值得关注</h2><p>把重要变化留在这里，由你决定下一步。</p></div><button aria-pressed={signalHistory} onClick={()=>setSignalHistory(!signalHistory)}>{signalHistory?'当前事项':'全部记录'}</button></div>
         {signals.map((s) => (
           <article key={s.id} className="signal-card">
             <strong>
               {s.kind === "CALENDAR_CONFLICT" ? "日历冲突" : "重要邮件"} ·
               {s.importance >= 90 ? "优先关注" : "值得关注"}
             </strong>
+            {s.status && s.status!=="OPEN" && <small className="signal-state">{{RESOLVED:"已处理",DISMISSED:"已忽略",SNOOZED:"稍后再看"}[s.status]}</small>}
             <p>{s.suggestion}</p>
+            <div className="signal-feedback">
+              {(!s.status||s.status==='OPEN'||s.status==='SNOOZED') ? <>
+                <button disabled={busy} onClick={()=>act(async()=>{await assistantApi.signalFeedback(s,'RESOLVED');})}>已处理</button>
+                <button disabled={busy} onClick={()=>act(async()=>{await assistantApi.signalFeedback(s,'SNOOZED',new Date(Date.now()+3600000).toISOString());})}>1小时后再看</button>
+                <button disabled={busy} onClick={()=>act(async()=>{await assistantApi.signalFeedback(s,'DISMISSED');})}>忽略这条</button>
+              </> : <button disabled={busy} onClick={()=>act(async()=>{await assistantApi.signalFeedback(s,'OPEN');})}>重新关注</button>}
+            </div>
             <button
               disabled={busy}
               onClick={() =>
@@ -662,11 +686,11 @@ export function AssistantHub({
                     run_id: s.run_id,
                     conversation_id: s.conversation_id,
                   });
-                  setNotice("已加入四象限，可调整重要性与紧急性。");
+                  setNotice("已加入待办，可调整重要性与紧急性。");
                 })
               }
             >
-              加入四象限
+              加入待办
             </button>
             <small>
               {s.reasons

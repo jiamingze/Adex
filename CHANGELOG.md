@@ -175,3 +175,15 @@ Initial public repository packaging. The code predates the first Git commit; dat
   status in compact metadata and hide duplicate descriptions.
 - Notifications include a bounded task-title excerpt; APNs carries that title
   with a generic body, preserving conversation/Run/action routing identifiers.
+
+### 2026-10-19 — Goals, activity and proactive feedback
+
+- Add owner-scoped goals with editable AI plan proposals and idempotent publication
+  to real todos; progress derives from those todos, archive preserves them.
+- Add cached activity timeline with true Run states and original-conversation links.
+- Resolve, dismiss, reopen or snooze individual suggestions with revision checks;
+  closed items suppress pending notifications, and snoozed items reappear when due.
+- Include bounded active-goal progress when the user asks about goals in chat.
+- Filter obvious authentication-code/reset-link mail subjects from normal model metadata.
+- App migration 024; existing four services, scheduler, checkpoints, approvals and
+  effects remain authoritative. See Muse gap review for external/unimplemented areas.

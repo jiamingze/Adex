@@ -694,6 +694,7 @@ export function Today({
                   <Sparkles size={17} />
                   助手发现
                 </h2>
+                <button onClick={() => onAssistant("goals")}>目标<ArrowRight size={14}/></button>
                 <button onClick={() => onAssistant("suggestions")}>
                   建议
                   <ArrowRight size={14} />

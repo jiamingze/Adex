@@ -550,3 +550,24 @@ def test_push_setup_status_and_idempotent_test_notification(client, db):
         "/api/v1/push/test", json={"event_id": str(uuid4()), "conversation_id": conv}
     )
     assert limited.status_code == 429
+
+
+def test_signal_feedback_cas_and_snooze_filter(client, db):
+    from datetime import datetime, timedelta, timezone
+    seed(messages=[{'id': 'feedback-mail', 'threadId': 'feedback-thread', 'labelIds': ['IMPORTANT'],
+                    'payload': {'headers': [{'name': 'Subject', 'value': 'TEST_FIXTURE important'}]}}], fault='')
+    conn = connect(client, 'gmail', 'read')
+    conv = conversation(client)
+    run = client.post(f'/api/v1/connectors/{conn}/sync', json={'origin_conversation_id': conv, 'idempotency_key': str(uuid4()), 'query': {}}).json()
+    execute(client, db, run)
+    signal = next(s for s in client.get('/api/v1/signals').json()['items'] if s['connection_id'] == conn)
+    path = '/api/v1/signals/' + signal['id']
+    body = {'revision': signal['revision'], 'status': 'SNOOZED', 'snoozed_until': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}
+    snoozed = client.patch(path, json=body)
+    snoozed.raise_for_status()
+    assert client.patch(path, json=body).status_code == 409
+    assert not any(s['id'] == signal['id'] for s in client.get('/api/v1/signals').json()['items'])
+    assert any(s['id'] == signal['id'] for s in client.get('/api/v1/signals?include_closed=true').json()['items'])
+    resolved = client.patch(path, json={'revision': snoozed.json()['revision'], 'status': 'RESOLVED'})
+    resolved.raise_for_status()
+    assert db.execute('SELECT read FROM app.notifications WHERE event_id=%s', (signal['id'],)).fetchone()['read']

@@ -203,7 +203,7 @@ export const api = {
       status,
       revision: s.revision,
     }),
-  runs: () => request<{ items: Run[] }>("/tasks"),
+  runs: (signal?:AbortSignal) => request<{ items: Run[] }>("/tasks", "GET", undefined, undefined, {signal}),
   cancelRun: (id: string) => request(`/tasks/${id}/cancel`, "POST"),
   notifications: () => request<{ items: Notification[] }>("/notifications"),
   readNotification: (id: string) =>

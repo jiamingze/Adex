@@ -137,3 +137,10 @@ or Run instruction. App produces a short single-line title for in-app/APNs
 notifications; `ERROR` results are labelled unfinished. APNs includes that title
 and existing ownership-resolved identifiers, but keeps the alert body generic.
 This does not authorize copying full result bodies or connector messages to APNs.
+
+Assistant organization: App owns goals and signal feedback, never scheduling.
+Goal plan proposals use App→Agent `goal:plan`, UUID request_id/owner_id and bounded
+text; JSON {title,outcome,steps[]} has no tool execution, owner selection or permissions.
+Only explicit POST /goals publishes the edited steps as existing matrix todos.
+Signal feedback affects only that exact observation/notification; a new provider
+version is still evaluated normally. Snoozed push eligibility uses its stored timestamp.

@@ -17,11 +17,19 @@ export type Action = {
     origin_conversation_id: string;
     payload: Record<string, unknown>;
     before?: Record<string, unknown>;
-    summary?: {kind:string;page_url:string;fields:{label:string;value:string}[];facts:string[]};
+    summary?: {
+      kind: string;
+      page_url: string;
+      fields: { label: string; value: string }[];
+      facts: string[];
+    };
   };
   result?: Record<string, unknown>;
 };
 export type Signal = {
+  status?: "OPEN" | "RESOLVED" | "DISMISSED" | "SNOOZED";
+  revision: number;
+  snoozed_until?: string | null;
   id: string;
   kind: string;
   importance: number;
@@ -85,7 +93,17 @@ export const assistantApi = {
       "POST",
       { request_hash: action.request_hash },
     ),
-  signals: () => request<{ items: Signal[] }>("/signals"),
+  signals: (includeClosed = false) =>
+    request<{ items: Signal[] }>(`/signals?include_closed=${includeClosed}`),
+  signalFeedback: (signal: Signal, status: string, snoozed_until?: string) =>
+    request<Signal>(`/signals/${signal.id}`, "PATCH", {
+      revision: signal.revision,
+      status,
+      snoozed_until,
+    }).then((value) => {
+      window.dispatchEvent(new Event("adex:signals-changed"));
+      return value;
+    }),
   preferences: () =>
     request<NotificationPreferences>("/notification-preferences"),
   savePreferences: (body: NotificationPreferences) =>
@@ -112,6 +130,7 @@ export const assistantApi = {
       },
     ).then((task) => {
       matrixResource.invalidate(true);
+      window.dispatchEvent(new Event("adex:matrix-changed"));
       return task;
     }),
   deleteTask: (id: string) =>
