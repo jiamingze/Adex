@@ -191,33 +191,33 @@ export function Today({
       setLoading(false);
       return;
     }
-    let live = true;
-    setLoading(true);
-    setErrors([]);
     const reads = { tasks: matrixResource, ...todayReads };
-    let remaining = Object.keys(reads).length;
-    // Each bounded read publishes immediately; a slow connector cannot block tasks.
-    Object.entries(reads).forEach(([key, resource]) => {
-      void resource
-        .load(revision > 0)
-        .then((value) => {
-          if (!live) return;
-          setData((previous) => ({
-            ...previous,
-            [key]: key === "connections" ? value : value.items,
-          }));
+    const unsubscribers = Object.entries(reads).map(([key, resource]) => {
+      const sync = () => {
+        const snapshot = resource.getSnapshot();
+        const value = snapshot.data;
+        setData((previous) => ({
+          ...previous,
+          [key]: key === "connections" ? value : (value?.items ?? null),
+        }));
+        setErrors((previous) => [
+          ...previous.filter((item) => item !== key),
+          ...(snapshot.error ? [key] : []),
+        ]);
+        setLoading(
+          Object.values(reads).some((read) => read.getSnapshot().loading),
+        );
+        if (value && !snapshot.loading && !snapshot.error)
           setUpdated(new Date());
-        })
-        .catch(() => {
-          if (live) setErrors((previous) => [...previous, key]);
-        })
-        .finally(() => {
-          if (live && --remaining === 0) setLoading(false);
-        });
+      };
+      const unsubscribe = resource.subscribe(sync);
+      sync();
+      // Shared snapshots are authoritative for both refresh success and failure.
+      // Reads in another page can recover Today without leaving a stale local error.
+      void resource.load(revision > 0).catch(() => {});
+      return unsubscribe;
     });
-    return () => {
-      live = false;
-    };
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, [guest, revision]);
   useEffect(() => {
     if (guest) return;
@@ -262,7 +262,19 @@ export function Today({
   function sectionState(key: string, text: string) {
     return errors.includes(key) ? (
       <p className="experience-inline-error" role="status">
-        暂时无法读取，请刷新重试。
+        {data[key as keyof Data] === null
+          ? "暂时未能连接。"
+          : "更新暂不可用，已保留上次内容。"}
+        <button
+          aria-label={`重试读取${({ results: "执行结果", schedules: "自动安排", tasks: "待办", actions: "审批", signals: "助手发现" } as Record<string, string>)[key] ?? "概览"}`}
+          onClick={() => {
+            const reads = { tasks: matrixResource, ...todayReads };
+            const resource = reads[key as keyof typeof reads];
+            void resource?.load(true).catch(() => {});
+          }}
+        >
+          重试
+        </button>
       </p>
     ) : data[key as keyof Data] === null && loading ? (
       <p className="experience-empty">正在整理…</p>

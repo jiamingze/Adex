@@ -1,9 +1,13 @@
+import { native } from "./platform";
 import { request } from "./api";
 import type { Schedule, Run, Notification } from "./api";
 import type { Action, Signal, Connection } from "./assistantApi";
 import { createReadResource } from "./readResource";
+// A cold mobile TLS connection must not mark every section failed after 8 seconds.
+const overviewRead = <T>(read: (signal: AbortSignal) => Promise<T>) =>
+  createReadResource(read, { timeoutMs: native ? 20000 : 8000 });
 export const todayReads = {
-  results: createReadResource((signal) =>
+  results: overviewRead((signal) =>
     request<{ items: Notification[] }>(
       "/notifications",
       "GET",
@@ -12,7 +16,7 @@ export const todayReads = {
       { signal },
     ),
   ),
-  schedules: createReadResource((signal) =>
+  schedules: overviewRead((signal) =>
     request<{ items: Schedule[] }>(
       "/automations",
       "GET",
@@ -21,22 +25,22 @@ export const todayReads = {
       { signal },
     ),
   ),
-  runs: createReadResource((signal) =>
+  runs: overviewRead((signal) =>
     request<{ items: Run[] }>("/tasks", "GET", undefined, undefined, {
       signal,
     }),
   ),
-  actions: createReadResource((signal) =>
+  actions: overviewRead((signal) =>
     request<{ items: Action[] }>("/actions", "GET", undefined, undefined, {
       signal,
     }),
   ),
-  signals: createReadResource((signal) =>
+  signals: overviewRead((signal) =>
     request<{ items: Signal[] }>("/signals", "GET", undefined, undefined, {
       signal,
     }),
   ),
-  connections: createReadResource((signal) =>
+  connections: overviewRead((signal) =>
     request<{ items: Connection[]; availability: string }>(
       "/connectors",
       "GET",

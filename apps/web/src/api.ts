@@ -1,3 +1,4 @@
+import { nativeJsonRead } from "./nativeJsonRead";
 import { uploadDeadline } from "./uploadTimeout";
 import { saveSession, clearSession, loadSession, native } from "./platform";
 import { CapacitorHttp } from "@capacitor/core";
@@ -76,7 +77,14 @@ export async function request<T>(
   options?: { signal?: AbortSignal },
 ): Promise<T> {
   const requestSession = sessionGeneration;
-  const r = await fetch(apiBase + "/api/v1" + path, {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: "Bearer " + token } : {}),
+    ...(key ? { "Idempotency-Key": key } : {}),
+  };
+  const r = native && method === "GET"
+    ? await nativeJsonRead(apiBase + "/api/v1" + path, headers, options?.signal, CapacitorHttp)
+    : await fetch(apiBase + "/api/v1" + path, {
     method,
     signal: options?.signal,
     credentials: "include",

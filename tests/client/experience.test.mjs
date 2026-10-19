@@ -526,3 +526,18 @@ test('evening planning uses tomorrow calendar window, not today', () => {
   assert.match(draft,/明日会议/);
   assert.doesNotMatch(draft,/今日会议/);
 });
+
+test('native JSON GET keeps auth/status and does not send a request body', async () => {
+  const { nativeJsonRead } = await import('../../.local-data/client-tests/nativeJsonRead.js');
+  let observed;
+  const r = await nativeJsonRead('https://example.test/api/v1/automations', {Authorization:'Bearer TEST_FIXTURE'}, undefined, {request:async options=>{observed=options;return {status:503,data:{code:'UNAVAILABLE'},headers:{}}}});
+  assert.equal(r.status,503);assert.equal(r.ok,false);assert.equal((await r.json()).code,'UNAVAILABLE');
+  assert.equal(observed.headers.Authorization,'Bearer TEST_FIXTURE');assert.equal(observed.method,'GET');assert.equal('data' in observed,false);
+});
+test('native read cancellation rejects without publishing late data or retrying',async()=>{
+  const { nativeJsonRead } = await import('../../.local-data/client-tests/nativeJsonRead.js');
+  const controller = new AbortController();let finish,calls=0;
+  const read=nativeJsonRead('https://example.test',{},controller.signal,{request:()=>{calls++;return new Promise(resolve=>{finish=resolve})}});
+  controller.abort();await assert.rejects(read,{name:'AbortError'});
+  finish({status:200,data:{secret:'old account'},headers:{}});assert.equal(calls,1);
+});

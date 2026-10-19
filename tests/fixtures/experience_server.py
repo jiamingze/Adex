@@ -274,12 +274,21 @@ class Handler(SimpleHTTPRequestHandler):
                 )  # Cached conversion must open without waiting on this read.
             if fault and fault.value == "matrix-timeout" and path == "/matrix":
                 time.sleep(12)  # TEST_FIXTURE: exceed the client's read deadline.
+            if fault and fault.value == "overview-down" and path in ("/notifications", "/automations", "/tasks"):
+                return self.reply({"code": "TEST_FIXTURE_TRANSIENT_READ"}, 503)
+            if fault and fault.value == "overview-once" and path in ("/notifications", "/automations", "/tasks"):
+                seen = getattr(type(self), "overview_faults", set())
+                if path not in seen:
+                    type(self).overview_faults = seen | {path}
+                    return self.reply({"code": "TEST_FIXTURE_TRANSIENT_READ"}, 503)
             if fault and fault.value == "actions" and path == "/actions":
                 return self.reply({"code": "TEST_FIXTURE_UNAVAILABLE"}, 503)
             return self.reply(DATA.get(path, {"items": []}))
         if parsed.path.startswith(("/assets/", "/brand/")):
             return super().do_GET()
         raw = (ROOT / "index.html").read_bytes()
+        if parse_qs(parsed.query).get("overview_controls") == ["1"]:
+            raw = raw.replace(b"</body>", b"""<aside style='position:fixed;top:55px;right:4px;z-index:9999;background:white;padding:8px'>TEST_FIXTURE <button onclick="document.cookie='fixture_fault=; Max-Age=0; Path=/'">Restore overview network</button><button onclick="document.cookie='fixture_fault=overview-down; Path=/'">Fail overview network</button></aside></body>""")
         if parse_qs(parsed.query).get("keyboard_controls") == ["1"]:
             # TEST_FIXTURE controls verify the event contract, not a physical keyboard.
             raw = raw.replace(
@@ -290,7 +299,7 @@ class Handler(SimpleHTTPRequestHandler):
             )
         self.send_response(200)
         fault = parse_qs(parsed.query).get("fault", [""])[0]
-        for flag in ("calendar-plan", "notes-read-timeout", "matrix-timeout", "actions", "notes-save-delay"):
+        for flag in ("calendar-plan", "notes-read-timeout", "matrix-timeout", "actions", "notes-save-delay", "overview-once", "overview-down"):
             if fault == flag:
                 self.send_header("Set-Cookie", f"fixture_fault={flag}; Path=/; SameSite=Strict")
                 break
