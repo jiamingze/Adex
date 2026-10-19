@@ -170,9 +170,9 @@ export const api = {
   conversations: () => request<{ items: Conversation[] }>("/conversations"),
   createConversation: (title: string) =>
     request<Conversation>("/conversations", "POST", { title }),
-  messages: (id: string, after = 0) =>
+  messages: (id: string, after = 0, latest = false) =>
     request<Snapshot>(
-      `/conversations/${id}/messages?after_seq=${after}&limit=200`,
+      `/conversations/${id}/messages?after_seq=${after}&limit=200&latest=${latest}`,
     ),
   send: (
     id: string,

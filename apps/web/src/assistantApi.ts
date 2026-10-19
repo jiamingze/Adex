@@ -130,5 +130,5 @@ export const assistantApi = {
       conversation_id: string;
       run?: { id: string; status: string };
       action_id: string | null;
-    }>(`/notifications/${id}/resume`),
+    }>(`/notifications/${id}/resume?include_run=false`),
 };

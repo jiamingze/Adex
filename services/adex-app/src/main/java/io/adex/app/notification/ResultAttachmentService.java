@@ -214,25 +214,26 @@ public class ResultAttachmentService {
                 resultMessage);
             chat.event(conv, "message.cards", Map.of("message_id", resultMessage));
           }
-          k.db.update(
-              "INSERT INTO notifications(id,event_id,owner_id,conversation_id,run_id,action_id,title,body)"
-                  + " VALUES(?,?,?,?,?,?,?,?)",
-              Kernel.id(),
-              event,
-              owner,
-              conv,
-              Kernel.uuid(b.get("run_id")),
-              "CONNECTOR_ACTION".equals(kind)
-                      && b.get("artifact") instanceof Map<?, ?> art
-                      && art.get("action") instanceof Map<?, ?> action
-                  ? Kernel.uuid(action.get("action_id"))
-                  : "BROWSER".equals(kind)
-                          && b.get("artifact") instanceof Map<?, ?> browser
-                          && browser.get("action_id") != null
-                      ? Kernel.uuid(browser.get("action_id"))
-                      : null,
-              "BROWSER".equals(kind) && !"result".equals(delivery) ? "网页任务需要你处理" : "任务已完成",
-              content);
+          if (!Boolean.FALSE.equals(b.get("notify")))
+            k.db.update(
+                "INSERT INTO notifications(id,event_id,owner_id,conversation_id,run_id,action_id,title,body)"
+                    + " VALUES(?,?,?,?,?,?,?,?)",
+                Kernel.id(),
+                event,
+                owner,
+                conv,
+                Kernel.uuid(b.get("run_id")),
+                "CONNECTOR_ACTION".equals(kind)
+                        && b.get("artifact") instanceof Map<?, ?> art
+                        && art.get("action") instanceof Map<?, ?> action
+                    ? Kernel.uuid(action.get("action_id"))
+                    : "BROWSER".equals(kind)
+                            && b.get("artifact") instanceof Map<?, ?> browser
+                            && browser.get("action_id") != null
+                        ? Kernel.uuid(browser.get("action_id"))
+                        : null,
+                "BROWSER".equals(kind) && !"result".equals(delivery) ? "网页任务需要你处理" : "任务已完成",
+                content);
           return Map.of("ok", true);
         });
   }

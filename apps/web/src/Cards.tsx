@@ -355,7 +355,9 @@ const registry: Record<string, (card: Card) => React.ReactNode> = {
           ? new Date(String(card.data?.first_fire_at)).toLocaleString("zh-CN", {
               timeZone: String(card.data?.timezone || "Asia/Shanghai"),
             })
-          : `每天 ${String(card.data?.local_time)}`} · {String(card.data?.timezone)}
+          : card.data?.kind === "INTERVAL"
+            ? `每 ${Number(card.data?.interval_seconds) / 60} 分钟`
+            : `每天 ${String(card.data?.local_time)}`} · {String(card.data?.timezone)}
       </small>
       <button className="button" onClick={() => go("tasks")}>
         管理定时任务

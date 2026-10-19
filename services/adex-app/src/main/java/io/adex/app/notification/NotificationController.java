@@ -26,8 +26,11 @@ public class NotificationController {
   }
 
   @GetMapping("/api/v1/notifications/{id}/resume")
-  public Object resume(HttpServletRequest r, @PathVariable UUID id) {
-    return service.resume(auth.owner(r), id);
+  public Object resume(
+      HttpServletRequest r,
+      @PathVariable UUID id,
+      @RequestParam(defaultValue = "true") boolean include_run) {
+    return service.resume(auth.owner(r), id, include_run);
   }
 
   @GetMapping("/api/v1/notification-preferences")

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### 2026-10-19 — Notes, reliable intervals and notification navigation
+
+- Read notes as safe Markdown; switch to source editing and preview without losing drafts.
+- Create interval checks from chat, including `每10min`; validated semantic timing fallback
+  and real Automation receipts retain idempotency, occurrences and recovery.
+- Suppress identical consecutive check notifications while keeping every result;
+  explicitly requested recurring reports continue to notify each run.
+- Open push conversations without blocking on Run lookup, fetch recent messages first,
+  and reuse a bounded in-memory conversation cache cleared on session changes/deletion.
+- See `docs/architecture/assistant-refinements-2026-10.md` for contracts and limitations.
+
 ### 2026-10-18 — In-chat location permission
 
 - Replace the location modal/city entry with an inline chat card and a single “Use current location” action; retain the OS permission sheet.

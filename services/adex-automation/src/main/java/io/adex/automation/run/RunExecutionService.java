@@ -212,27 +212,46 @@ public class RunExecutionService {
           k.db.update(
               "UPDATE attempts SET status='COMPLETED',ended_at=now() WHERE id=?",
               run.get("attempt_id"));
+          // A check may finish without interrupting the user. Keep its durable result,
+          // checkpoint and outbox; suppress only identical consecutive check notifications.
+          boolean notify = true;
+          var request = k.decode(String.valueOf(run.get("request")));
+          if (run.get("schedule_id") != null
+              && "CHANGES_ONLY".equals(request.get("notification_policy"))) {
+            var previous =
+                k.db.queryForList(
+                    "SELECT result FROM runs WHERE schedule_id=? AND id<>? AND status='COMPLETED' ORDER BY updated_at DESC LIMIT 1",
+                    run.get("schedule_id"),
+                    id);
+            notify =
+                previous.isEmpty()
+                    || !content
+                        .strip()
+                        .equals(String.valueOf(previous.getFirst().get("result")).strip());
+          }
           UUID event = Kernel.id();
           var payload =
-              Map.of(
-                  "event_id",
-                  event,
-                  "run_id",
-                  id,
-                  "owner_id",
-                  run.get("owner_id"),
-                  "origin_conversation_id",
-                  run.get("origin_conversation_id"),
-                  "content",
-                  content,
-                  "memory_revision",
-                  cp.get("memory_revision"),
-                  "schema_version",
-                  1,
-                  "kind",
-                  run.get("kind"),
-                  "artifact",
-                  state.getOrDefault("artifact", Map.of()));
+              new LinkedHashMap<String, Object>(
+                  Map.of(
+                      "event_id",
+                      event,
+                      "run_id",
+                      id,
+                      "owner_id",
+                      run.get("owner_id"),
+                      "origin_conversation_id",
+                      run.get("origin_conversation_id"),
+                      "content",
+                      content,
+                      "memory_revision",
+                      cp.get("memory_revision"),
+                      "schema_version",
+                      1,
+                      "kind",
+                      run.get("kind"),
+                      "artifact",
+                      state.getOrDefault("artifact", Map.of())));
+          payload.put("notify", notify);
           k.db.update(
               "INSERT INTO outbox(id,run_id,payload) VALUES(?,?,?::jsonb) ON CONFLICT(run_id,delivery_key) DO"
                   + " NOTHING",

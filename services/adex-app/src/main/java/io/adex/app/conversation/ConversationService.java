@@ -37,7 +37,7 @@ public class ConversationService {
     return k.row("SELECT id,title,created_at FROM conversations WHERE id=?", id);
   }
 
-  public Object messages(UUID owner, UUID id, long after_seq, int limit) {
+  public Object messages(UUID owner, UUID id, long after_seq, int limit, boolean latest) {
     return k.tx.execute(
         tx -> {
           chat.own(owner, id);
@@ -46,8 +46,9 @@ public class ConversationService {
           result.put(
               "items",
               k.db.queryForList(
-                  "SELECT id,seq,role,content,cards,created_at FROM messages WHERE conversation_id=? AND"
-                      + " seq>? ORDER BY seq LIMIT ?",
+                  latest
+                      ? "SELECT * FROM (SELECT id,seq,role,content,cards,created_at FROM messages WHERE conversation_id=? AND seq>? ORDER BY seq DESC LIMIT ?) recent ORDER BY seq"
+                      : "SELECT id,seq,role,content,cards,created_at FROM messages WHERE conversation_id=? AND seq>? ORDER BY seq LIMIT ?",
                   id,
                   after_seq,
                   Math.min(200, Math.max(1, limit))));

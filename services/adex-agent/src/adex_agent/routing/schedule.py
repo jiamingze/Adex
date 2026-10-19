@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Shared with intent routing: accepting a duration must never depend on a second regex.
 RELATIVE_TIME = re.compile(
-    r"(?<![一二三四五六七八九十两\d])([一二三四五六七八九十两\d]{1,8})\s{0,16}(分钟|小时|秒)\s{0,16}(?:之?后)"
+    r"(?<![一二三四五六七八九十两\d])([一二三四五六七八九十两\d]{1,8})\s{0,16}(分钟|小时|秒|minutes?|mins?|hours?|hrs?)\s{0,16}(?:(?:之|以)?后)"
 )
 
 
@@ -114,7 +114,8 @@ def relative_chat_draft(text):
         count = digits.get(a, 1) * 10 + digits.get(b, 0)
     else:
         count = digits.get(raw, 0)
-    seconds = count * {"分钟": 60, "小时": 3600, "秒": 1}[match[2]]
+    unit = match[2].lower()
+    seconds = count * (1 if unit == "秒" else 3600 if unit == "小时" or unit.startswith("h") else 60)
     instruction = text[match.end() :].strip(" ，,：:")
     instruction = re.sub(r"^(?:请|帮我|给我|给)", "", instruction).strip()
     if not 1 <= seconds <= 31536000 or not instruction:
@@ -126,3 +127,78 @@ def relative_chat_draft(text):
         "timezone": "Asia/Shanghai",
         "delay_seconds": seconds,
     }
+
+
+INTERVAL_TIME = re.compile(
+    r"每(?:隔)?\s{0,16}([一二三四五六七八九十两\d]{1,8})\s{0,16}(分钟|小时|minutes?|mins?|hours?|hrs?|h)(?![a-z])",
+    re.I,
+)
+
+
+def interval_chat_draft(text):
+    """Interval proposals use Automation occurrences, never a separate polling loop."""
+    match = INTERVAL_TIME.search(text)
+    if not match:
+        return None
+    raw = match[1]
+    digits = dict(zip("一二三四五六七八九", range(1, 10))) | {"两": 2}
+    if raw.isdigit():
+        count = int(raw)
+    elif "十" in raw:
+        a, b = raw.split("十", 1)
+        count = digits.get(a, 1) * 10 + digits.get(b, 0)
+    else:
+        count = digits.get(raw, 0)
+    unit = match[2].lower()
+    seconds = count * (3600 if unit == "小时" or unit.startswith("h") else 60)
+    instruction = text[match.end() :].strip(" ，,：:")
+    instruction = re.sub(r"^(?:请|帮我|给我)", "", instruction).strip()
+    if not 60 <= seconds <= 31536000 or not instruction:
+        return None
+    return {
+        "title": instruction[:80],
+        "instruction": instruction,
+        "kind": "INTERVAL",
+        "timezone": "Asia/Shanghai",
+        "interval_seconds": seconds,
+        "notification_policy": "CHANGES_ONLY"
+        if any(term in text for term in ("巡检", "有变化", "变化再通知", "有更新"))
+        else "EVERY_RUN",
+    }
+
+
+async def semantic_chat_draft(runtime, owner, turn, text):
+    """Resolve nonstandard timing as a proposal only; App owns validation and writes."""
+    import asyncio
+    import json
+    from adex_kernel.text import strip_json_fence
+
+    messages = [
+        {
+            "role": "system",
+            "content": 'SCHEDULE_CHAT_V1: 识别定时执行请求，只返回JSON {"draft":null} 或 {"draft":{'
+            '"title":"简洁标题","instruction":"实际执行内容，不含创建承诺",'
+            '"kind":"ONCE/DAILY/INTERVAL","timezone":"Asia/Shanghai",'
+            '"first_fire_at":"带时区ISO8601未来时间","local_time":"DAILY的HH:mm",'
+            '"interval_seconds":600}}。省略不适用的字段。否定、讨论功能、时间不明确返回null。'
+            "INTERVAL至少60秒。当前时间为" + datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
+        },
+        {"role": "user", "content": text},
+    ]
+    try:
+        async with asyncio.timeout(25):
+            output = ""
+            async for event in runtime.invoke("schedule-chat:" + str(turn), owner, messages):
+                if event["type"] == "completed":
+                    output = event["content"]
+        parsed = json.loads(strip_json_fence(output))
+        if set(parsed) != {"draft"} or parsed["draft"] is None:
+            return None
+        draft = ScheduleDraft.model_validate(parsed["draft"])
+        if datetime.fromisoformat(draft.first_fire_at.replace("Z", "+00:00")) <= datetime.now(
+            ZoneInfo("UTC")
+        ):
+            return None
+        return draft.model_dump(exclude_none=True)
+    except (ValueError, TypeError, TimeoutError):
+        return None

@@ -39,9 +39,18 @@ class InteractiveTurnService:
             from adex_agent.routing.intent import schedule_intent
 
             if schedule_intent(latest):
-                from adex_agent.routing.schedule import daily_chat_draft, relative_chat_draft
+                from adex_agent.routing.schedule import (
+                    daily_chat_draft,
+                    relative_chat_draft,
+                    interval_chat_draft,
+                    semantic_chat_draft,
+                )
 
-                draft = relative_chat_draft(latest) or daily_chat_draft(latest)
+                draft = interval_chat_draft(latest) or relative_chat_draft(latest) or daily_chat_draft(latest)
+                if not draft:
+                    draft = await semantic_chat_draft(
+                        selected_runtime, body.owner_id, body.invocation_key, latest
+                    )
                 if draft:
                     yield (
                         json.dumps({"type": "schedule.requested", "draft": draft}, ensure_ascii=False) + "\n"

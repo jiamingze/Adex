@@ -198,8 +198,14 @@ class BackgroundWorker:
                     }
                     if kind in policies:
                         context["messages"][-1]["content"] += "\n" + policies[kind]
-                    search = kind in ("RESEARCH", "TRAVEL") or any(
-                        word in run["instruction"] for word in ("搜索", "新闻", "最新", "简报", "search")
+                    from adex_agent.routing.intent import search_intent
+
+                    # Scheduled checks need current evidence just like interactive queries.
+                    # In particular, an explicit URL must not silently become model-only work.
+                    search = (
+                        kind in ("RESEARCH", "TRAVEL")
+                        or search_intent(run["instruction"])
+                        or any(word in run["instruction"] for word in ("简报", "公告", "查价", "比价"))
                     )
                     messages = await self.runtime.messages(
                         context, search=search, research=kind == "RESEARCH"

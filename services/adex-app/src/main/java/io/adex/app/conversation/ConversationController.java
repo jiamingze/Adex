@@ -41,8 +41,9 @@ public class ConversationController {
       HttpServletRequest r,
       @PathVariable UUID id,
       @RequestParam(defaultValue = "0") long after_seq,
-      @RequestParam(defaultValue = "100") int limit) {
-    return service.messages(auth.owner(r), id, after_seq, limit);
+      @RequestParam(defaultValue = "100") int limit,
+      @RequestParam(defaultValue = "false") boolean latest) {
+    return service.messages(auth.owner(r), id, after_seq, limit, latest);
   }
 
   @PostMapping("/api/v1/conversations/{id}/messages")

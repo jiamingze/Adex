@@ -749,3 +749,13 @@ Local weather uses actual Open-Meteo forecast evidence; manual city uses sourced
 search. Provider failure cannot become invented weather. Hotel stars, price,
 availability and distance still require independent evidence. Location/permission
 fixtures are not actual device fixes. See architecture/location-context.md.
+
+### 2026-10-19 assistant interaction refinements
+
+Notes default to safe GFM Markdown reading with an explicit source-edit/preview
+switch. Chat intervals now create real Automation schedules (including `每10min`),
+return a validated schedule receipt, and retain idempotency/lease/fencing/outbox.
+Check-only tasks suppress identical consecutive result notifications; recurring
+reports still notify each time. Push resume can omit the blocking Run lookup;
+latest-message reads and bounded session-only chat cache improve initial display.
+See [contracts, tests and limitations](architecture/assistant-refinements-2026-10.md).

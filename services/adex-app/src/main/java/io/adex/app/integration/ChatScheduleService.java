@@ -16,7 +16,8 @@ public class ChatScheduleService {
 
   public Map<String, Object> create(UUID owner, UUID conv, UUID turn, Map<?, ?> draft) {
     String kind = String.valueOf(draft.get("kind"));
-    if (!Set.of("DAILY", "ONCE").contains(kind)) throw Kernel.error(400, "INVALID_SCHEDULE_KIND");
+    if (!Set.of("DAILY", "ONCE", "INTERVAL").contains(kind))
+      throw Kernel.error(400, "INVALID_SCHEDULE_KIND");
     var zone = ZoneId.of(String.valueOf(draft.get("timezone")));
     var created =
         k.db
@@ -39,6 +40,22 @@ public class ChatScheduleService {
       first = next.toInstant();
       request.put("local_time", time.toString());
       timing = "每天 " + time;
+    } else if (kind.equals("INTERVAL")) {
+      if (!(draft.get("interval_seconds") instanceof Number interval)
+          || interval.longValue() < 60
+          || interval.longValue() > 31536000) throw Kernel.error(400, "INVALID_INTERVAL");
+      request.put("interval_seconds", interval.longValue());
+      String policy = String.valueOf(draft.get("notification_policy"));
+      request.put(
+          "task_request",
+          Map.of(
+              "notification_policy", "CHANGES_ONLY".equals(policy) ? "CHANGES_ONLY" : "EVERY_RUN"));
+      first = created.plusSeconds(interval.longValue());
+      timing = "每 " + interval.longValue() / 60 + " 分钟";
+    } else if (draft.get("first_fire_at") instanceof String absolute) {
+      first = OffsetDateTime.parse(absolute).toInstant();
+      timing =
+          first.atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss"));
     } else {
       if (!(draft.get("delay_seconds") instanceof Number delay)
           || delay.longValue() < 1
@@ -54,6 +71,8 @@ public class ChatScheduleService {
     var schedule =
         k.call(
             "automation", "schedule:write", owner, null, "POST", "/internal/automations", request);
+    if (schedule.get("id") == null || !"ACTIVE".equals(schedule.get("status")))
+      throw Kernel.error(502, "SCHEDULE_RECEIPT_MISSING");
     return Map.of(
         "content",
         "已设置" + timing + "（" + zone + "）执行：" + request.get("instruction") + "。结果会回到当前对话，并按通知设置推送。",
@@ -65,6 +84,8 @@ public class ChatScheduleService {
             Map.of(
                 "schedule_id",
                 schedule.get("id"),
+                "interval_seconds",
+                request.getOrDefault("interval_seconds", 0),
                 "kind",
                 kind,
                 "local_time",

@@ -8,6 +8,8 @@ import {
   Trash2,
   NotebookPen,
   Check,
+  Pencil,
+  Eye,
 } from "lucide-react";
 import {
   notesApi,
@@ -21,6 +23,7 @@ import {
   type NoteSummary,
 } from "./notesApi";
 import "./notes.css";
+import { Markdown } from "./Markdown";
 export function Notes() {
   const [selected, setSelected] = useState<Note | null>(
     () =>
@@ -36,6 +39,7 @@ export function Notes() {
     [revision, setRevision] = useState(0),
     [saved, setSaved] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [menu, setMenu] = useState<NoteSummary | null>(null);
   const press = useRef<{
     timer: ReturnType<typeof setTimeout>;
@@ -103,6 +107,7 @@ export function Notes() {
     const epoch = ++openEpoch.current;
     setError("");
     setSaved(false);
+    setEditing(false);
     const cached = noteDrafts.get(id) ?? noteDetail(id).getSnapshot().data;
     // Converted notes already have an authoritative response. Opening that copy
     // must not wait for another mobile network round trip or lock the editor.
@@ -179,6 +184,7 @@ export function Notes() {
     };
     noteDrafts.set(note.id, note);
     setSelected(note);
+    setEditing(true);
     setSaved(false);
     setError("");
   }
@@ -463,6 +469,15 @@ export function Notes() {
                   <Trash2 size={18} />
                 </button>
                 <button
+                  aria-label={editing ? "预览 Markdown" : "编辑 Markdown"}
+                  title={editing ? "预览 Markdown" : "编辑 Markdown"}
+                  aria-pressed={editing}
+                  disabled={busy && !saving}
+                  onClick={() => setEditing(!editing)}
+                >
+                  {editing ? <Eye size={18} /> : <Pencil size={18} />}
+                </button>
+                <button
                   className="notes-primary"
                   disabled={busy}
                   onClick={save}
@@ -476,25 +491,37 @@ export function Notes() {
                   重新读取服务器版本
                 </button>
               )}
-              <input
-                className="note-title"
-                aria-label="笔记标题"
-                placeholder="标题"
-                maxLength={200}
-                value={selected.title}
-                disabled={busy && !saving}
-                onChange={(e) => edit({ title: e.target.value })}
-              />
-              <textarea
-                ref={bodyScroll}
-                className="note-body"
-                aria-label="笔记正文"
-                placeholder="从这里开始记录…"
-                maxLength={100000}
-                value={selected.content}
-                disabled={busy && !saving}
-                onChange={(e) => edit({ content: e.target.value })}
-              />
+              {editing ? (
+                <input
+                  className="note-title"
+                  aria-label="笔记标题"
+                  placeholder="标题"
+                  maxLength={200}
+                  value={selected.title}
+                  disabled={busy && !saving}
+                  onChange={(e) => edit({ title: e.target.value })}
+                />
+              ) : (
+                <h2 className="note-title">{selected.title || "未命名笔记"}</h2>
+              )}
+              {editing ? (
+                <textarea
+                  ref={bodyScroll}
+                  className="note-body"
+                  aria-label="笔记正文"
+                  placeholder="从这里开始记录…"
+                  maxLength={100000}
+                  value={selected.content}
+                  disabled={busy && !saving}
+                  onChange={(e) => edit({ content: e.target.value })}
+                />
+              ) : (
+                <div className="note-preview">
+                  <Markdown
+                    content={selected.content || "尚无内容，点击编辑开始记录。"}
+                  />
+                </div>
+              )}
             </>
           ) : (
             <div className="notes-empty">

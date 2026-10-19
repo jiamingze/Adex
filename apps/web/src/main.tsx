@@ -154,6 +154,19 @@ function App() {
   const [current, setCurrent] = useState(chatFromUrl);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadedConversation, setLoadedConversation] = useState("");
+  const messageCache = useRef(new Map<string, Message[]>());
+  useEffect(() => {
+    const clear = () => messageCache.current.clear();
+    window.addEventListener("adex:session-changed", clear);
+    return () => window.removeEventListener("adex:session-changed", clear);
+  }, []);
+  useEffect(() => {
+    if (!current || loadedConversation !== current) return;
+    messageCache.current.delete(current);
+    messageCache.current.set(current, messages);
+    if (messageCache.current.size > 5)
+      messageCache.current.delete(messageCache.current.keys().next().value!);
+  }, [current, loadedConversation, messages]);
   const [partial, setPartial] = useState("");
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
@@ -374,8 +387,9 @@ function App() {
     const controller = new AbortController();
     let after = 0;
     let cancelled = false;
-    setLoadedConversation("");
-    setMessages([]);
+    const cachedMessages = messageCache.current.get(current);
+    setLoadedConversation(cachedMessages ? current : "");
+    setMessages(cachedMessages ?? []);
     setFailedTurns({});
     setChatError("");
     setError("");
@@ -384,14 +398,21 @@ function App() {
     setConnected(false);
     (async () => {
       try {
-        let all: Message[] = [];
-        let cursor = 0;
-        let snap;
-        do {
-          snap = await api.messages(current, cursor);
-          all.push(...snap.items);
-          if (snap.items.length) cursor = snap.items.at(-1)!.seq;
-        } while (snap.items.length === 200 && !cancelled);
+        // Fetch the tail first so a push result is visible after one App request.
+        let snap = await api.messages(current, 0, true);
+        if (cancelled) return;
+        setMessages(snap.items);
+        setLoadedConversation(current);
+        let all: Message[] = [...snap.items];
+        if (snap.items.length === 200) {
+          all = [];
+          let cursor = 0;
+          do {
+            snap = await api.messages(current, cursor);
+            all.push(...snap.items);
+            if (snap.items.length) cursor = snap.items.at(-1)!.seq;
+          } while (snap.items.length === 200 && !cancelled);
+        }
         if (cancelled) return;
         setMessages(all);
         setLoadedConversation(current);
@@ -483,7 +504,10 @@ function App() {
         }
       } catch (e) {
         if (!cancelled) {
-          if (e instanceof ApiError && e.status === 404) {
+          if (e instanceof ApiError && [403, 404].includes(e.status)) {
+            messageCache.current.delete(current);
+            setMessages([]);
+            setLoadedConversation("");
             setCurrent("");
             setOptimistic(null);
             setError("");
@@ -1658,6 +1682,7 @@ function App() {
                   setDeleting(true);
                   try {
                     await accountApi.remove(deleteTarget.id);
+                    messageCache.current.delete(deleteTarget.id);
                     setConversations((items) =>
                       items.filter((c) => c.id !== deleteTarget.id),
                     );

@@ -20,7 +20,7 @@ public class NotificationService {
             owner));
   }
 
-  public Object resume(UUID owner, UUID id) {
+  public Object resume(UUID owner, UUID id, boolean includeRun) {
     var item = k.row("SELECT * FROM notifications WHERE id=? AND owner_id=?", id, owner);
     k.row(
         "SELECT id FROM conversations WHERE id=? AND owner_id=? AND deleted_at IS NULL",
@@ -29,7 +29,9 @@ public class NotificationService {
     var result = new LinkedHashMap<String, Object>();
     result.put("conversation_id", item.get("conversation_id"));
     result.put("action_id", item.get("action_id"));
-    if (item.get("run_id") != null)
+    result.put("run_id", item.get("run_id"));
+    // Opening a conversation must not wait on a second service round trip.
+    if (includeRun && item.get("run_id") != null)
       result.put(
           "run",
           k.call(

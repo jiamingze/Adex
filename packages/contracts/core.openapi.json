@@ -235,6 +235,16 @@
               "maximum": 200,
               "default": 100
             }
+          },
+          {
+            "name": "latest",
+            "in": "query",
+            "required": false,
+            "description": "Return newest bounded page in ascending sequence order",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ]
       },
@@ -2620,6 +2630,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "include_run",
+            "in": "query",
+            "required": false,
+            "description": "false returns the owned conversation immediately without waiting for Automation; defaults true for compatibility",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
           }
         ]
       }
@@ -4228,6 +4248,11 @@
           },
           "run": {
             "type": "object"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "required": [

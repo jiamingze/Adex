@@ -1303,6 +1303,8 @@ export interface components {
             /** Format: uuid */
             action_id?: string | null;
             run?: Record<string, never>;
+            /** Format: uuid */
+            run_id?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -1587,6 +1589,8 @@ export interface operations {
             query?: {
                 after_seq?: number;
                 limit?: number;
+                /** @description Return newest bounded page in ascending sequence order */
+                latest?: boolean;
             };
             header?: never;
             path: {
@@ -4378,7 +4382,10 @@ export interface operations {
     };
     get_api_v1_notifications_id_resume: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description false returns the owned conversation immediately without waiting for Automation; defaults true for compatibility */
+                include_run?: boolean;
+            };
             header?: never;
             path: {
                 id: string;

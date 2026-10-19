@@ -386,3 +386,16 @@
     padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
 }
+
+.note-preview {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 12px 8px;
+  overflow-wrap: anywhere;
+}
+.note-preview .adex-markdown {
+  min-width: 0;
+  max-width: 100%;
+}

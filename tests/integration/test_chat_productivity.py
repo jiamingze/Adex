@@ -137,6 +137,7 @@ def test_colloquial_news_schedule_has_durable_receipt(client, db):
     for text, kind in [
         ("10分钟后发我下最新的新闻", "ONCE"),
         ("每天晚上19点发我最新的新闻", "DAILY"),
+        ("每10min帮我巡检最新的新闻", "INTERVAL"),
     ]:
         conv, path, body, answer = chat(client, text)
         assert "已设置" in answer["content"]
@@ -153,6 +154,9 @@ def test_colloquial_news_schedule_has_durable_receipt(client, db):
             assert (
                 schedule["next_fire_at"] - turn["created_at"]
             ).total_seconds() == 600
+        elif kind == "INTERVAL":
+            assert schedule["interval_seconds"] == 600
+            assert (schedule["next_fire_at"] - turn["created_at"]).total_seconds() == 600
         else:
             assert str(schedule["local_time"]) == "19:00:00"
         client.post(path, json=body).raise_for_status()
@@ -163,3 +167,25 @@ def test_colloquial_news_schedule_has_durable_receipt(client, db):
             ).fetchone()["n"]
             == 1
         )
+
+
+def test_interval_check_repeats_without_duplicate_notifications(client, db):
+    # Only the isolated test DB is fast-forwarded; real schedules/user data are untouched.
+    conv, path, _, answer = chat(client, '每10min帮我巡检最新的新闻')
+    sid = answer['cards'][0]['data']['schedule_id']
+    notifications = []
+    for _ in range(2):
+        db.execute("UPDATE automation.schedules SET next_fire_at=clock_timestamp() WHERE id=%s", (sid,))
+        run = wait_for(lambda: db.execute(
+            "SELECT * FROM automation.runs WHERE schedule_id=%s AND status='QUEUED' ORDER BY created_at DESC LIMIT 1", (sid,)
+        ).fetchone())
+        execute(client, db, dict(run, id=str(run['id'])))
+        notifications.append(db.execute(
+            'SELECT count(*) AS n FROM app.notifications WHERE conversation_id=%s', (conv,)
+        ).fetchone()['n'])
+    assert notifications == [1, 1]
+    assert len([m for m in client.get(path).json()['items'] if m['role'] == 'assistant']) == 3
+    recent = client.get(path, params={'latest': True, 'limit': 1}).json()['items']
+    full = client.get(path).json()['items']
+    assert recent[0]['id'] == full[-1]['id']
+    assert db.execute('SELECT count(*) AS n FROM automation.occurrences WHERE schedule_id=%s', (sid,)).fetchone()['n'] == 2

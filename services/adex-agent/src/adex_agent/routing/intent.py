@@ -1,7 +1,7 @@
 """Literal ordered intent matching; user text must not trigger regex backtracking."""
 
 import re
-from adex_agent.routing.schedule import RELATIVE_TIME
+from adex_agent.routing.schedule import RELATIVE_TIME, INTERVAL_TIME
 
 
 def ordered_terms(text, before, after):
@@ -99,17 +99,31 @@ def catalog_music_intent(text):
 def schedule_intent(text):
     requested = (
         bool(RELATIVE_TIME.search(text))
+        or bool(INTERVAL_TIME.search(text))
         or ordered_terms(text, ("创建", "设置", "安排", "新建"), ("定时任务", "定时", "提醒"))
         or ordered_terms(
             text,
-            ("每天", "每日", "每晚", "每早", "明天", "每隔"),
+            (
+                "每天",
+                "每日",
+                "每晚",
+                "每早",
+                "明天",
+                "明早",
+                "每隔",
+                "每周",
+                "每星期",
+                "每月",
+                "定期",
+                "定时",
+            ),
             ("帮我", "整理", "搜索", "搜集", "提醒", "汇总", "推送", "发送", "发我", "发给我", "监控"),
         )
         or ordered_terms(text, ("定时", "定期"), ("整理", "搜索", "提醒", "汇总", "发送"))
     )
     return requested and not bool(
         re.search(
-            r"(不要|不用|别).{0,6}(创建|设置|定时|定期|每天|提醒|[一二三四五六七八九十两\d]{1,8}\s{0,16}(?:分钟|小时|秒))",
+            r"(不要|不用|别).{0,6}(创建|设置|定时|定期|每天|每隔|每|提醒|[一二三四五六七八九十两\d]{1,8}\s{0,16}(?:分钟|小时|秒))",
             text,
         )
     )
