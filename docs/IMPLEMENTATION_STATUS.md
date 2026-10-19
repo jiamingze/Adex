@@ -795,3 +795,8 @@ Schedule drafts and creation accept CONDITION_MET with an explicit typed conditi
 - Model MET / NOT_MET / UNKNOWN continues through the evidence validator and Automation final gate; missing/negative/unknown/failure stays silent while origin-conversation delivery persists.
 - Observed: `pnpm generate:contracts`, `make format`, `make build test check-style` passed (App 12, Automation 5, Agent 98, Tools 124; architecture and formatting passed). `uv run python scripts/test_stack.py tests/integration/test_conditional_notifications.py`: **4 passed in 16.14s**, including rule revision conflict, unauthenticated update rejection, missing condition validation, legacy in-flight success/failure suppression and existing MET/NOT_MET/UNKNOWN delivery. `uv run python scripts/check_secrets.py` passed.
 - Operational repair used authenticated App APIs to apply conditional rules to the affected existing monitors; user data and credentials are excluded from source. No new real market-data or profitable-trade acceptance claim; subjective conditions remain model judgments and unavailable evidence stays UNKNOWN.
+
+
+## 2026-10-20 — Automatic public browsing
+
+Public read-only cross-site navigation no longer requests domain confirmation; private DNS/ports, critical gestures, known action URLs/query operations, writes and approvals retain their gates. Telemetry is dropped rather than becoming a pending operation. A blocked Google read-only search can automatically use existing authenticated search, explicitly labelled as alternate snippets. See [browser read autonomy](architecture/browser-read-autonomy.md) for contracts, observed checks and real Google challenge limitation. No migration or new execution system.

@@ -13,7 +13,7 @@ import os
 import re
 import sys
 from uuid import uuid4
-from urllib.parse import urlsplit, urljoin
+from urllib.parse import urlsplit, urljoin, parse_qsl
 from adex_tools.browser.policy import (
     SECRET,
     CRITICAL,
@@ -167,28 +167,26 @@ class Broker:
             request.url, request.resource_type, request.is_navigation_request()
         ):
             return await route.abort()
-        # Same-site read-only bootstrap APIs are covered by the requested website.
-        # New sites, navigations and every write still pass the existing approval gate.
-        same_site_read = (
-            request.method in ("GET", "HEAD")
-            and not request.is_navigation_request()
-            and same_read_site(urlsplit(request.url).hostname, self.read_hosts)
-        )
-        new_domain = (
-            not same_site_read
-            and urlsplit(request.url).hostname not in self.read_hosts
-            and request.resource_type
-            not in (
-                "image",
-                "stylesheet",
-                "script",
+        # Public reads are part of the requested browsing work, including new sites.
+        # Admission above still rejects private DNS/ports; this never grants a write.
+        action_url = bool(
+            re.search(
+                r"/(?:delete|remove|logout|publish|checkout|place[-_]?order|pay|purchase|unsubscribe)(?:/|$)",
+                urlsplit(request.url).path,
+                re.I,
             )
         )
-        needs_approval = (
-            new_domain
-            or request.method not in ("GET", "HEAD", "OPTIONS")
-            or (self.critical and request.is_navigation_request())
+        action_url = action_url or any(
+            key.lower() in {"action", "cmd", "do", "operation", "method"}
+            and re.fullmatch(
+                r"delete|remove|logout|publish|checkout|pay|purchase|send|unsubscribe", value, re.I
+            )
+            for key, value in parse_qsl(urlsplit(request.url).query)
         )
+        automatic_read = request.method in ("GET", "HEAD", "OPTIONS") and not self.critical and not action_url
+        needs_approval = not automatic_read
+        if automatic_read:
+            self.read_hosts.add(urlsplit(request.url).hostname)
         if (
             self.mode == "HUMAN"
             and self.human_authorized
@@ -209,9 +207,8 @@ class Broker:
                 request.url, request.method, data, request.headers.get("content-type", "")
             ),
             "gesture": self.safe(self.gesture),
-            "grant_read_host": urlsplit(request.url).hostname
-            if new_domain and request.method == "GET"
-            else None,
+            # Safe reads never reach this gate. A GET here may be a sensitive action.
+            "grant_read_host": None,
             "transport_only": not CRITICAL.search(self.gesture)
             and bool(
                 re.search(

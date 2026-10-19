@@ -583,3 +583,73 @@ async def test_search_control_survives_large_feed_snapshot():
         assert len([n for n in value["nodes"] if n.get("role") == "StaticText"]) <= 100
     finally:
         await actor.close()
+
+
+@pytest.mark.parametrize("url,method,critical,forwarded", [
+    ("https://www.google.com/search?q=Adex", "GET", False, True),
+    ("https://other.example.net/news", "GET", False, True),
+    ("https://other.example.net/delete?id=1", "GET", False, False),
+        ("https://other.example.net/?action=delete&id=1", "GET", False, False),
+    ("https://other.example.net/search", "GET", True, False),
+    ("https://other.example.net/publish", "POST", False, False),
+])
+async def test_public_navigation_is_automatic_without_granting_actions(url, method, critical, forwarded):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.runner import Broker
+
+    broker = Broker()
+    broker.test_fixture = False
+    broker.page = SimpleNamespace(url="https://example.com/")
+    broker.read_hosts = {"example.com"}
+    broker.admit = AsyncMock(return_value=True)
+    broker.forward = AsyncMock()
+    broker.gesture = "搜索"
+    broker.critical = critical
+    req = SimpleNamespace(url=url, method=method, resource_type="document",
+        is_navigation_request=lambda: True, post_data_buffer=b"", headers={})
+    route = SimpleNamespace(request=req, abort=AsyncMock())
+    task = asyncio.create_task(broker.intercept(route))
+    for _ in range(20):
+        if task.done() or broker.pending:
+            break
+        await asyncio.sleep(0)
+    assert bool(broker.pending) is (not forwarded)
+    if broker.pending:
+        broker.pending["future"].set_result(False)
+    await task
+    assert broker.forward.await_count == int(forwarded)
+
+
+async def test_failed_public_dns_admission_never_prompts_or_forwards():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.runner import Broker
+    broker = Broker()
+    broker.test_fixture = False
+    broker.admit = AsyncMock(return_value=False)
+    broker.forward = AsyncMock()
+    route = SimpleNamespace(request=SimpleNamespace(url="https://127.0.0.1/", method="GET"), abort=AsyncMock())
+    await broker.intercept(route)
+    route.abort.assert_awaited_once()
+    broker.forward.assert_not_awaited()
+    assert broker.pending is None
+
+
+async def test_google_background_log_is_dropped_without_approval():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from adex_tools.browser.runner import Broker
+    broker = Broker()
+    broker.test_fixture = False
+    broker.page = SimpleNamespace(url="https://www.google.com/search?q=Adex")
+    broker.gesture = "搜索"
+    broker.admit = AsyncMock(return_value=True)
+    broker.forward = AsyncMock()
+    req = SimpleNamespace(url="https://play.google.com/log", method="POST", resource_type="fetch", is_navigation_request=lambda: False)
+    route = SimpleNamespace(request=req, abort=AsyncMock())
+    await broker.intercept(route)
+    route.abort.assert_awaited_once()
+    broker.forward.assert_not_awaited()
+    assert broker.pending is None

@@ -106,10 +106,10 @@ def test_telemetry_is_denied_not_approved_and_navigation_is_not_dropped():
     [
         ("api.example.com", "GET", False),
         ("api.example.com", "POST", True),
-        ("other.example.net", "GET", True),
+        ("other.example.net", "GET", False),
     ],
 )
-async def test_same_site_reads_never_authorize_writes_or_other_sites(host, method, held):
+async def test_public_reads_are_automatic_but_writes_stay_gated(host, method, held):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
     from adex_tools.browser.runner import Broker

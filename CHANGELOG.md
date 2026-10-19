@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Automatically browse public read-only pages across sites; drop background telemetry instead of requesting approval. Blocked Google search lookups can fall back once to authenticated search, with clearly labelled alternate sources. Sensitive actions retain independent approval.
+
 - Update existing schedule notification rules with owner/revision checks. Tightened conditional rules also suppress older Run snapshots and failures without matching evidence; retain conversation history.
 
 - Use a save icon in note details and tighten toolbar/title/body spacing in both reading and editing modes.
