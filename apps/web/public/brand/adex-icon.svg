@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Adex — contemplating the stars</title>
+  <rect width="1024" height="1024" fill="#f6f2e9"/>
+  <g fill="none" stroke="#253e4b" stroke-width="25" stroke-linecap="round" stroke-linejoin="round">
+    <!-- A quiet back view: hair knot, head, shoulders and the sweep of a robe. -->
+    <path d="M443 396c-22-9-31-28-20-43 11-15 34-10 42 7"/>
+    <path d="M430 401c-20 32-13 78 13 101m-13-101c17-24 55-29 77-8 19 18 20 49 6 73-8 13-15 22-15 37"/>
+    <path d="M443 502c-9 22-34 30-58 39-45 18-66 51-78 98l-29 126c61 31 124 45 192 45s132-14 193-45l-34-131c-11-43-29-76-72-94-24-10-50-17-59-37"/>
+    <path d="M443 513c5 53 33 94 43 139 11 49 3 97-12 158"/>
+    <path d="M373 601c-9 52-18 100-25 151m218-151c11 53 20 102 27 151"/>
+    <!-- A sparse constellation, with a clear bright point above the gaze. -->
+    <path d="M628 178Q636 226 684 234Q636 242 628 290Q620 242 572 234Q620 226 628 178Z" fill="#253e4b" stroke="none"/>
+    <path d="M761 320Q766 345 791 350Q766 355 761 380Q756 355 731 350Q756 345 761 320Z" fill="#253e4b" stroke="none"/>
+    <path d="M350 232Q354 251 373 255Q354 259 350 278Q346 259 327 255Q346 251 350 232Z" fill="#253e4b" stroke="none"/>
+  </g>
+  <g fill="#253e4b">
+    <circle cx="470" cy="202" r="10"/>
+    <circle cx="713" cy="177" r="8"/>
+    <circle cx="548" cy="320" r="9"/>
+  </g>
+</svg>

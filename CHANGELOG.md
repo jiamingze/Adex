@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Simplify the app icon to an editable line-art scholar and sparse stars; export matching opaque icons for Web and iOS.
+
 - Replace the launch artwork with an original ink-wash scholar contemplating a starry sky; share the same aspect-fill asset between native and React startup screens.
 
 - Include bounded owner-scoped personal context in authenticated chat regardless of wording, so natural priority questions use actual tasks/notes and automation observations. Native chat now includes already-authorized calendar snapshots without keyword gating.
