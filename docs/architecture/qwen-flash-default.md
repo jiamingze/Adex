@@ -4,7 +4,7 @@ The default Qwen chat/background/memory provider uses qwen3.8-flash. UI and new
 message contracts send that identifier. The historical qwen3.8-max selector remains
 accepted as a compatibility alias to the configured Qwen provider for installed clients;
 it must never accidentally select MiniMax. MiniMax remains an explicit option.
-No database migration. Model IDs do not grant credentials or override deployment URLs.
+App migration 027 is required for persistence. Model IDs do not grant credentials or override deployment URLs.
 
 Mobile API URLs are bundled at build time. An expired Quick Tunnel requires a new
 healthy URL and a rebuilt iOS app. Quick Tunnels are temporary, not a stable hosting SLA.
@@ -20,3 +20,10 @@ first retry after recharge. The final post-recharge verification returned HTTP 2
 with response model qwen3.8-flash. This verifies an actual short model call, not only
 configuration or fixtures. The updated iOS package was overwrite-installed and launched
 successfully, preserving the existing app data container.
+
+## Persistence correction
+
+App migration 027 widens turns_model_check to accept Flash alongside historical
+selectors. Application allowlists alone are insufficient: regression coverage must
+POST a Flash message and verify the persisted Turn and idempotent retry against PG.
+Apply migration before Flash-enabled clients send messages. No historical rows rewritten.

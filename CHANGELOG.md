@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Admit qwen3.8-flash in PostgreSQL Turn model constraints (App migration 027), fixing message submission failures after the model switch; verify persistence and idempotent retries for all supported selectors.
+
 - Default Qwen chat, memory and background execution to qwen3.8-flash; retain the legacy Max selector as a compatibility alias and MiniMax as an explicit alternative.
 
 - Automatically browse public read-only pages across sites; drop background telemetry instead of requesting approval. Blocked Google search lookups can fall back once to authenticated search, with clearly labelled alternate sources. Sensitive actions retain independent approval.
