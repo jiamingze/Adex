@@ -72,7 +72,7 @@ public class PostgresConversationStore implements ConversationStore {
     String calendarHash = calendar == null ? "" : Kernel.hash(k.encode(calendar));
     boolean search = Boolean.TRUE.equals(body.get("web_search"));
     String model = body.get("model") == null ? "" : String.valueOf(body.get("model"));
-    if (!Set.of("", "qwen3.8-max", "minimax").contains(model))
+    if (!Set.of("", "qwen3.8-flash", "qwen3.8-max", "minimax").contains(model))
       throw Kernel.error(400, "INVALID_MODEL");
     var fileIds = new TreeSet<UUID>();
     if (body.get("file_ids") instanceof List<?> ids) {

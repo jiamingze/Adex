@@ -19,7 +19,7 @@ class MemoryPlanRequest(BaseModel):
     owner_id: UUID
     turn_id: UUID
     snapshot: dict
-    model: Literal["", "qwen3.8-max", "minimax"] = ""
+    model: Literal["", "qwen3.8-flash", "qwen3.8-max", "minimax"] = ""
 
 
 @router.post("/internal/agent/memory-plan")

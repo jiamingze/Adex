@@ -1,3 +1,4 @@
+import pytest
 from adex_agent.models.provider import ThinkFilter, MockProvider
 
 
@@ -42,14 +43,15 @@ def test_search_intent_uses_explicit_and_current_queries():
     assert not search_intent('不要联网搜索，帮我写诗')
 
 
-async def test_qwen_stream_model_and_usage(monkeypatch):
+@pytest.mark.parametrize('model', ['qwen3.8-flash', 'qwen3.8-max'])
+async def test_qwen_stream_model_and_usage(monkeypatch, model):
     import httpx,json
     from adex_agent.models.provider import QwenProvider
     monkeypatch.setenv('DASHSCOPE_API_KEY','fixture-key')
-    monkeypatch.setenv('DASHSCOPE_CHAT_MODEL','qwen3.8-max')
+    monkeypatch.setenv('DASHSCOPE_CHAT_MODEL',model)
     def handle(request):
         payload=json.loads(request.content)
-        assert payload['model']=='qwen3.8-max'
+        assert payload['model']==model
         assert payload['enable_thinking'] is False and 'reasoning_split' not in payload
         return httpx.Response(200,content='data: '+json.dumps({'choices':[{'delta':{'content':'OK'},'finish_reason':'stop'}],'usage':{'total_tokens':3}})+'\n\ndata: [DONE]\n\n')
     original=httpx.AsyncClient
@@ -87,3 +89,10 @@ def test_automatic_search_for_fresh_information():
     assert search_intent('latest SpaceX updates')
     assert not search_intent('不用联网搜索，解释天空为什么是蓝色')
     assert not search_intent('帮我写一首浪漫的诗')
+
+
+def test_qwen_default_is_flash(monkeypatch):
+    from adex_agent.models.provider import QwenProvider
+    monkeypatch.setenv('DASHSCOPE_API_KEY', 'fixture-key')
+    monkeypatch.delenv('DASHSCOPE_CHAT_MODEL', raising=False)
+    assert QwenProvider().model == 'qwen3.8-flash'

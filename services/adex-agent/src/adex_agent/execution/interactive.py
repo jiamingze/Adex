@@ -28,7 +28,9 @@ class InteractiveTurnService:
 
             selected_runtime = copy.copy(self.runtime)
             if body.model:
-                selected_runtime.provider_mode = "qwen" if body.model == "qwen3.8-max" else "minimax"
+                selected_runtime.provider_mode = (
+                    "qwen" if body.model in {"qwen3.8-flash", "qwen3.8-max"} else "minimax"
+                )
                 selected_runtime.provider = provider(selected_runtime.provider_mode)
             from adex_agent.routing.productivity import todo_draft
 

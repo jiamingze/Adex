@@ -178,7 +178,7 @@ class QwenProvider(MiniMaxProvider):
         ).rstrip("/")
         if not self.base.startswith("https://"):
             raise RuntimeError("Qwen endpoint requires HTTPS")
-        self.model = os.getenv("DASHSCOPE_CHAT_MODEL", "qwen3.8-max")
+        self.model = os.getenv("DASHSCOPE_CHAT_MODEL", "qwen3.8-flash")
 
 
 class MockProvider:

@@ -31,7 +31,7 @@ public class PlatformController {
         Kernel.env("ADEX_MODEL_PROVIDER", "minimax"),
         "chat_model",
         Kernel.env("ADEX_MODEL_PROVIDER", "minimax").equals("qwen")
-            ? Kernel.env("DASHSCOPE_CHAT_MODEL", "qwen3.8-max")
+            ? Kernel.env("DASHSCOPE_CHAT_MODEL", "qwen3.8-flash")
             : Kernel.env("MINIMAX_MODEL", "MiniMax-M2.5"),
         "music_provider",
         Kernel.env("ADEX_MUSIC_PROVIDER", "mock"),

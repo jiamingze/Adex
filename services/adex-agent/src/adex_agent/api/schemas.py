@@ -13,7 +13,7 @@ class Turn(BaseModel):
     turn_id: UUID
     context: dict
     web_search: bool = False
-    model: Literal["", "qwen3.8-max", "minimax"] = ""
+    model: Literal["", "qwen3.8-flash", "qwen3.8-max", "minimax"] = ""
 
 
 class DraftRequest(BaseModel):

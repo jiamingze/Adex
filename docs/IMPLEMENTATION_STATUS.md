@@ -800,3 +800,8 @@ Schedule drafts and creation accept CONDITION_MET with an explicit typed conditi
 ## 2026-10-20 — Automatic public browsing
 
 Public read-only cross-site navigation no longer requests domain confirmation; private DNS/ports, critical gestures, known action URLs/query operations, writes and approvals retain their gates. Telemetry is dropped rather than becoming a pending operation. A blocked Google read-only search can automatically use existing authenticated search, explicitly labelled as alternate snippets. See [browser read autonomy](architecture/browser-read-autonomy.md) for contracts, observed checks and real Google challenge limitation. No migration or new execution system.
+
+
+## 2026-10-21 — Flash model and mobile connectivity
+
+Default Qwen configuration and chat selector now use qwen3.8-flash; old Max selector remains a compatibility alias routed to the configured Qwen provider rather than MiniMax. Contracts, memory routing and background default are consistent. No migration. Build/unit/style/architecture and secret checks passed (App 12 / Automation 5 / Agent 107 / Tools 132). Public authenticated login verified after replacing the expired temporary tunnel; iOS signed build includes the refreshed API address. Actual Flash API returned Arrearage and remains BLOCKED_EXTERNAL pending provider account readiness; see [verification](architecture/qwen-flash-default.md).

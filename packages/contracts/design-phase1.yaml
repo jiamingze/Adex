@@ -615,7 +615,7 @@ components:
       additionalProperties: false
       properties:
         client_message_id: {type: string, format: uuid}
-        model: {type: string, enum: [qwen3.8-max, minimax]}
+        model: {type: string, enum: [qwen3.8-flash, qwen3.8-max, minimax]}
         content: {type: string, minLength: 1}
         attachment_ids: {type: array, items: {type: string, format: uuid}}
     MessageAccepted:

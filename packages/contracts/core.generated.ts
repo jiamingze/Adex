@@ -1214,7 +1214,7 @@ export interface components {
             web_search?: boolean;
             file_ids?: string[];
             /** @enum {string} */
-            model?: "qwen3.8-max" | "minimax";
+            model?: "qwen3.8-flash" | "qwen3.8-max" | "minimax";
             client_location?: components["schemas"]["ClientLocation"];
             client_calendar?: components["schemas"]["ClientCalendar"];
         };

@@ -209,10 +209,10 @@ function App() {
   const [failedTurns, setFailedTurns] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [chatModel, setChatModel] = useState<"qwen3.8-max" | "minimax">(() =>
+  const [chatModel, setChatModel] = useState<"qwen3.8-flash" | "minimax">(() =>
     localStorage.getItem("adex.chatModel") === "minimax"
       ? "minimax"
-      : "qwen3.8-max",
+      : "qwen3.8-flash",
   );
   const [progress, setProgress] = useState("正在理解你的问题");
   const [submitting, setSubmitting] = useState(false);
@@ -957,7 +957,7 @@ function App() {
                     localStorage.setItem("adex.chatModel", model);
                   }}
                 >
-                  <option value="qwen3.8-max">Qwen 3.8 Max</option>
+                  <option value="qwen3.8-flash">Qwen 3.8 Flash</option>
                   <option value="minimax">MiniMax</option>
                 </select>
                 <ChevronDown size={14} />

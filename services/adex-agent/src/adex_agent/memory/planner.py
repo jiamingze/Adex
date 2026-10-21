@@ -48,7 +48,7 @@ def planning_messages(snapshot):
 async def propose(runtime, owner, turn, snapshot, model=""):
     selected = copy.copy(runtime)
     if model:
-        selected.provider_mode = "qwen" if model == "qwen3.8-max" else "minimax"
+        selected.provider_mode = "qwen" if model in {"qwen3.8-flash", "qwen3.8-max"} else "minimax"
         selected.provider = provider(selected.provider_mode)
     messages = planning_messages(snapshot)
     output = None
