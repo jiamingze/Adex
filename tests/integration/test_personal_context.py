@@ -7,7 +7,7 @@ def test_chat_reads_current_tasks_and_notes_without_creating_memory(client):
     task = client.post('/api/v1/matrix', json={'title': '上下文隔离 TEST_FIXTURE', 'important': True, 'urgent': False, 'status': 'TODO'}).json()
     note = client.post('/api/v1/notes', json={'id': str(uuid4()), 'title': '方案 TEST_FIXTURE', 'content': '只读资料内容', 'pinned': False, 'revision': 0}).json()
     conv = client.post('/api/v1/conversations', json={'title': 'context fixture'}).json()['id']
-    client.post(f'/api/v1/conversations/{conv}/messages', json={'client_message_id': str(uuid4()), 'content': '结合我的待办和笔记安排今天'}).raise_for_status()
+    client.post(f'/api/v1/conversations/{conv}/messages', json={'client_message_id': str(uuid4()), 'content': '帮我梳理今天最重要的三件事'}).raise_for_status()
     owner = client.get('/api/v1/me').json()['id']
     headers = sign('agent', 'app', 'context:read', owner, conv)
     projection = client.get(f'/internal/context/{conv}', headers=headers).json()['personal_context']

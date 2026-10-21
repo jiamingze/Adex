@@ -15,15 +15,11 @@ export type ClientCalendar = {
     organizer: string;
   }[];
 };
-/** A relevant user request uses only previously granted OS access; never requests permission here. */
+/** Authenticated chat uses only previously granted OS access; never requests permission here. */
 export async function chatCalendar(
-  content: string,
+  _content: string,
 ): Promise<ClientCalendar | undefined> {
-  if (
-    !native ||
-    !/日历|日程|会议|安排|今天.*做|明天.*做|优先.*事/.test(content)
-  )
-    return;
+  if (!native) return;
   try {
     const value = await calendarResource.load(true);
     if (!value.connected) return;

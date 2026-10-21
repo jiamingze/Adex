@@ -812,3 +812,10 @@ Default Qwen configuration and chat selector now use qwen3.8-flash; old Max sele
 Initial Flash rollout missed the database CHECK constraint installed by App migration 015: HTTP allowlists accepted Flash but turns_model_check rejected the insert, rolling back the send and returning DATABASE_UNAVAILABLE. Additive migration 027 preserves existing selectors and admits Flash; no user/history rewrites. Applied locally and read back the actual constraint definition.
 
 `uv run python scripts/test_stack.py tests/integration/test_chat_model_persistence.py`: **4 passed in 0.98s**, using isolated PG and real authenticated message POST/idempotent retry for Flash, legacy Max, MiniMax and default. This proves message persistence, not real LLM execution in the fixture stack. `make build test check-style` and secret checks verify unchanged service code plus migration delivery. Phone reinstall unnecessary.
+
+
+## 2026-10-21 — Natural-language personal priorities
+
+Removed the keyword gate from authenticated owner-scoped personal context and the native calendar bridge. “帮我梳理今天最重要的三件事” now receives bounded current tasks/notes, HTTP-owned automation observations and an available already-authorized device calendar snapshot. Partial/unavailable sources stay explicit rather than becoming a blanket refusal. Context is untrusted read-only data, not write authority, memory or cached calendar storage.
+
+Build/unit/style/architecture passed (Agent 108 / Tools 132). Personal-context real PG integration: **2 passed in 2.14s**. Actual Flash sample with synthetic tasks passed. Signed iOS overwrite install/launch succeeded; no user data exposed in tests. See [contracts and limits](architecture/always-personal-context.md).

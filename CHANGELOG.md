@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Include bounded owner-scoped personal context in authenticated chat regardless of wording, so natural priority questions use actual tasks/notes and automation observations. Native chat now includes already-authorized calendar snapshots without keyword gating.
+
 - Admit qwen3.8-flash in PostgreSQL Turn model constraints (App migration 027), fixing message submission failures after the model switch; verify persistence and idempotent retries for all supported selectors.
 
 - Default Qwen chat, memory and background execution to qwen3.8-flash; retain the legacy Max selector as a compatibility alias and MiniMax as an explicit alternative.

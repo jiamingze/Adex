@@ -95,3 +95,16 @@ async def test_native_calendar_is_transient_and_stale_snapshot_is_not_evidence()
     context["client_calendar"]["observed_at"] = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     messages = await ContextService(core).messages(context)
     assert "CALENDAR_FIXTURE" not in messages[0]["content"]
+
+
+async def test_priority_prompt_uses_existing_personal_snapshot_without_blanket_refusal():
+    context = {'owner_id': 'owner', 'conversation_id': 'conv', 'memory_revision': 1,
+        'messages': [{'role': 'user', 'content': '帮我梳理今天最重要的三件事', 'seq': 1}],
+        'memories': [], 'summaries': [],
+        'personal_context': {'tasks': [{'title': 'TEST_FIXTURE 准备方案', 'important': True}], 'notes': []},
+        'automation_context': {'availability': 'UNAVAILABLE'}}
+    messages = await ContextService(None).messages(context)
+    system = messages[0]['content']
+    assert 'TEST_FIXTURE 准备方案' in system
+    assert '不足三件' in system and '只单独说明确实缺失的数据源' in system
+    assert 'UNAVAILABLE' in system

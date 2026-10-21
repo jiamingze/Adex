@@ -221,9 +221,8 @@ public class PostgresConversationStore implements ConversationStore {
                 k.db.queryForList(
                     "SELECT g.id,g.title,g.outcome,count(t.id) AS total,count(t.id) FILTER(WHERE t.status='DONE') AS done FROM assistant_goals g LEFT JOIN goal_tasks l ON l.goal_id=g.id LEFT JOIN matrix_tasks t ON t.id=l.task_id AND t.owner_id=g.owner_id WHERE g.owner_id=? AND g.status='ACTIVE' GROUP BY g.id ORDER BY g.created_at DESC LIMIT 10",
                     owner));
-          if (!Boolean.TRUE.equals(user.get("is_guest"))
-              && latestRequest.matches(
-                  "(?is).*?(待办|待辦|任务|安排|日程|笔记|资料|计划|优先|todo|notes|schedule).*")) {
+          // Personal context is a product capability, not an exact-phrase tool trigger.
+          if (!Boolean.TRUE.equals(user.get("is_guest"))) {
             // Existing App-owned records only. Deleted notes are never revived from an index.
             result.put(
                 "personal_context",
