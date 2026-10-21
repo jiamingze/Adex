@@ -15,7 +15,8 @@ healthy URL and a rebuilt iOS app. Quick Tunnels are temporary, not a stable hos
 App 12, Automation 5, Agent 107, Tools 132; formatting/architecture checks passed.
 Provider transport tests cover Flash, configured Max, and Flash default. Secret scan passed.
 iOS bundle and signed generic-device build passed. Public login, account read and logout
-returned HTTP 200 after restoring the expired tunnel. Real qwen3.8-flash invocation returned
-HTTP 400 / Arrearage, including the retry after the user reported recharge; external
-model execution remains BLOCKED_EXTERNAL until the account/provider accepts a request.
-No successful model execution is inferred from configuration or fixture tests.
+returned HTTP 200 after restoring the expired tunnel. Real qwen3.8-flash invocation initially returned HTTP 400 / Arrearage, including the
+first retry after recharge. The final post-recharge verification returned HTTP 200
+with response model qwen3.8-flash. This verifies an actual short model call, not only
+configuration or fixtures. The updated iOS package was overwrite-installed and launched
+successfully, preserving the existing app data container.
