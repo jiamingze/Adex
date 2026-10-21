@@ -4280,17 +4280,46 @@
               "EVERY_RUN",
               "CHANGES_ONLY",
               "CONDITION_MET"
-            ],
-            "default": "EVERY_RUN"
+            ]
           },
           "notification_condition": {
             "$ref": "#/components/schemas/NotificationCondition"
+          },
+          "title": {
+            "type": "string"
+          },
+          "instruction": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16000
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ONCE",
+              "INTERVAL",
+              "DAILY"
+            ]
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "local_time": {
+            "type": "string"
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "minimum": 60
+          },
+          "first_fire_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
           "revision"
         ],
-        "description": "Revision-checked status and/or notification rule update. Existing Run snapshots remain immutable; tightened notification rules also gate completion of older runs."
+        "description": "Owner/revision-checked edit of future schedule occurrences. Content-only edits preserve the next execution; timing edits recompute it. Existing Runs remain immutable."
       },
       "ScheduleDraftInput": {
         "type": "object",

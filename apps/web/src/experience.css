@@ -1881,3 +1881,17 @@ html.native-app .shell{animation:adex-launch-reveal .18s ease-out}
 @media (max-width: 720px) {
   .schedule-list .schedule-row { padding: 12px; column-gap: 8px; }
 }
+.schedule-edit-fields{border:0;padding:0;margin:0;display:grid;gap:16px;min-width:0}
+.schedule-edit-fields label{display:grid;gap:7px;min-width:0;font-size:14px}
+.schedule-edit-fields input,.schedule-edit-fields textarea,.schedule-edit-fields select{width:100%;min-width:0}
+.schedule-edit-dialog .modal-heading h2{margin:0}
+.schedule-edit-hint{font-size:12px;margin:16px 0 0;line-height:1.6}
+.schedule-edit-dialog{display:flex;flex-direction:column;overflow:hidden;gap:14px}
+.schedule-edit-dialog .modal-heading{flex-shrink:0;margin-bottom:0}
+.schedule-edit-dialog .schedule-edit-fields{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:2px 2px 4px;gap:14px}
+.schedule-edit-fields .form-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.schedule-edit-dialog .modal-footer{flex-shrink:0;margin-top:0}
+.schedule-edit-dialog .schedule-edit-hint{margin:0}
+.schedule-edit-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.schedule-edit-dialog .schedule-edit-fields{overflow:visible}
+.schedule-edit-dialog .schedule-edit-hint{flex-shrink:0}

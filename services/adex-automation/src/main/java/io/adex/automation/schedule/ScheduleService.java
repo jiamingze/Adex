@@ -119,7 +119,21 @@ public class ScheduleService {
     String status = b.containsKey("status") ? Kernel.text(b, "status", 20) : null;
     if (status != null && !Set.of("ACTIVE", "PAUSED", "CANCELLED").contains(status))
       throw Kernel.error(400, "INVALID_STATUS");
-    if (status == null && !b.containsKey("notification_policy"))
+    var editable =
+        Set.of(
+            "revision",
+            "status",
+            "title",
+            "instruction",
+            "kind",
+            "timezone",
+            "local_time",
+            "interval_seconds",
+            "first_fire_at",
+            "notification_policy",
+            "notification_condition");
+    if (!editable.containsAll(b.keySet())) throw Kernel.error(400, "INVALID_SCHEDULE_FIELDS");
+    if (b.keySet().stream().allMatch("revision"::equals))
       throw Kernel.error(400, "EMPTY_SCHEDULE_UPDATE");
     if (b.containsKey("notification_condition") && !b.containsKey("notification_policy"))
       throw Kernel.error(400, "INVALID_NOTIFICATION_CONDITION");
@@ -132,6 +146,77 @@ public class ScheduleService {
             throw Kernel.error(409, "SCHEDULE_TERMINAL");
           if (((Number) old.get("revision")).longValue() != rev)
             throw Kernel.error(409, "REVISION_CONFLICT");
+          boolean workEdit =
+              b.keySet().stream()
+                  .anyMatch(
+                      Set.of(
+                              "title",
+                              "instruction",
+                              "kind",
+                              "timezone",
+                              "local_time",
+                              "interval_seconds",
+                              "first_fire_at")
+                          ::contains);
+          if (workEdit && !"CHAT".equals(old.get("task_kind")))
+            throw Kernel.error(400, "MANAGED_SCHEDULE");
+          String title =
+              b.containsKey("title")
+                  ? Kernel.text(b, "title", 200)
+                  : String.valueOf(old.get("title"));
+          String instruction =
+              b.containsKey("instruction")
+                  ? Kernel.text(b, "instruction", 16000)
+                  : String.valueOf(old.get("instruction"));
+          String kind =
+              b.containsKey("kind") ? Kernel.text(b, "kind", 20) : String.valueOf(old.get("kind"));
+          String zone =
+              b.containsKey("timezone")
+                  ? Kernel.text(b, "timezone", 80)
+                  : String.valueOf(old.get("timezone"));
+          if (!Set.of("ONCE", "INTERVAL", "DAILY").contains(kind))
+            throw Kernel.error(400, "INVALID_SCHEDULE_KIND");
+          long rawSeconds =
+              kind.equals("INTERVAL")
+                  ? (b.containsKey("interval_seconds")
+                      ? Kernel.number(b, "interval_seconds")
+                      : (old.get("interval_seconds") instanceof Number n ? n.longValue() : 0))
+                  : 0;
+          if (kind.equals("INTERVAL") && (rawSeconds < 60 || rawSeconds > 31536000))
+            throw Kernel.error(400, "INVALID_INTERVAL");
+          Integer seconds = kind.equals("INTERVAL") ? (int) rawSeconds : null;
+          String local =
+              kind.equals("DAILY")
+                  ? (b.containsKey("local_time")
+                      ? Kernel.text(b, "local_time", 20)
+                      : String.valueOf(old.get("local_time")))
+                  : null;
+          Timestamp next = (Timestamp) old.get("next_fire_at");
+          try {
+            ZoneId.of(zone);
+            LocalTime time = local == null ? null : LocalTime.parse(local);
+            if (b.keySet().stream()
+                .anyMatch(
+                    Set.of("kind", "timezone", "local_time", "interval_seconds", "first_fire_at")
+                        ::contains)) {
+              Instant now =
+                  k.db.queryForObject("SELECT clock_timestamp()", Timestamp.class).toInstant();
+              Instant anchor =
+                  b.containsKey("first_fire_at")
+                      ? Instant.parse(Kernel.text(b, "first_fire_at", 80))
+                      : kind.equals("ONCE")
+                          ? (next == null ? now.minusSeconds(60) : next.toInstant())
+                          : kind.equals("INTERVAL") ? now.plusSeconds(seconds) : now;
+              if (anchor.isBefore(now.minusSeconds(5))) throw Kernel.error(400, "SCHEDULE_IN_PAST");
+              next =
+                  Timestamp.from(
+                      kind.equals("DAILY")
+                          ? ScheduleTime.nextDaily(anchor.minusNanos(1), zone, time)
+                          : anchor);
+            }
+          } catch (DateTimeException invalid) {
+            throw Kernel.error(400, "INVALID_SCHEDULE_TIME");
+          }
           var request =
               new LinkedHashMap<String, Object>(k.decode(String.valueOf(old.get("task_request"))));
           if (b.containsKey("notification_policy")) {
@@ -143,9 +228,18 @@ public class ScheduleService {
             request = new LinkedHashMap<>(NotificationRules.request(ruleBody));
           }
           k.db.update(
-              "UPDATE schedules SET status=?,task_request=?::jsonb,revision=revision+1 WHERE id=?",
+              // The Schedule lock serializes edits with occurrence claiming. Existing Runs stay
+              // frozen.
+              "UPDATE schedules SET status=?,task_request=?::jsonb,title=?,instruction=?,kind=?,timezone=?,local_time=?::time,interval_seconds=?,next_fire_at=?,revision=revision+1 WHERE id=?",
               status == null ? old.get("status") : status,
               k.encode(request),
+              title,
+              instruction,
+              kind,
+              zone,
+              local,
+              seconds,
+              next,
               id);
           return k.row("SELECT * FROM schedules WHERE id=?", id);
         });

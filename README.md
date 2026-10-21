@@ -67,6 +67,7 @@ iOS uses the same React UI in Capacitor. [Build/sign on your Mac](docs/en/instal
 | Work toward a goal | Review an AI-generated plan, publish real todos, and track actual completion in Goals. Activity links background work to its original conversation. |
 | Plan today | Today combines priorities, meetings and task results; iPhone calendar needs permission, Google needs OAuth configuration. |
 | “每10min帮我巡检最新公告。” | Create an interval check with a durable receipt; suppress identical consecutive check notifications while retaining each result. |
+| Edit an automatic task | Change its content, frequency/timezone and notification condition from the pencil action; future executions use the saved revision. [Contract](docs/architecture/schedule-editing.md) |
 | Important todo reminders | Important, unfinished todos notify ten minutes before the deadline through the existing durable scheduler and configured APNs channel; obsolete reminders are suppressed. |
 | “What is tomorrow’s weather? Any hotels nearby?” | Opt into approximate foreground location or set a manual city. Recommendations need sourced evidence; no background tracking. [Location design](docs/architecture/location-context.md) |
 | Save a useful reply | Turn it into a titled private note; read Markdown, switch to source editing/preview, search and pin it later. |

@@ -1,3 +1,4 @@
+import { EditScheduleDialog } from "./EditScheduleDialog";
 import { accountProfile } from "./accountProfile";
 import { accountDisplayName } from "./profileModel";
 import { DeleteScheduleDialog } from "./DeleteScheduleDialog";
@@ -189,13 +190,21 @@ function App() {
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
   const [tasksLoaded, setTasksLoaded] = useState(false);
-  useEffect(()=>{setTasksLoaded(false);setSchedules([]);setRuns([]);},[user]);
+  useEffect(()=>{setTasksLoaded(false);setSchedules([]);setRuns([]);setScheduleToEdit(null);},[user]);
   const [automationView, setAutomationView] = useState("ACTIVE");
   const [materialView, setMaterialView] = useState("notes");
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [scheduleToEdit, setScheduleToEdit] = useState<Schedule|null>(null);
+  const scheduleSession = useRef(0);
+  useEffect(()=>{
+    const changed=()=>{scheduleSession.current++;setScheduleToEdit(null);};
+    window.addEventListener("adex:session-changed",changed);
+    return ()=>window.removeEventListener("adex:session-changed",changed);
+  },[]);
+
   const [scheduleToDelete, setScheduleToDelete] = useState<Schedule|null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState(false);
   const [scheduleDeleteError, setScheduleDeleteError] = useState("");
@@ -1487,6 +1496,8 @@ function App() {
                   </div>
                   {(
                     <div className="schedule-actions" role="group" aria-label="任务操作">
+                      {["ACTIVE","PAUSED"].includes(s.status) && (!s.task_kind || s.task_kind==="CHAT") && <button className="icon-button" aria-label={`编辑任务 ${s.title}`} onClick={()=>setScheduleToEdit(s)}><Pencil size={17}/></button>}
+
                       {["ACTIVE", "PAUSED"].includes(s.status) && <button
                         className="icon-button"
                         aria-label={
@@ -1776,6 +1787,19 @@ function App() {
           </div>
         </div>
       )}
+      {scheduleToEdit && <EditScheduleDialog key={scheduleToEdit.id} schedule={scheduleToEdit} onClose={()=>setScheduleToEdit(null)} onSave={async changes=>{
+        const epoch=scheduleSession.current;
+        try {
+          const saved=await api.editSchedule(scheduleToEdit, changes);
+          if(epoch!==scheduleSession.current)return;
+          const items=schedules.map(item=>item.id===saved.id?saved:item);
+          setSchedules(items);todayReads.schedules.accept({items});setScheduleToEdit(null);
+        } catch(error) {
+          if(epoch!==scheduleSession.current)return;
+          if(error instanceof ApiError && error.code==="REVISION_CONFLICT") await refreshTasks().catch(()=>{});
+          throw error;
+        }
+      }}/>}
       {scheduleToDelete && <DeleteScheduleDialog schedule={scheduleToDelete} busy={deletingSchedule} error={scheduleDeleteError} onCancel={()=>setScheduleToDelete(null)} onConfirm={deleteSchedule} />}
       {showSchedule && (
         <ScheduleModal

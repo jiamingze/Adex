@@ -819,3 +819,10 @@ Initial Flash rollout missed the database CHECK constraint installed by App migr
 Removed the keyword gate from authenticated owner-scoped personal context and the native calendar bridge. “帮我梳理今天最重要的三件事” now receives bounded current tasks/notes, HTTP-owned automation observations and an available already-authorized device calendar snapshot. Partial/unavailable sources stay explicit rather than becoming a blanket refusal. Context is untrusted read-only data, not write authority, memory or cached calendar storage.
 
 Build/unit/style/architecture passed (Agent 108 / Tools 132). Personal-context real PG integration: **2 passed in 2.14s**. Actual Flash sample with synthetic tasks passed. Signed iOS overwrite install/launch succeeded; no user data exposed in tests. See [contracts and limits](architecture/always-personal-context.md).
+
+
+## 2026-10-21 — Editing automatic schedules
+
+Active/paused chat schedules now have a pencil action for title/instruction, frequency, timezone, time and explicit notification rules. Save uses owner/revision-checked PATCH; timing changes recalculate future occurrences under the existing schedule lock. Content-only edits retain next execution; historical/in-flight Runs remain immutable. Terminal and managed connector/reminder work cannot be rewritten as chat schedules.
+
+Build/unit/style/contract/security checks passed; real PG integration **6 passed in 28.45s**, including actual future claim and existing conditional/deletion regressions. Mobile-size synthetic UI save/reopen/scroll verified. Signed iOS overwrite install/launch succeeded. See [contract and evidence](architecture/schedule-editing.md).

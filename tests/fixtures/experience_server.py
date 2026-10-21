@@ -419,6 +419,22 @@ class Handler(SimpleHTTPRequestHandler):
         return self.reply({"deleted": True})
 
     def do_PATCH(self):
+        if self.path.startswith("/api/v1/automations/"):
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+            row = next((item for item in DATA["/automations"]["items"] if item["id"] == self.path.rsplit("/", 1)[-1]), None)
+            if row is None:
+                return self.reply({"code": "NOT_FOUND"}, 404)
+            if row["revision"] != body.get("revision"):
+                return self.reply({"code": "REVISION_CONFLICT"}, 409)
+            revision = row["revision"] + 1
+            rule = dict(row.get("task_request", {}))
+            if "notification_policy" in body:
+                rule = {"notification_policy": body["notification_policy"]}
+                if "notification_condition" in body:
+                    rule["notification_condition"] = body["notification_condition"]
+            row.update({key:value for key,value in body.items() if key not in {"revision", "notification_policy", "notification_condition"}})
+            row.update(revision=revision, task_request=rule)
+            return self.reply(row)
         if self.path == "/api/v1/me":
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
             if set(body) != {"nickname"} or not isinstance(body["nickname"], str) or len(body["nickname"].strip()) > 40:

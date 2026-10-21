@@ -1242,17 +1242,23 @@ export interface components {
             notification_policy: "EVERY_RUN" | "CHANGES_ONLY" | "CONDITION_MET";
             notification_condition?: components["schemas"]["NotificationCondition"];
         };
-        /** @description Revision-checked status and/or notification rule update. Existing Run snapshots remain immutable; tightened notification rules also gate completion of older runs. */
+        /** @description Owner/revision-checked edit of future schedule occurrences. Content-only edits preserve the next execution; timing edits recompute it. Existing Runs remain immutable. */
         ScheduleUpdate: {
             /** @enum {string} */
             status?: "ACTIVE" | "PAUSED" | "CANCELLED";
             revision: number;
-            /**
-             * @default EVERY_RUN
-             * @enum {string}
-             */
-            notification_policy: "EVERY_RUN" | "CHANGES_ONLY" | "CONDITION_MET";
+            /** @enum {string} */
+            notification_policy?: "EVERY_RUN" | "CHANGES_ONLY" | "CONDITION_MET";
             notification_condition?: components["schemas"]["NotificationCondition"];
+            title?: string;
+            instruction?: string;
+            /** @enum {string} */
+            kind?: "ONCE" | "INTERVAL" | "DAILY";
+            timezone?: string;
+            local_time?: string;
+            interval_seconds?: number;
+            /** Format: date-time */
+            first_fire_at?: string;
         };
         ScheduleDraftInput: {
             /** Format: uuid */

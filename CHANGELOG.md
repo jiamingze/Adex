@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Edit active/paused automatic tasks: content, timing and notification conditions. Revision-checked updates affect future claims, preserve Run history and keep save actions visible on mobile.
+
 - Simplify the app icon to an editable line-art scholar and sparse stars; export matching opaque icons for Web and iOS.
 
 - Replace the launch artwork with an original ink-wash scholar contemplating a starry sky; share the same aspect-fill asset between native and React startup screens.

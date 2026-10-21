@@ -13,6 +13,9 @@ export type Message = {
 };
 export type Memory = { id: string; content: string; revision: number };
 export type Schedule = {
+  task_kind?: string;
+  local_time?: string | null;
+  interval_seconds?: number | null;
   task_request?: {notification_policy?: string; notification_condition?: components["schemas"]["NotificationCondition"]};
   id: string;
   title: string;
@@ -213,6 +216,8 @@ export const api = {
       status,
       revision: s.revision,
     }),
+  editSchedule: (s: Schedule, changes: Omit<components["schemas"]["ScheduleUpdate"], "revision">) =>
+    request<Schedule>(`/automations/${s.id}`, "PATCH", {...changes, revision:s.revision}),
   runs: (signal?:AbortSignal) => request<{ items: Run[] }>("/tasks", "GET", undefined, undefined, {signal}),
   cancelRun: (id: string) => request(`/tasks/${id}/cancel`, "POST"),
   notifications: () => request<{ items: Notification[] }>("/notifications"),
