@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replace the launch artwork with an original ink-wash scholar contemplating a starry sky; share the same aspect-fill asset between native and React startup screens.
+
 - Include bounded owner-scoped personal context in authenticated chat regardless of wording, so natural priority questions use actual tasks/notes and automation observations. Native chat now includes already-authorized calendar snapshots without keyword gating.
 
 - Admit qwen3.8-flash in PostgreSQL Turn model constraints (App migration 027), fixing message submission failures after the model switch; verify persistence and idempotent retries for all supported selectors.

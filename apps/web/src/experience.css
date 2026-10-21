@@ -1815,8 +1815,8 @@
 .composer .voice-button{border-radius:50%;background:var(--hover);width:44px;height:44px;display:grid;place-items:center}
 .composer .send-button{width:40px;height:40px;border-radius:50%}
 
-.native-launch{position:fixed;inset:0;display:grid;place-items:center;background:#fff;overflow:hidden}
-.native-launch img{display:block;width:100%;height:100%;object-fit:contain}
+.native-launch{position:fixed;inset:0;display:grid;place-items:center;background:#f5eddf;overflow:hidden}
+.native-launch img{display:block;width:100%;height:100%;object-fit:cover}
 .brand-icon:has(img){background:#fff;overflow:hidden}
 .brand-icon img{display:block;object-fit:contain;border-radius:7px}
 html.native-app .shell{animation:adex-launch-reveal .18s ease-out}
