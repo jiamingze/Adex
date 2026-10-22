@@ -826,3 +826,45 @@ Build/unit/style/architecture passed (Agent 108 / Tools 132). Personal-context r
 Active/paused chat schedules now have a pencil action for title/instruction, frequency, timezone, time and explicit notification rules. Save uses owner/revision-checked PATCH; timing changes recalculate future occurrences under the existing schedule lock. Content-only edits retain next execution; historical/in-flight Runs remain immutable. Terminal and managed connector/reminder work cannot be rewritten as chat schedules.
 
 Build/unit/style/contract/security checks passed; real PG integration **6 passed in 28.45s**, including actual future claim and existing conditional/deletion regressions. Mobile-size synthetic UI save/reopen/scroll verified. Signed iOS overwrite install/launch succeeded. See [contract and evidence](architecture/schedule-editing.md).
+
+## 2026-10-22 — Typed actions, durable research and autonomous memory
+
+Studied the official openai/codex tool routing/orchestration at a pinned revision and
+independently adapted its execution principles; no Rust harness/private prompt is vendored.
+[Contracts, migrations, source references and limits](architecture/task-action-kernel.md).
+
+- Semantic task proposals use a closed schema, bounded repair, observed owner/ID/revision
+  binding and frozen replay. App alone executes and generates receipts after readback.
+  App 028 stores per-Turn receipts; Automation 009 atomically journals replayable PATCH
+  commands. Todo edits preserve default/deadline/ownership and commit receipts locally.
+- Complex research can create the existing RESEARCH Run with an acceptance checklist.
+  Search/read/observe/finish loops preserve the original request, bounded working context
+  and step transcript. Checkpoint before/after read dispatch, current lease/fencing,
+  recovery, repeat breaking and partial results reuse existing mechanisms. This is a
+  read-only research executor, not a universal cross-site transaction engine.
+- Semantic memory runs on eligible ordinary turns, normalizes facts, validates literal
+  evidence/observed corrections, repairs invalid proposals once and selects relevant
+  older memories. Recall rechecks PG ownership, revision and tombstones. L2 global
+  compaction remains extractive; candidate recall is bounded, not unlimited vector search.
+- Mobile task editing uses top cancel/save navigation, inset groups, no autofocus,
+  bounded date/time inputs and a scrolling body. Synthetic 390×844 UI save/reopen/scroll
+  passed, document width stayed 390px. Public screenshot contains synthetic data only.
+
+Observed checks:
+
+- `make build test check-style`: Java/Web build, Java 18 tests, script 17 tests, client
+  27 tests, Tools 132 tests, OpenAPI 100 operations, style and architecture passed.
+- Final `uv run --project services/adex-agent pytest services/adex-agent/tests -q`:
+  **119 passed in 0.70s**.
+- `uv run python scripts/test_stack.py`: **96 passed in 333.11s**, isolated real PG/HTTP
+  with deterministic external/model fixtures. After the final timing/readback hardening,
+  `uv run python scripts/test_stack.py tests/integration/test_task_action_kernel.py tests/integration/test_semantic_memory.py tests/integration/test_schedule_editing.py -q`:
+  **9 passed in 30.00s**. These are not real third-party execution claims.
+- `uv run --project services/adex-agent python scripts/evaluate_agent_kernel.py --live`:
+  seven actual Qwen cases passed with synthetic snapshots: delayed creation, update,
+  conditional schedule, research routing, normalized preference, correction and recall.
+  No application DB writes. This is targeted evidence, not a general success-rate benchmark.
+- Secrets scan and new-module Ruff checks passed. App 028 / Automation 009 applied locally;
+  all four services ready. Public API unauthenticated GET returned actual App JSON 401.
+- `pnpm --dir apps/ios bundle` and signed `xcodebuild ... -allowProvisioningUpdates build`
+  succeeded. Device currently unavailable: this update has **not** been installed on iPhone.

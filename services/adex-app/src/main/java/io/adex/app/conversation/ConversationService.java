@@ -106,6 +106,9 @@ public class ConversationService {
                   id)) memory.remove(owner, (UUID) m.get("id"));
           k.db.update("DELETE FROM summaries WHERE conversation_id=?", id);
           k.db.update(
+              "DELETE FROM chat_task_actions WHERE turn_id IN (SELECT id FROM turns WHERE conversation_id=?)",
+              id);
+          k.db.update(
               "UPDATE turns SET client_location=NULL,client_calendar=NULL WHERE conversation_id=?",
               id);
           k.db.update("UPDATE users SET memory_revision=memory_revision+1 WHERE id=?", owner);

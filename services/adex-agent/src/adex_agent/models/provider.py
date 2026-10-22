@@ -187,6 +187,95 @@ class MockProvider:
     async def stream(self, messages):
         latest = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         if any(
+            m.get("content", "").startswith("TASK_ACTION_V1") for m in messages if m.get("role") == "system"
+        ):
+            # Explicit synthetic tool plans only. Real providers interpret user language.
+            from datetime import datetime, timedelta
+
+            value = json.loads(next(m["content"] for m in messages if m["role"] == "user"))
+            text = value["request"]
+            plan = {"tool": "none"}
+            if "TASK_KERNEL_CREATE_FIXTURE" in text:
+                now = datetime.fromisoformat(value["now"].replace("Z", "+00:00"))
+                plan = {
+                    "tool": "schedule.create",
+                    "arguments": {
+                        "title": "TEST_FIXTURE kernel schedule",
+                        "instruction": "TEST_FIXTURE kernel news",
+                        "kind": "ONCE",
+                        "timezone": "Asia/Shanghai",
+                        "first_fire_at": (now + timedelta(minutes=1)).isoformat(),
+                    },
+                }
+            elif "TASK_KERNEL_UPDATE_FIXTURE" in text and value["schedules"]:
+                plan = {
+                    "tool": "schedule.update",
+                    "target_id": value["schedules"][0]["id"],
+                    "arguments": {
+                        "title": "TEST_FIXTURE updated",
+                        "instruction": "TEST_FIXTURE updated news",
+                        "kind": "DAILY",
+                        "local_time": "19:00",
+                    },
+                }
+            elif "TASK_KERNEL_TODO_FIXTURE" in text:
+                plan = {
+                    "tool": "todo.create",
+                    "arguments": {"title": "TEST_FIXTURE kernel todo", "description": "TEST_FIXTURE"},
+                }
+            elif "TASK_KERNEL_TODO_UPDATE_FIXTURE" in text and value["todos"]:
+                plan = {
+                    "tool": "todo.update",
+                    "target_id": next(
+                        t["id"] for t in value["todos"] if t["title"] == "TEST_FIXTURE kernel todo"
+                    ),
+                    "arguments": {"title": "TEST_FIXTURE revised todo", "urgent": True},
+                }
+            elif "TASK_KERNEL_WORKFLOW_FIXTURE" in text:
+                plan = {
+                    "tool": "workflow.start",
+                    "arguments": {
+                        "goal": "TEST_FIXTURE 比较两个研究来源并交付报告",
+                        "acceptance": ["提供证据来源"],
+                    },
+                }
+            elif "TASK_KERNEL_LIST_FIXTURE" in text:
+                plan = {"tool": "schedule.list"}
+            yield {
+                "type": "completed",
+                "content": json.dumps(plan, ensure_ascii=False),
+                "usage": {},
+                "provider": "mock",
+            }
+            return
+        if any(
+            m.get("content", "").startswith("DURABLE_RESEARCH_V1")
+            for m in messages
+            if m.get("role") == "system"
+        ):
+            value = json.loads(latest)
+            sources = value.get("sources", [])
+            planned = (
+                {
+                    "tool": "finish",
+                    "content": "TEST_FIXTURE 分步研究结果",
+                    "citations": sources[:1],
+                    "checks": [
+                        {"criterion": c, "met": bool(sources), "evidence_urls": sources[:1]}
+                        for c in value["acceptance"]
+                    ],
+                }
+                if value["observations"]
+                else {"tool": "search", "query": "TEST_FIXTURE research", "summary": "检查研究来源"}
+            )
+            yield {
+                "type": "completed",
+                "content": json.dumps(planned, ensure_ascii=False),
+                "usage": {},
+                "provider": "mock",
+            }
+            return
+        if any(
             m.get("content", "").startswith("NOTIFICATION_PLAN_V1")
             for m in messages
             if m.get("role") == "system"

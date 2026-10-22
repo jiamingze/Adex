@@ -32,6 +32,19 @@ class InteractiveTurnService:
                     "qwen" if body.model in {"qwen3.8-flash", "qwen3.8-max"} else "minimax"
                 )
                 selected_runtime.provider = provider(selected_runtime.provider_mode)
+            from adex_agent.actions.planner import task_action
+
+            action = await task_action(selected_runtime, self.core, body)
+            if action["tool"] == "clarify":
+                yield (
+                    json.dumps({"type": "completed", "content": action["message"]}, ensure_ascii=False) + "\n"
+                )
+                return
+            if action["tool"] != "none":
+                yield (
+                    json.dumps({"type": "task.action.requested", "action": action}, ensure_ascii=False) + "\n"
+                )
+                return
             from adex_agent.routing.productivity import todo_draft
 
             todo = await todo_draft(selected_runtime, body.owner_id, body.invocation_key, latest)

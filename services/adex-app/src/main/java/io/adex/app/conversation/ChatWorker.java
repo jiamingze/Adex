@@ -18,6 +18,7 @@ public class ChatWorker {
   final MemoryChatService memoryChat;
   final io.adex.app.productivity.MatrixService matrix;
   final io.adex.app.integration.ChatScheduleService schedules;
+  final io.adex.app.integration.ChatTaskActions taskActions;
   final Semaphore slots = new Semaphore(4);
   final ConcurrentHashMap<UUID, Map<String, Object>> active = new ConcurrentHashMap<>();
 
@@ -77,12 +78,14 @@ public class ChatWorker {
       ConversationStore chat,
       MemoryChatService memoryChat,
       io.adex.app.productivity.MatrixService matrix,
-      io.adex.app.integration.ChatScheduleService schedules) {
+      io.adex.app.integration.ChatScheduleService schedules,
+      io.adex.app.integration.ChatTaskActions taskActions) {
     this.k = k;
     this.chat = chat;
     this.memoryChat = memoryChat;
     this.matrix = matrix;
     this.schedules = schedules;
+    this.taskActions = taskActions;
   }
 
   @Scheduled(fixedDelay = 1000)
@@ -195,11 +198,32 @@ public class ChatWorker {
                                 for (String field :
                                     List.of(
                                         "id",
+                                        "revision",
                                         "title",
+                                        "instruction",
+                                        "local_time",
+                                        "interval_seconds",
+                                        "task_request",
                                         "status",
                                         "kind",
                                         "next_fire_at",
                                         "timezone")) summary.put(field, row.get(field));
+                                String instruction = String.valueOf(row.get("instruction"));
+                                summary.put(
+                                    "instruction",
+                                    instruction.substring(0, Math.min(1200, instruction.length())));
+                                if (row.get("task_request") != null) {
+                                  var request =
+                                      row.get("task_request") instanceof Map<?, ?> map
+                                          ? map
+                                          : k.decode(String.valueOf(row.get("task_request")));
+                                  var preferences = new LinkedHashMap<String, Object>();
+                                  for (String field :
+                                      List.of("notification_policy", "notification_condition"))
+                                    if (request.containsKey(field))
+                                      preferences.put(field, request.get(field));
+                                  summary.put("task_request", preferences);
+                                }
                                 return summary;
                               })
                           .toList(),
@@ -241,6 +265,7 @@ public class ChatWorker {
       }
       streams.put(id, res.body());
       String finalContent = null;
+      boolean taskReceipt = false;
       Object cards = List.of();
       StringBuilder delta = new StringBuilder();
       long last = System.currentTimeMillis();
@@ -263,6 +288,17 @@ public class ChatWorker {
               last = System.currentTimeMillis();
             }
           }
+          if (type.equals("task.action.requested")) {
+            if (taskReceipt) throw Kernel.error(400, "MULTIPLE_TASK_MUTATIONS");
+            emit(t, "正在执行并核对保存结果", "turn.progress");
+            @SuppressWarnings("unchecked")
+            var action = (Map<String, Object>) e.get("action");
+            var receipt = taskActions.execute(t, action);
+            finalContent = String.valueOf(receipt.get("content"));
+            if (receipt.get("card") != null) cards = List.of(receipt.get("card"));
+            if (receipt.get("cards") != null) cards = receipt.get("cards");
+            taskReceipt = true;
+          }
           if (type.equals("schedule.requested")) {
             emit(t, "正在创建定时任务", "turn.progress");
             if (Boolean.TRUE.equals(
@@ -274,6 +310,7 @@ public class ChatWorker {
               var receipt = schedules.create(owner, conv, id, draft);
               cards = List.of(receipt.get("card"));
               finalContent = String.valueOf(receipt.get("content"));
+              taskReceipt = true;
             }
           }
           if (type.equals("todo.requested")) {
@@ -286,8 +323,10 @@ public class ChatWorker {
             var draft = (Map<String, Object>) e.get("draft");
             var saved = matrix.fromChat(owner, conv, t, draft);
             finalContent = matrix.chatReceipt(saved);
+            taskReceipt = true;
           }
           if (type.equals("task.requested")) {
+            taskReceipt = true;
             emit(t, "正在创建任务", "turn.progress");
             if (!"BROWSER".equals(e.get("kind"))
                 && Boolean.TRUE.equals(
@@ -331,6 +370,7 @@ public class ChatWorker {
               finalContent = "正在创作原创音乐，完成后会在当前对话提供播放器和下载。你可以离开页面，稍后回来查看。";
           }
           if (type.equals("completed")) {
+            if (taskReceipt) throw Kernel.error(400, "UNEXPECTED_COMPLETION_AFTER_TOOL");
             finalContent = String.valueOf(e.get("content"));
             cards = e.getOrDefault("cards", List.of());
           }
@@ -338,6 +378,8 @@ public class ChatWorker {
       }
       if (finalContent == null) throw Kernel.error(502, "INCOMPLETE_STREAM");
       if (!delta.isEmpty()) emit(t, delta.toString());
+      finalContent =
+          io.adex.app.integration.TaskReceiptGuard.finalContent(finalContent, taskReceipt);
       memoryChat.finish(t, finalContent, cards);
     } catch (Exception e) {
       String code = e instanceof Kernel.Problem p ? p.code : "AGENT_UNAVAILABLE";

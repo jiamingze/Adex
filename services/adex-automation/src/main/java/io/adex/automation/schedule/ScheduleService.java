@@ -122,6 +122,7 @@ public class ScheduleService {
     var editable =
         Set.of(
             "revision",
+            "command_key",
             "status",
             "title",
             "instruction",
@@ -138,8 +139,27 @@ public class ScheduleService {
     if (b.containsKey("notification_condition") && !b.containsKey("notification_policy"))
       throw Kernel.error(400, "INVALID_NOTIFICATION_CONDITION");
     long rev = Kernel.number(b, "revision");
+    String command = b.containsKey("command_key") ? Kernel.text(b, "command_key", 128) : null;
+    String commandHash =
+        Kernel.hash(k.encode(Map.of("schedule_id", id, "request", new TreeMap<>(b))));
     return k.tx.execute(
         s -> {
+          if (command != null) {
+            k.db.queryForObject(
+                "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
+                Object.class,
+                owner + ":edit:" + command);
+            var previous =
+                k.db.queryForList(
+                    "SELECT * FROM schedule_mutations WHERE owner_id=? AND command_key=?",
+                    owner,
+                    command);
+            if (!previous.isEmpty()) {
+              if (!commandHash.equals(previous.getFirst().get("request_hash")))
+                throw Kernel.error(409, "IDEMPOTENCY_CONFLICT");
+              return k.decode(String.valueOf(previous.getFirst().get("response")));
+            }
+          }
           var old =
               k.row("SELECT * FROM schedules WHERE id=? AND owner_id=? FOR UPDATE", id, owner);
           if (Set.of("CANCELLED", "COMPLETED").contains(String.valueOf(old.get("status"))))
@@ -241,7 +261,16 @@ public class ScheduleService {
               seconds,
               next,
               id);
-          return k.row("SELECT * FROM schedules WHERE id=?", id);
+          var response = k.row("SELECT * FROM schedules WHERE id=?", id);
+          if (command != null)
+            k.db.update(
+                "INSERT INTO schedule_mutations(owner_id,command_key,schedule_id,request_hash,response) VALUES(?,?,?,?,?::jsonb)",
+                owner,
+                command,
+                id,
+                commandHash,
+                k.encode(response));
+          return response;
         });
   }
 

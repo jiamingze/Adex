@@ -106,6 +106,8 @@ flowchart LR
 
 四个业务服务独立管理 PostgreSQL 数据域，接口验证用户归属。普通聊天直接调用 Agent；长任务复用 Automation 的租约、fencing、不可变 Checkpoint 和 outbox。Tools 使用幂等效果账本处理外部执行与不确定结果。L1 工作态／L2 会话／L3 长期记忆生命周期分离，删除事实不能被旧提取任务或索引恢复。
 
+任务工具回执、分步研究循环和自动记忆召回的实现与边界，见 [Agent 内核设计](docs/architecture/task-action-kernel.md)。研究沿用现有 Run/lease/checkpoint；未核实验收项明确为部分完成。
+
 支持服务独立部署和多实例协调。附带 Compose 是**单机起点**，不等于自动高可用；一期文件保存在 App 管理的持久本地磁盘，多主机 App 需要明确文件路由或经批准的共享存储设计。[技术架构](docs/zh-CN/architecture.md) · [工程边界](docs/architecture/engineering.md) · [文件存储](docs/LOCAL_FILE_STORAGE.md)。
 
 ## 从哪里开始读代码

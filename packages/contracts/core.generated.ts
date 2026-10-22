@@ -1259,6 +1259,8 @@ export interface components {
             interval_seconds?: number;
             /** Format: date-time */
             first_fire_at?: string;
+            /** @description Optional owner-scoped mutation replay key. Same key and request replay the committed receipt. */
+            command_key?: string;
         };
         ScheduleDraftInput: {
             /** Format: uuid */

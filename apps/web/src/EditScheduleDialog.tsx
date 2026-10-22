@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Check, X } from "lucide-react";
 import { Button } from "@adex/ui-web";
 import { ApiError, type Schedule } from "./api";
 import type { components } from "../../../packages/contracts/core.generated";
@@ -126,187 +125,202 @@ export function EditScheduleDialog({
         }}
       >
         <header className="modal-heading">
-          <h2 id="edit-schedule-title">编辑自动安排</h2>
-          <button
+          <Button
             type="button"
-            className="icon-button"
-            aria-label="关闭编辑"
+            className="schedule-edit-cancel"
             disabled={busy}
             onClick={onClose}
           >
-            <X size={20} />
-          </button>
+            取消
+          </Button>
+          <h2 id="edit-schedule-title">编辑任务</h2>
+          <Button
+            type="submit"
+            className="schedule-edit-done"
+            aria-label="保存修改"
+            disabled={busy}
+          >
+            {busy ? "保存中…" : "完成"}
+          </Button>
         </header>
         <div className="schedule-edit-scroll">
           <fieldset disabled={busy} className="schedule-edit-fields">
-            <label>
-              任务名称
-              <input
-                autoFocus
-                required
-                maxLength={200}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </label>
-            <label>
-              让 Adex 做什么
-              <textarea
-                required
-                rows={3}
-                maxLength={16000}
-                value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
-              />
-            </label>
-            <div className="form-row">
+            <div className="schedule-edit-group schedule-edit-content">
               <label>
-                执行频率
-                <select
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as typeof kind)}
-                >
-                  <option value="ONCE">一次性</option>
-                  <option value="DAILY">每天</option>
-                  <option value="INTERVAL">固定间隔</option>
-                </select>
+                任务名称
+                <input
+                  required
+                  maxLength={200}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
               </label>
               <label>
-                时区
-                <select value={zone} onChange={(e) => setZone(e.target.value)}>
-                  {Array.from(
-                    new Set([
-                      schedule.timezone,
-                      "Asia/Shanghai",
-                      "Asia/Tokyo",
-                      "Europe/London",
-                      "America/New_York",
-                      "UTC",
-                    ]),
-                  ).map((z) => (
-                    <option key={z}>{z}</option>
-                  ))}
-                </select>
+                让 Adex 做什么
+                <textarea
+                  required
+                  rows={3}
+                  maxLength={16000}
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                />
               </label>
             </div>
-            {kind === "DAILY" ? (
-              <label>
-                每天的执行时间（{zone}）
-                <input
-                  type="time"
-                  required
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                />
-              </label>
-            ) : kind === "INTERVAL" ? (
-              <label>
-                每隔多少分钟
-                <input
-                  type="number"
-                  min={1}
-                  max={525600}
-                  step="any"
-                  required
-                  value={minutes}
-                  onChange={(e) => setMinutes(Number(e.target.value))}
-                />
-                <small>修改间隔后，从保存时刻重新计时。</small>
-              </label>
-            ) : (
-              <label>
-                执行时间（设备本地时区）
-                <input
-                  type="datetime-local"
-                  required
-                  value={when}
-                  onChange={(e) => setWhen(e.target.value)}
-                />
-              </label>
-            )}
-            <label>
-              通知方式
-              <select
-                value={policy}
-                onChange={(e) => setPolicy(e.target.value)}
-              >
-                <option value="EVERY_RUN">每次执行后通知</option>
-                <option value="CHANGES_ONLY">结果有更新时通知</option>
-                <option value="CONDITION_MET">仅满足条件时通知</option>
-              </select>
-            </label>
-            {policy === "CONDITION_MET" && (
-              <>
+            <div className="schedule-edit-group schedule-edit-options">
+              <div className="form-row">
                 <label>
-                  通知条件
-                  <textarea
-                    required
-                    maxLength={1000}
-                    rows={2}
-                    value={condition.description}
-                    onChange={(e) =>
-                      setCondition({
-                        ...condition,
-                        description: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  判断方式
+                  执行频率
                   <select
-                    value={condition.operator}
-                    onChange={(e) =>
-                      setCondition({
-                        ...condition,
-                        operator: e.target.value as Condition["operator"],
-                      })
-                    }
+                    value={kind}
+                    onChange={(e) => setKind(e.target.value as typeof kind)}
                   >
-                    <option value="semantic">由助手依据证据判断</option>
-                    <option value="lt">低于</option>
-                    <option value="lte">不高于</option>
-                    <option value="gt">高于</option>
-                    <option value="gte">不低于</option>
-                    <option value="eq">等于</option>
+                    <option value="ONCE">一次性</option>
+                    <option value="DAILY">每天</option>
+                    <option value="INTERVAL">固定间隔</option>
                   </select>
                 </label>
-                {condition.operator !== "semantic" && (
-                  <div className="form-row">
-                    <label>
-                      数值
-                      <input
-                        required
-                        maxLength={50}
-                        inputMode="decimal"
-                        value={condition.threshold}
-                        onChange={(e) =>
-                          setCondition({
-                            ...condition,
-                            threshold: e.target.value,
-                          })
-                        }
-                      />
-                    </label>
-                    <label>
-                      单位
-                      <input
-                        required
-                        maxLength={40}
-                        placeholder="例如 USD/oz"
-                        value={condition.unit}
-                        onChange={(e) =>
-                          setCondition({ ...condition, unit: e.target.value })
-                        }
-                      />
-                    </label>
-                  </div>
-                )}
-                <small>
-                  不满足、无法核实或执行失败时不推送，结果仍回到原会话。
-                </small>
-              </>
-            )}
+                <label>
+                  时区
+                  <select
+                    value={zone}
+                    onChange={(e) => setZone(e.target.value)}
+                  >
+                    {Array.from(
+                      new Set([
+                        schedule.timezone,
+                        "Asia/Shanghai",
+                        "Asia/Tokyo",
+                        "Europe/London",
+                        "America/New_York",
+                        "UTC",
+                      ]),
+                    ).map((z) => (
+                      <option key={z}>{z}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {kind === "DAILY" ? (
+                <label>
+                  每天的执行时间（{zone}）
+                  <input
+                    type="time"
+                    required
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                  />
+                </label>
+              ) : kind === "INTERVAL" ? (
+                <label>
+                  每隔多少分钟
+                  <input
+                    type="number"
+                    min={1}
+                    max={525600}
+                    step="any"
+                    required
+                    value={minutes}
+                    onChange={(e) => setMinutes(Number(e.target.value))}
+                  />
+                  <small>修改间隔后，从保存时刻重新计时。</small>
+                </label>
+              ) : (
+                <label>
+                  执行时间（设备本地时区）
+                  <input
+                    type="datetime-local"
+                    required
+                    value={when}
+                    onChange={(e) => setWhen(e.target.value)}
+                  />
+                </label>
+              )}
+            </div>
+            <div className="schedule-edit-group schedule-edit-notification">
+              <label>
+                通知方式
+                <select
+                  value={policy}
+                  onChange={(e) => setPolicy(e.target.value)}
+                >
+                  <option value="EVERY_RUN">每次执行后通知</option>
+                  <option value="CHANGES_ONLY">结果有更新时通知</option>
+                  <option value="CONDITION_MET">仅满足条件时通知</option>
+                </select>
+              </label>
+              {policy === "CONDITION_MET" && (
+                <>
+                  <label>
+                    通知条件
+                    <textarea
+                      required
+                      maxLength={1000}
+                      rows={2}
+                      value={condition.description}
+                      onChange={(e) =>
+                        setCondition({
+                          ...condition,
+                          description: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    判断方式
+                    <select
+                      value={condition.operator}
+                      onChange={(e) =>
+                        setCondition({
+                          ...condition,
+                          operator: e.target.value as Condition["operator"],
+                        })
+                      }
+                    >
+                      <option value="semantic">由助手依据证据判断</option>
+                      <option value="lt">低于</option>
+                      <option value="lte">不高于</option>
+                      <option value="gt">高于</option>
+                      <option value="gte">不低于</option>
+                      <option value="eq">等于</option>
+                    </select>
+                  </label>
+                  {condition.operator !== "semantic" && (
+                    <div className="form-row">
+                      <label>
+                        数值
+                        <input
+                          required
+                          maxLength={50}
+                          inputMode="decimal"
+                          value={condition.threshold}
+                          onChange={(e) =>
+                            setCondition({
+                              ...condition,
+                              threshold: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        单位
+                        <input
+                          required
+                          maxLength={40}
+                          placeholder="例如 USD/oz"
+                          value={condition.unit}
+                          onChange={(e) =>
+                            setCondition({ ...condition, unit: e.target.value })
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <small>
+                    不满足、无法核实或执行失败时不推送，结果仍回到原会话。
+                  </small>
+                </>
+              )}
+            </div>
           </fieldset>
         </div>
         <p className="muted-text schedule-edit-hint">
@@ -317,15 +331,6 @@ export function EditScheduleDialog({
             {error}
           </p>
         )}
-        <footer className="modal-footer">
-          <Button type="button" disabled={busy} onClick={onClose}>
-            取消
-          </Button>
-          <Button type="submit" className="primary" disabled={busy}>
-            <Check size={17} />
-            {busy ? "正在保存…" : "保存修改"}
-          </Button>
-        </footer>
       </form>
     </div>
   );

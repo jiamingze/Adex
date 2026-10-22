@@ -157,6 +157,43 @@ public class MatrixService {
         });
   }
 
+  /**
+   * Local edit and chat receipt share the caller transaction; links cannot be changed by a model.
+   */
+  public Map<String, Object> editFromChat(
+      Map<String, Object> turn, UUID id, Map<String, Object> patch) {
+    UUID owner = (UUID) turn.get("owner_id");
+    return k.tx.execute(
+        tx -> {
+          var before = k.row("SELECT * FROM matrix_tasks WHERE id=? AND owner_id=?", id, owner);
+          var conversations = new TreeSet<UUID>();
+          conversations.add((UUID) turn.get("conversation_id"));
+          if (before.get("conversation_id") != null)
+            conversations.add((UUID) before.get("conversation_id"));
+          for (UUID conv : conversations)
+            k.row(
+                "SELECT id FROM conversations WHERE id=? AND owner_id=? AND deleted_at IS NULL FOR UPDATE",
+                conv,
+                owner);
+          k.row(
+              "SELECT id FROM turns WHERE id=? AND owner_id=? AND epoch=? AND attempt_id=? AND status='RUNNING' AND lease_until>clock_timestamp() FOR UPDATE",
+              turn.get("id"),
+              owner,
+              turn.get("epoch"),
+              turn.get("attempt_id"));
+          if (!Set.of("title", "description", "important", "urgent", "due_at", "status", "revision")
+              .containsAll(patch.keySet())) throw Kernel.error(400, "INVALID_MATRIX_TASK");
+          var body = new LinkedHashMap<String, Object>(before);
+          if (before.get("due_at") instanceof java.sql.Timestamp stamp)
+            body.put("due_at", stamp.toInstant().toString());
+          body.putAll(patch);
+          @SuppressWarnings("unchecked")
+          var saved = (Map<String, Object>) saveRow(owner, id, body);
+          reminders.enqueue(saved);
+          return saved;
+        });
+  }
+
   public String chatReceipt(Map<String, Object> saved) {
     String due =
         saved.get("due_at") == null

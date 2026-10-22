@@ -51,6 +51,10 @@ class BackgroundWorker:
                     saved = cp["state"]
             if saved and saved.get("phase") == "result":
                 result = saved
+            elif run.get("kind") == "RESEARCH" and run.get("request", {}).get("params", {}).get("agent_loop"):
+                from .agent_loop import DurableAgentLoop
+
+                result = await DurableAgentLoop(self).run(run, context, saved)
             elif run.get("kind") == "MATRIX_REMINDER":
                 # Deadline eligibility and visible content are revalidated by App at consumption.
                 result = {

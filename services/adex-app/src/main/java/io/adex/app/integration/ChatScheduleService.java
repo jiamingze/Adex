@@ -76,6 +76,19 @@ public class ChatScheduleService {
             "automation", "schedule:write", owner, null, "POST", "/internal/automations", request);
     if (schedule.get("id") == null || !"ACTIVE".equals(schedule.get("status")))
       throw Kernel.error(502, "SCHEDULE_RECEIPT_MISSING");
+    @SuppressWarnings("unchecked")
+    var owned =
+        (List<Map<String, Object>>)
+            k.call("automation", "schedule:read", owner, null, "GET", "/internal/automations", null)
+                .get("items");
+    var observed =
+        owned.stream()
+            .filter(row -> String.valueOf(schedule.get("id")).equals(String.valueOf(row.get("id"))))
+            .findFirst()
+            .orElseThrow(() -> Kernel.error(502, "TASK_READBACK_MISSING"));
+    for (String field : List.of("title", "instruction", "kind", "timezone"))
+      if (!String.valueOf(request.get(field)).equals(String.valueOf(observed.get(field))))
+        throw Kernel.error(502, "TASK_READBACK_MISMATCH");
     return Map.of(
         "content",
         "已设置"

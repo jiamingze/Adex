@@ -141,7 +141,10 @@ class ContextService:
         if skill_plan:
             system += skill_plan.system_policy()
         memories = [{"id": m["id"], "content": m["content"]} for m in context.get("memories", [])]
-        system += "\n有效的用户明确记忆（包含来源 ID）：" + json.dumps(memories, ensure_ascii=False)[:8000]
+        system += (
+            "\n有效的用户长期记忆（按本轮相关性优先，包含来源 ID）："
+            + json.dumps(memories, ensure_ascii=False)[:8000]
+        )
         if context.get("summary"):
             system += "\n可追溯的早期会话摘录：" + context["summary"][:6000]
         connector_services = []

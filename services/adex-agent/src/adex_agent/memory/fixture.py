@@ -21,6 +21,10 @@ def proposal(snapshot):
             "category": category,
         }
 
+    if text == "TEST_FIXTURE 推荐适合我的餐厅":
+        recalled = [m["id"] for m in memories if "不吃辣" in m["content"]]
+        return {"mode": "none", "operations": [], "recalled_ids": recalled[:12]}
+
     # Non-keyword cases prove that the application follows the planner, not a text grammar.
     if text == "TEST_FIXTURE 哎平常吃饭真受不了辣的，给我推荐吃的时清淡点哈":
         operation = op("save", "用户偏好清淡、不辣的饮食；推荐餐厅和菜品时避免辛辣。")

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a closed semantic task-tool registry with validated arguments, bounded repair, frozen proposals, owned target/revision binding and persisted App receipts. Schedule edits replay committed command results after a lost response instead of failing on their old revision (App 028 / Automation 009).
+- Add multi-step research on existing Runs: plan/read/observe checkpoints, recovery from pending reads, bounded working summaries, repeated-query protection and evidence-backed acceptance checks. Unsupported or incomplete work returns PARTIAL; browser writes retain separate approval/effect reconciliation.
+- Improve autonomous memory with normalized fact validation, schema/evidence repair and semantic selection of older relevant memories. Recall rechecks authoritative ownership/revision/tombstones; no fixed “remember:” phrase is required.
+- Restyle task editing as an inset grouped mobile page with top navigation actions, no forced keyboard focus and bounded native date/time fields.
+
 - Edit active/paused automatic tasks: content, timing and notification conditions. Revision-checked updates affect future claims, preserve Run history and keep save actions visible on mobile.
 
 - Simplify the app icon to an editable line-art scholar and sparse stars; export matching opaque icons for Web and iOS.

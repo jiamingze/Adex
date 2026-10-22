@@ -119,7 +119,7 @@ Services can deploy independently and coordinate across instances. Included Comp
 | `services/adex-tools` | Providers, connectors, approvals, effects and isolated runners |
 | `packages`, `migrations`, `deploy` | Shared contracts/kernels, owned schemas and deployment |
 
-[Installation](docs/en/installation.md) · [Configuration](docs/en/configuration.md) · [Development & code tour](docs/en/development.md) · [IDE setup](docs/en/jetbrains.md) · [Operations](docs/RUNBOOK.md) · [Memory](docs/architecture/conversational-memory.md) · [Connectors/APNs](docs/architecture/proactive-assistant.md) · [Skills](docs/architecture/skills.md) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
+[Installation](docs/en/installation.md) · [Configuration](docs/en/configuration.md) · [Development & code tour](docs/en/development.md) · [IDE setup](docs/en/jetbrains.md) · [Operations](docs/RUNBOOK.md) · [Agent kernel and recovery boundaries](docs/architecture/task-action-kernel.md) · [Memory](docs/architecture/conversational-memory.md) · [Connectors/APNs](docs/architecture/proactive-assistant.md) · [Skills](docs/architecture/skills.md) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
 
 ## Contribute
 

@@ -201,6 +201,46 @@ public class PostgresConversationStore implements ConversationStore {
                   "SELECT id,content,source_refs FROM memories WHERE owner_id=? AND deleted_at IS"
                       + " NULL AND confirmed=true ORDER BY created_at DESC LIMIT 20",
                   owner);
+          // Semantic recall comes from the frozen current-turn plan. PG ownership, current
+          // memory revision and tombstones remain authoritative; model IDs grant no access.
+          var latestUser =
+              messages.stream()
+                  .filter(m -> "user".equals(m.get("role")))
+                  .reduce((first, last) -> last);
+          if (latestUser.isPresent()) {
+            var plans =
+                k.db.queryForList(
+                    "SELECT input,proposal FROM memory_turn_plans WHERE turn_id=? AND owner_id=?",
+                    latestUser.get().get("id"),
+                    owner);
+            if (!plans.isEmpty() && plans.getFirst().get("proposal") != null) {
+              var plan = plans.getFirst();
+              var input = k.decode(String.valueOf(plan.get("input")));
+              var proposal = k.decode(String.valueOf(plan.get("proposal")));
+              if (Objects.equals(
+                      String.valueOf(input.get("memory_revision")),
+                      String.valueOf(user.get("memory_revision")))
+                  && proposal.get("recalled_ids") instanceof List<?> ids) {
+                var selected = new ArrayList<Map<String, Object>>();
+                for (Object candidate : ids.stream().limit(12).toList()) {
+                  try {
+                    var found =
+                        k.db.queryForList(
+                            "SELECT id,content,source_refs FROM memories WHERE id=? AND owner_id=? AND deleted_at IS NULL AND confirmed=true",
+                            UUID.fromString(String.valueOf(candidate)),
+                            owner);
+                    selected.addAll(found);
+                  } catch (IllegalArgumentException invalidId) {
+                    /* Invalid model ID is not authority. */
+                  }
+                }
+                var seen = new HashSet<Object>();
+                selected.forEach(m -> seen.add(m.get("id")));
+                for (var memory : memories) if (seen.add(memory.get("id"))) selected.add(memory);
+                memories = selected.stream().limit(20).toList();
+              }
+            }
+          }
           Map<String, Object> result = new LinkedHashMap<>();
           result.put("owner_id", owner);
           result.put("conversation_id", conv);
@@ -235,7 +275,7 @@ public class PostgresConversationStore implements ConversationStore {
                     true,
                     "tasks",
                     k.db.queryForList(
-                        "SELECT id,left(title,200) AS title,important,urgent,due_at,status FROM matrix_tasks WHERE owner_id=? AND status='TODO' ORDER BY important DESC,urgent DESC,due_at ASC NULLS LAST,id LIMIT 20",
+                        "SELECT id,revision,left(title,200) AS title,important,urgent,due_at,status FROM matrix_tasks WHERE owner_id=? AND status='TODO' ORDER BY important DESC,urgent DESC,due_at ASC NULLS LAST,id LIMIT 20",
                         owner),
                     "notes",
                     k.db.queryForList(

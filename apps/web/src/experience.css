@@ -1895,3 +1895,32 @@ html.native-app .shell{animation:adex-launch-reveal .18s ease-out}
 .schedule-edit-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .schedule-edit-dialog .schedule-edit-fields{overflow:visible}
 .schedule-edit-dialog .schedule-edit-hint{flex-shrink:0}
+
+/* Task editing uses a navigation bar and inset groups rather than stacked web cards. */
+.schedule-edit-dialog{background:#f5f6f7;padding:0;gap:0;max-width:560px}
+.schedule-edit-dialog .modal-heading{display:grid;grid-template-columns:76px minmax(0,1fr) 76px;align-items:center;gap:6px;padding:12px 14px;background:var(--surface,#fff);border-bottom:1px solid var(--line,#e8e9ea)}
+.schedule-edit-dialog .modal-heading h2{text-align:center;font-size:17px;font-weight:650;white-space:nowrap}
+.schedule-edit-dialog .schedule-edit-cancel,.schedule-edit-dialog .schedule-edit-done{border:0;box-shadow:none;background:transparent;padding:8px 4px;font-size:16px;color:var(--accent,#386e60);min-height:44px}
+.schedule-edit-dialog .schedule-edit-done{font-weight:650}
+.schedule-edit-scroll{padding:20px 16px 12px}
+.schedule-edit-dialog .schedule-edit-fields{gap:20px;padding:0}
+.schedule-edit-group{background:var(--surface,#fff);border-radius:16px;overflow:hidden;min-width:0}
+.schedule-edit-group>label,.schedule-edit-group>.form-row>label{padding:14px 16px;gap:8px;font-size:13px;color:var(--muted,#727879)}
+.schedule-edit-group>label+label,.schedule-edit-group>.form-row+label{border-top:1px solid var(--line,#e8e9ea)}
+.schedule-edit-group input,.schedule-edit-group textarea,.schedule-edit-group select{box-sizing:border-box;max-width:100%;width:100%;min-width:0;border:0;border-radius:0;box-shadow:none;background:transparent;padding:2px 0;color:var(--text,#202626);font-size:16px;line-height:1.55}
+.schedule-edit-group input:focus,.schedule-edit-group textarea:focus,.schedule-edit-group select:focus{outline:0;box-shadow:0 1px 0 var(--accent,#386e60)}
+.schedule-edit-content>label:first-child input{font-size:20px;font-weight:600}
+.schedule-edit-group .form-row{gap:0;grid-template-columns:minmax(0,1fr)}
+.schedule-edit-group .form-row>label+label{border-top:1px solid var(--line,#e8e9ea)}
+.schedule-edit-group small{font-size:12px;line-height:1.6;color:var(--muted,#727879)}
+.schedule-edit-group>small{display:block;padding:0 16px 14px}
+.schedule-edit-dialog>.schedule-edit-hint,.schedule-edit-dialog>.form-error{padding:10px 20px 16px;margin:0;font-size:12px}
+@media(max-width:640px){
+ .modal-backdrop:has(.schedule-edit-dialog){padding:0;align-items:stretch}
+ .schedule-edit-dialog{width:100%;max-width:none;height:100%;max-height:100%;border:0;border-radius:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+ .schedule-edit-scroll{flex:1;min-height:0;scroll-padding-bottom:32px}
+ .schedule-edit-group input[type="datetime-local"],.schedule-edit-group input[type="time"]{display:block;min-height:32px;text-align:left;-webkit-appearance:none}
+}
+.schedule-edit-options .form-row>label,.schedule-edit-notification>label:first-child{display:grid;grid-template-columns:84px minmax(0,1fr);align-items:center;padding-top:10px;padding-bottom:10px;min-height:58px}
+.schedule-edit-options select,.schedule-edit-notification>label:first-child select{text-align:right;min-height:36px}
+.schedule-edit-content textarea{resize:none}
