@@ -179,15 +179,32 @@ public class AdexPushPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc func request(_ call: CAPPluginCall) {
         if registration != nil { call.reject("PUSH_REGISTRATION_BUSY"); return }
+        if call.getBool("prompt") == false {
+            // Session restoration must never open a permission prompt or depend on a
+            // local web-storage hint that logout/reinstallation deliberately removes.
+            UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+                DispatchQueue.main.async {
+                    guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                        call.reject("PUSH_PERMISSION_DENIED"); return
+                    }
+                    self?.register(call)
+                }
+            }
+            return
+        }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] granted, error in
             DispatchQueue.main.async {
                 guard granted, error == nil else { call.reject("PUSH_PERMISSION_DENIED"); return }
-                self?.registration = call
-                UIApplication.shared.registerForRemoteNotifications()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
-                    if self?.registration === call { call.reject("APNS_REGISTRATION_UNAVAILABLE"); self?.registration = nil }
-                }
+                self?.register(call)
             }
+        }
+    }
+    private func register(_ call: CAPPluginCall) {
+        guard registration == nil else { call.reject("PUSH_REGISTRATION_BUSY"); return }
+        registration = call
+        UIApplication.shared.registerForRemoteNotifications()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            if self?.registration === call { call.reject("APNS_REGISTRATION_UNAVAILABLE"); self?.registration = nil }
         }
     }
     @objc func pending(_ call: CAPPluginCall) { call.resolve(["notification_id": UserDefaults.standard.string(forKey: "adex.pendingNotification") ?? ""]) }

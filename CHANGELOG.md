@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore already-authorized iPhone push registration after login and foregrounding even when logout/reinstallation removed the local device hint. Respect account opt-out and iOS denial without another permission prompt; discard stale authentication callbacks.
+
 - Add a closed semantic task-tool registry with validated arguments, bounded repair, frozen proposals, owned target/revision binding and persisted App receipts. Schedule edits replay committed command results after a lost response instead of failing on their old revision (App 028 / Automation 009).
 - Add multi-step research on existing Runs: plan/read/observe checkpoints, recovery from pending reads, bounded working summaries, repeated-query protection and evidence-backed acceptance checks. Unsupported or incomplete work returns PARTIAL; browser writes retain separate approval/effect reconciliation.
 - Improve autonomous memory with normalized fact validation, schema/evidence repair and semantic selection of older relevant memories. Recall rechecks authoritative ownership/revision/tombstones; no fixed “remember:” phrase is required.

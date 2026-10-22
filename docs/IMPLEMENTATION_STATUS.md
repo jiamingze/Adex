@@ -868,3 +868,16 @@ Observed checks:
   all four services ready. Public API unauthenticated GET returned actual App JSON 401.
 - `pnpm --dir apps/ios bundle` and signed `xcodebuild ... -allowProvisioningUpdates build`
   succeeded. Device currently unavailable: this update has **not** been installed on iPhone.
+
+## 2026-10-22 — Restore push registration after logout
+
+Removed the local-device-hint prerequisite from native login/foreground restoration.
+Existing account preferences and system authorization govern registration; silent native
+restoration does not request permission or override opt-out. Authentication cleanup blocks
+stale callbacks. Logout revocation and server eligibility timestamps remain intact.
+
+`make test-client`: 29 passed. `make build check-style`: passed. Signed iOS build succeeded.
+`uv run python scripts/test_stack.py tests/integration/test_push_restore.py tests/integration/test_connectors.py::test_offline_push_and_resume_original_run -q`:
+2 passed in 8.66s, isolated PG/API with explicit APNs fixture. Actual device unavailable and
+its server registration still inactive: real push restoration/delivery not yet verified.
+See [lifecycle and acceptance boundary](architecture/push-registration.md).

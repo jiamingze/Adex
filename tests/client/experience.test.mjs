@@ -549,3 +549,25 @@ test('nickname display falls back without changing the login identifier',async()
   assert.equal(accountDisplayName('admin',undefined),'admin');
   assert.equal(accountDisplayName('guest_id','nickname',true),'访客');
 });
+
+import { restorePushRegistration } from '../../.local-data/client-tests/pushRegistration.js';
+test('push restore uses system authorization without a deleted local device hint', async () => {
+  const calls=[];
+  await restorePushRegistration({current:()=>true,
+    preferences:async()=>({enabled:true,push_enabled:true}),
+    device:async()=>({token:'synthetic',environment:'sandbox'}),
+    register:async(token,environment)=>{calls.push([token,environment]);return {id:'restored'};},
+    remember:id=>calls.push(id)});
+  assert.deepEqual(calls,[['synthetic','sandbox'],'restored']);
+});
+test('push restore honors opt-out and stops when authentication changes', async()=>{
+  for(const optOut of [true,false]) {
+    let active=true,registered=false;
+    await restorePushRegistration({current:()=>active,
+      preferences:async()=>({enabled:true,push_enabled:!optOut}),
+      device:async()=>{active=false;return {token:'synthetic',environment:'sandbox'};},
+      register:async()=>{registered=true;return{id:'invalid'};},
+      remember:()=>assert.fail('stale owner cannot save registration')});
+    assert.equal(registered,false);
+  }
+});
