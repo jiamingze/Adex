@@ -30,4 +30,4 @@
 
 ## Explicit user-requested extension
 
-| M17 | Owner-bound macOS application operation via native Accessibility runner under Tools; existing Automation checkpoints, fencing, approvals and effects | Real Calculator observation → per-action approval → 1+2=3 readback; fail closed for other owners, deleted conversations, stale observations and UNKNOWN effects. Initial Calculator/TextEdit only. See ADR 005 and the macOS runbook; broader custom UI remains unsupported. |
+| M17 | Owner-bound macOS application operation via native Accessibility runner under Tools; existing Automation checkpoints, fencing, approvals and effects | Real Calculator observation → per-action approval → 1+2=3 readback; fail closed for other owners, deleted conversations, stale observations and UNKNOWN effects. Explicit owner app policy, Chrome search and bounded document return; custom controls remain limited. See ADR 005 and the macOS runbook; broader custom UI remains unsupported. |

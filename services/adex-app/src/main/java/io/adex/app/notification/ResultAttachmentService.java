@@ -218,6 +218,37 @@ public class ResultAttachmentService {
             chat.event(conv, "message.cards", Map.of("message_id", resultMessage));
           }
           if ("COMPUTER".equals(kind)
+              && b.get("artifact") instanceof Map<?, ?> transferred
+              && transferred.get("file") instanceof Map<?, ?> fileData) {
+            UUID fileId = Kernel.uuid(fileData.get("id"));
+            var ownedFile =
+                k.row(
+                    "SELECT id,name,size_bytes,mime_type FROM files WHERE id=? AND owner_id=? AND status='READY'",
+                    fileId,
+                    owner);
+            var fileCard =
+                Map.of(
+                    "schema_version",
+                    1,
+                    "card_id",
+                    Kernel.id(),
+                    "conversation_id",
+                    conv,
+                    "message_id",
+                    resultMessage,
+                    "type",
+                    "file_attachment",
+                    "actions",
+                    List.of("download"),
+                    "data",
+                    ownedFile);
+            k.db.update(
+                "UPDATE messages SET cards=?::jsonb WHERE id=?",
+                k.encode(List.of(fileCard)),
+                resultMessage);
+            chat.event(conv, "message.cards", Map.of("message_id", resultMessage));
+          }
+          if ("COMPUTER".equals(kind)
               && b.get("artifact") instanceof Map<?, ?> computer
               && computer.get("action_id") != null) {
             var card =

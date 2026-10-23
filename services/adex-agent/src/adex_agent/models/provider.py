@@ -239,6 +239,15 @@ class MockProvider:
                         "acceptance": ["提供证据来源"],
                     },
                 }
+            elif "COMPUTER_FILE_FIXTURE" in text:
+                plan = {
+                    "tool": "computer.start",
+                    "arguments": {
+                        "goal": "COMPUTER_FILE_FIXTURE 发送 fixture-document.pdf",
+                        "app_name": "测试应用",
+                        "file_path": "fixture-document.pdf",
+                    },
+                }
             elif "COMPUTER_START_FIXTURE" in text:
                 plan = {
                     "tool": "computer.start",
@@ -291,6 +300,8 @@ class MockProvider:
                 if value["recent_actions"]
                 else {"action": "press", "element_id": "0.0", "reason": "点击测试按钮"}
             )
+            if value["observation"].get("status") == "not_observed":
+                result = {"action": "observe"}
             yield {
                 "type": "completed",
                 "content": json.dumps(result, ensure_ascii=False),

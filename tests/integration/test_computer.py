@@ -197,6 +197,24 @@ def test_computer_security_and_unknown_are_fail_closed(client, db):
         "attempt_id": run["attempt_id"],
         "app_name": "测试应用",
     }
+    denied = client.post(
+        "/api/v1/tasks",
+        headers={"Idempotency-Key": str(uuid4())},
+        json={
+            "kind": "COMPUTER",
+            "instruction": "TEST_FIXTURE denied app",
+            "origin_conversation_id": conv,
+            "params": {"app_name": "TEST_FIXTURE not granted"},
+        },
+    )
+    assert denied.is_error
+    assert (
+        db.execute(
+            "SELECT count(*) n FROM automation.runs WHERE origin_conversation_id=%s",
+            (conv,),
+        ).fetchone()["n"]
+        == 1
+    )
     base = os.environ["ADEX_TOOLS_URL"] + "/internal/computer/"
     headers = sign("agent", "tools", "computer:operate", owner, rid)
     with httpx.Client(trust_env=False, timeout=20) as http:
@@ -211,6 +229,8 @@ def test_computer_security_and_unknown_are_fail_closed(client, db):
             ).status_code
             == 403
         )
+        attempted_file = http.post(base + "export-file", headers=headers, json={**execution, "file_path": "fixture-document.pdf", "command_key": "unexpected"})
+        assert attempted_file.status_code == 403 and "COMPUTER_FILE_NOT_REQUESTED" in attempted_file.text
         view = observe().json()
         step = {
             **execution,
@@ -264,3 +284,137 @@ def test_computer_security_and_unknown_are_fail_closed(client, db):
         client.delete("/api/v1/conversations/" + conv).raise_for_status()
         assert observe().is_error
     client.post("/api/v1/tasks/" + rid + "/cancel").raise_for_status()
+
+
+@pytest.mark.skipif(
+    os.getenv("ADEX_TEST_REAL_CHROME") != "1",
+    reason="Opt-in real Chrome and Qwen search; isolated DB",
+)
+def test_actual_chrome_search_returns_to_original_conversation(client, db):
+    conv = client.post(
+        "/api/v1/conversations", json={"title": "TEST_FIXTURE real Chrome CET search"}
+    ).json()["id"]
+    response = client.post(
+        f"/api/v1/conversations/{conv}/messages",
+        json={
+            "client_message_id": str(uuid4()),
+            "content": "帮我打开Mac上的浏览器Chrome浏览器然后搜一下CET版结果给我",
+        },
+    )
+    response.raise_for_status()
+    run = wait(
+        lambda: db.execute(
+            "SELECT * FROM automation.runs WHERE origin_conversation_id=%s AND kind='COMPUTER'",
+            (conv,),
+        ).fetchone(),
+        timeout=60,
+    )
+    first = claim()
+    assert first["id"] == str(run["id"])
+    execute_claimed(first)
+    current = db.execute(
+        "SELECT status,error_code FROM automation.runs WHERE id=%s", (run["id"],)
+    ).fetchone()
+    assert current["status"] == "COMPLETED", current
+
+    def final_message():
+        items = client.get(f"/api/v1/conversations/{conv}/messages").json()["items"]
+        return next(
+            (
+                m
+                for m in items
+                if m["role"] == "assistant"
+                and "https://" in m["content"]
+                and "CET" in m["content"]
+            ),
+            None,
+        )
+
+    message = wait(final_message, timeout=30)
+    assert "cet.neea" in message["content"].lower(), message["content"]
+    # Assert structured source readback, not a golden wording from a live model.
+    heading = message["content"].splitlines()[0]
+    assert (
+        heading.startswith("### “")
+        and "CET版" in heading
+        and heading.endswith("的搜索结果")
+    ), heading
+    assert "1. **[" in message["content"] and "桌面操作已停止" not in message["content"]
+    (ROOT / ".local-data/chrome-e2e-result.md").write_text(message["content"])
+    assert not db.execute(
+        "SELECT id FROM tools.approvals WHERE kind='computer.step'"
+    ).fetchone()
+
+
+def test_computer_document_becomes_owned_chat_attachment_with_idempotent_readback(
+    client, db
+):
+    conv = client.post(
+        "/api/v1/conversations", json={"title": "TEST_FIXTURE document return"}
+    ).json()["id"]
+    response = client.post(
+        f"/api/v1/conversations/{conv}/messages",
+        json={"client_message_id": str(uuid4()), "content": "COMPUTER_FILE_FIXTURE"},
+    )
+    response.raise_for_status()
+    run = wait(
+        lambda: db.execute(
+            "SELECT * FROM automation.runs WHERE origin_conversation_id=%s AND kind='COMPUTER'",
+            (conv,),
+        ).fetchone()
+    )
+    current = claim()
+    assert current["id"] == str(run["id"])
+    execute_claimed(current)
+
+    def attachment():
+        messages = client.get(f"/api/v1/conversations/{conv}/messages").json()["items"]
+        return next(
+            (
+                card
+                for message in messages
+                for card in message.get("cards") or []
+                if card["type"] == "file_attachment"
+            ),
+            None,
+        )
+
+    card = wait(attachment)
+    fid = card["data"]["id"]
+    downloaded = client.get("/api/v1/files/" + fid + "/content")
+    downloaded.raise_for_status()
+    assert b"TEST_FIXTURE document transfer" in downloaded.content
+    assert db.execute(
+        "SELECT owner_id,status FROM app.files WHERE id=%s", (fid,)
+    ).fetchone() == {"owner_id": run["owner_id"], "status": "READY"}
+    # Explicitly replay the idempotent App file port after a lost import reply.
+    with httpx.Client(trust_env=False) as internal:
+        replay = internal.post(
+            os.environ["ADEX_APP_URL"] + "/internal/files",
+            headers={
+                **sign("tools", "app", "file:write", run["owner_id"]),
+                "Idempotency-Key": "computer-file:" + str(run["id"]) + ":file:0",
+            },
+            files={
+                "file": (
+                    "fixture-document.pdf",
+                    b"%PDF-1.4\nTEST_FIXTURE document transfer\n",
+                    "application/pdf",
+                )
+            },
+        )
+        replay.raise_for_status()
+        assert replay.json()["id"] == fid
+    assert (
+        db.execute(
+            "SELECT count(*) n FROM app.files WHERE idempotency_key=%s",
+            ("computer-file:" + str(run["id"]) + ":file:0",),
+        ).fetchone()["n"]
+        == 1
+    )
+    with httpx.Client(base_url=os.environ["ADEX_TEST_URL"], trust_env=False) as other:
+        other.post(
+            "/api/v1/auth/register",
+            json={"username": "file_" + uuid4().hex[:10], "password": "fixture"},
+        ).raise_for_status()
+        assert other.get("/api/v1/files/" + fid + "/content").is_error

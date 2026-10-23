@@ -148,4 +148,4 @@ uv run python scripts/check_secrets.py
 
 新版工作空间统一为 **今日 / 对话 / 任务 / 资料**：聚合待核对操作、按截止日期组织待办、集中查看自动安排与执行记录，保存笔记及私有报告、文件。相关对话可读取当前账户的待办、笔记摘录、自动任务，以及已授权的 iPhone 系统日历。数据范围与临时快照清理机制见[体验契约](docs/architecture/unified-assistant-experience.md)。
 
-可选的 [Mac 应用操作](docs/runbooks/macos-computer.md) 使用绑定本机用户的原生辅助功能执行器，复用 Run 与逐动作审批。首批支持计算器和文本编辑，默认关闭；目前为有限适配器，尚非通用桌面控制。
+可选的 [Mac 应用操作](docs/runbooks/macos-computer.md) 使用绑定本机用户的原生辅助功能执行器，复用 Run 与逐动作审批。支持计算器、文本编辑控件及本机 Chrome 搜索；本机所有者可明确授权全部已安装应用，默认关闭；目前为有限适配器，尚非通用桌面控制。

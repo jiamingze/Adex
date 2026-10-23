@@ -13,6 +13,10 @@ class ComputerExecution(BaseModel):
     app_name: str = Field(min_length=1, max_length=200)
 
 
+class ComputerObservation(ComputerExecution):
+    search_query: str | None = Field(default=None, min_length=1, max_length=500)
+
+
 class ComputerAction(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     action: Literal["press", "set_value"]
@@ -25,3 +29,8 @@ class ComputerStep(ComputerExecution):
     command_key: str = Field(min_length=1, max_length=100)
     step: ComputerAction
     approval_id: UUID | None = None
+
+
+class ComputerFileExport(ComputerExecution):
+    file_path: str = Field(min_length=1, max_length=2048)
+    command_key: str = Field(min_length=1, max_length=100)

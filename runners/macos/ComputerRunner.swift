@@ -25,7 +25,7 @@ func tree(_ root: AXUIElement) -> ([[String: Any]], [String: AXUIElement]) {
   var elements = [String: AXUIElement]()
   var valueBudget = 16000
   func walk(_ element: AXUIElement, _ path: String, _ depth: Int) {
-    guard nodes.count < 250, depth < 16 else { return }
+    guard nodes.count < 600, depth < 28 else { return }
     let role = text(element, kAXRoleAttribute)
     let secure =
       text(element, kAXSubroleAttribute) == "AXSecureTextField" || role == "AXSecureTextField"
@@ -45,6 +45,7 @@ func tree(_ root: AXUIElement) -> ([[String: Any]], [String: AXUIElement]) {
             ? text(element, kAXDescriptionAttribute) : text(element, kAXTitleAttribute)).prefix(300)
         ),
       "identifier": secure ? "" : text(element, kAXIdentifierAttribute),
+      "url": secure ? "" : ((attribute(element, "AXURL") as? URL)?.absoluteString ?? ""),
       "value": secure ? "[redacted]" : value,
       "truncated": rawValue.count > value.count, "secure": secure,
       "settable": settable.boolValue && !secure,
@@ -63,6 +64,14 @@ func tree(_ root: AXUIElement) -> ([[String: Any]], [String: AXUIElement]) {
 func execute(_ input: [String: Any]) -> [String: Any] {
   if input["command"] as? String == "status" {
     return ["accessibility": AXIsProcessTrusted(), "platform": "macOS"]
+  }
+  if input["command"] as? String == "resolve" {
+    guard let name = input["bundle_id"] as? String,
+      let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: name)
+        ?? NSWorkspace.shared.fullPath(forApplication: name).map({ URL(fileURLWithPath: $0) }),
+      url.pathExtension == "app", let bundle = Bundle(url: url)?.bundleIdentifier
+    else { return ["error": "COMPUTER_APP_NOT_INSTALLED"] }
+    return ["bundle_id": bundle]
   }
   guard AXIsProcessTrusted() else { return ["error": "COMPUTER_ACCESSIBILITY_PERMISSION_REQUIRED"] }
   if let session = CGSessionCopyCurrentDictionary() as? [String: Any],
@@ -90,9 +99,73 @@ func execute(_ input: [String: Any]) -> [String: Any] {
     }
   }
   guard let target = app else { return ["error": "COMPUTER_APP_UNAVAILABLE"] }
-  let root = AXUIElementCreateApplication(target.processIdentifier)
-  AXUIElementSetMessagingTimeout(root, 2)
-  let (nodes, elements) = tree(root)
+  let application = AXUIElementCreateApplication(target.processIdentifier)
+  AXUIElementSetMessagingTimeout(application, 2)
+  let query = input["search_query"] as? String
+  if let query = query {
+    guard bundle == "com.google.Chrome", !query.isEmpty, query.count <= 500,
+      input["action"] == nil
+    else { return ["error": "COMPUTER_SEARCH_REQUIRES_CHROME"] }
+    var search = URLComponents(string: "https://www.google.com/search")!
+    search.queryItems = [URLQueryItem(name: "q", value: query)]
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.activates = true
+    var finished = false
+    var failed = false
+    NSWorkspace.shared.open([search.url!], withApplicationAt: url, configuration: configuration) {
+      _, error in
+      failed = error != nil
+      finished = true
+    }
+    let deadline = Date().addingTimeInterval(8)
+    while !finished && Date() < deadline {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+    guard finished && !failed else { return ["error": "COMPUTER_SEARCH_OPEN_FAILED"] }
+  }
+  if bundle == "com.google.Chrome" {
+    // Ask Chrome to expose rendered accessibility content; never execute page JS,
+    // inspect profiles/cookies, or enable an unauthenticated debugging port.
+    AXUIElementSetAttributeValue(application, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+  }
+  func currentRoot() -> AXUIElement {
+    if bundle == "com.google.Chrome", let window = attribute(application, kAXFocusedWindowAttribute)
+    {
+      return unsafeBitCast(window, to: AXUIElement.self)
+    }
+    return application
+  }
+  var (nodes, elements) = tree(currentRoot())
+  if query != nil {
+    // Browser loads asynchronously after NSWorkspace acknowledges the URL. Bound
+    // polling and read the visible document; opening a tab is not search success.
+    let deadline = Date().addingTimeInterval(8)
+    var loaded = false
+    while Date() < deadline {
+      let correctDocument = nodes.contains(where: { node in
+        guard node["role"] as? String == "AXWebArea",
+          let raw = node["url"] as? String, let address = URLComponents(string: raw)
+        else { return false }
+        return address.host == "www.google.com" && address.path == "/search"
+          && address.queryItems?.first(where: { $0.name == "q" })?.value == query
+      })
+      let hasResult = nodes.contains(where: { node in
+        guard node["role"] as? String == "AXLink",
+          let raw = node["url"] as? String, let host = URL(string: raw)?.host
+        else { return false }
+        return host != "google.com" && !host.hasSuffix(".google.com")
+          && host != "gstatic.com" && !host.hasSuffix(".gstatic.com")
+          && !(node["title"] as? String ?? "").isEmpty
+      })
+      if correctDocument && hasResult {
+        loaded = true
+        break
+      }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+      (nodes, elements) = tree(currentRoot())
+    }
+    if !loaded { return ["error": "COMPUTER_SEARCH_PAGE_UNAVAILABLE"] }
+  }
   guard nodes.count > 1 else { return ["error": "COMPUTER_APP_CONTROLS_UNAVAILABLE"] }
   let serialized = try! JSONSerialization.data(withJSONObject: nodes, options: [.sortedKeys])
   let hash = SHA256.hash(data: serialized).map { String(format: "%02x", $0) }.joined()

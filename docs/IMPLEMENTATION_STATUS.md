@@ -912,3 +912,61 @@ scripts, screenshot, global keyboard/coordinate actions, arbitrary filesystem AP
 universal custom UI support. Every mutation requires an exact approval. A native command
 receipt does not prove external business success. Broader apps require explicit local
 configuration and further acceptance tests; see the [runbook](runbooks/macos-computer.md).
+
+## 2026-10-23 — Chrome routing, whole-Mac app policy and private document return
+
+- Add explicit `all_installed` host policy while retaining exact owner binding. Resolve
+  installed applications before creating Runs; allowlist remains the deployment default.
+  This local owner explicitly opted into all installed apps and Desktop document access.
+- Schema-guided task-plan repair includes safe validation locations and the failed
+  proposal. Chrome search remains one COMPUTER goal; parsing failure no longer asks for
+  a schedule time. Two actual Qwen file-selection checks passed with invented filenames,
+  including selecting “1” from prior options; no personal documents were model fixtures.
+- Native Chrome opens Google using a fixed HTTPS query constructor, reads only the
+  focused document, waits for real result links and returns observed source evidence.
+  No remote-debugging port, profile/cookie extraction or page JS. Initial planning does
+  not inspect an unrelated existing page. Search summaries exclude account/header/footer.
+- Render search results from observed headings, excerpts and URLs as at most five
+  numbered named links, with timestamp/provenance; no raw model URL dump or “desktop
+  stopped” success prefix. Fixture tests cover Markdown/URL safety and title duplication.
+- `computer.start.file_path` freezes an explicit return request. Automation returns
+  that exact live-Run file grant; Tools rejects browser-task escalation before reading.
+  Desktop regular files are bounded, no-follow and imported through App File API only.
+  READY/hash/size readback and stable Run/step keys produce an owned file card. No DB
+  migration. A Finder button is no longer misused to transfer files to the phone.
+
+Validation:
+
+- `make format build test check-style`: passed (scripts/client/Java, Agent 125, Tools 141;
+  OpenAPI 100 operations, architecture and formatting checks).
+- `uv run python scripts/test_stack.py`: **99 passed, 2 skipped in 391.02s** after fixing
+  an unrelated push-test account collision. Each push test now has a private account;
+  the production 30-second notification limit remains enforced.
+- Final targeted integration with computer/file flow, stale worker recovery and offline
+  push: **5 passed, 2 skipped in 32.78s**. Synthetic document bytes through real isolated
+  PG/HTTP: private download, cross-user rejection, exact grant denial and idempotent
+  import replay. No production database or personal files used as development fixtures.
+- Opt-in real Chrome/Qwen flow is tracked separately from fixture acceptance. Native
+  search and source readback have run against actual Chrome; provider output/network
+  remain external dependencies, not an overall reliability-rate benchmark.
+- Signed iOS build succeeded. Updated `io.adex.personal` installed and launched on the
+  connected iPhone using devicectl. The new system share/save sheet still requires a
+  user tap for physical-device acceptance; do not claim a file was saved without it.
+- Local public App API returned actual JSON 401 unauthenticated. Four services/Redis UP.
+  Secrets remain excluded; private screenshots, runtime data and keys are not Git files.
+
+Limits: AX controls remain bounded; custom-rendered software is not universally
+operable. Document return supports single files up to 25 MiB, not app bundles/folders.
+Whole-Mac application access does not grant arbitrary file export or shell execution.
+
+Final external check: `ADEX_TEST_REAL_CHROME=1 uv run python scripts/test_stack.py tests/integration/test_computer.py::test_actual_chrome_search_returns_to_original_conversation -q`
+returned **1 passed in 16.56s** with actual Chrome and Qwen, structured headings and
+private original-conversation readback. An earlier real invocation exposed invalid
+operator JSON; the operator now has a strict generated schema and one bounded
+validation repair on journaled model output, with no tool-effect replay. The final
+repair unit test passed; the live check is a targeted case, not a global success claim.
+
+Native bundle/install commands: `pnpm --dir apps/ios bundle`;
+`xcodebuild -project apps/ios/ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .local-data/computer-files-ios -allowProvisioningUpdates build`;
+`xcrun devicectl device install app --device <connected-device> .local-data/computer-files-ios/Build/Products/Debug-iphoneos/App.app`.
+Observed BUILD SUCCEEDED, App installed, and successful launch of io.adex.personal.

@@ -1926,3 +1926,5 @@ html.native-app .shell{animation:adex-launch-reveal .18s ease-out}
 .schedule-edit-content textarea{resize:none}
 
 .computer-action-card{border:1px solid var(--line,#e6e9e8);border-radius:16px;padding:16px;max-width:100%;overflow-wrap:anywhere}.computer-action-card dl{margin:12px 0}.computer-action-card dl>div{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;margin:8px 0}.computer-action-card dt,.computer-action-card small{color:var(--muted,#767d7b);font-size:12px}.computer-action-card dd{margin:0;white-space:pre-wrap}
+
+.file-return-card{display:flex;flex-wrap:wrap;align-items:center;gap:12px;max-width:100%;padding:14px;border:1px solid var(--border,#e5e7eb);border-radius:16px}.file-return-card>div{flex:1;min-width:0}.file-return-card strong{display:block;overflow-wrap:anywhere;font-size:15px}.file-return-card small{display:block;color:var(--muted,#777);font-size:12px;margin-top:4px}.file-return-card>svg,.file-return-card>button{flex-shrink:0}.file-return-card p{flex-basis:100%;margin:0;font-size:13px}

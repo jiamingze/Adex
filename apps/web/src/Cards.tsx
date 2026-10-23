@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { workspaceApi, api } from "./api";
+import { FileAttachmentCard } from "./FileAttachmentCard";
 import { ComputerApprovalCard } from "./ComputerApprovalCard";
 import { BrowserTaskCard } from "./BrowserTaskCard";
 import type { MusicTrack } from "./api";
@@ -388,6 +389,7 @@ const registry: Record<string, (card: Card) => React.ReactNode> = {
       打开我的音频播放列表
     </button>
   ),
+  file_attachment: (card) => <FileAttachmentCard data={card.data || {}} />,
   computer_approval: (card) => <ComputerApprovalCard id={String(card.data?.action_id || "")} />,
   approval_request: () => (
     <button className="button" onClick={() => go("tools")}>

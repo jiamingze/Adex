@@ -56,8 +56,20 @@ public class AutomationGateway {
       throw Kernel.error(403, "SIGN_IN_REQUIRED");
     chat.own(owner, Kernel.uuid(body.get("origin_conversation_id")));
     if ("COMPUTER".equals(body.get("kind"))) {
+      Object params = body.get("params");
+      if (!(params instanceof Map<?, ?> p)
+          || !(p.get("app_name") instanceof String app)
+          || app.isBlank()) throw Kernel.error(400, "COMPUTER_APP_REQUIRED");
       var capability =
-          k.call("tools", "computer:read", owner, null, "GET", "/internal/computer/status", null);
+          k.call(
+              "tools",
+              "computer:read",
+              owner,
+              null,
+              "GET",
+              "/internal/computer/status?app_name="
+                  + java.net.URLEncoder.encode(app, java.nio.charset.StandardCharsets.UTF_8),
+              null);
       if (!"READY".equals(capability.get("availability")))
         throw Kernel.error(409, "COMPUTER_ACCESSIBILITY_PERMISSION_REQUIRED");
     }

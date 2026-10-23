@@ -96,13 +96,19 @@ public class RunExecutionService {
               && Set.of("IMAGE", "AUDIO", "VIDEO").contains(run.get("kind"))
               && id.toString().equals(String.valueOf(b.get("request_key")));
     if (!live) throw Kernel.error(409, "STALE_EXECUTION");
+    String computerFile = "";
+    if ("COMPUTER".equals(run.get("kind"))
+        && k.decode(String.valueOf(run.get("request"))).get("params") instanceof Map<?, ?> params
+        && params.get("file_path") instanceof String path) computerFile = path;
     return Map.of(
         "ok",
         true,
         "origin_conversation_id",
         run.get("origin_conversation_id"),
         "kind",
-        run.get("kind"));
+        run.get("kind"),
+        "computer_file_path",
+        computerFile);
   }
 
   public Object heartbeat(Map<String, Object> claims, UUID id, Map<String, Object> b) {
@@ -321,6 +327,24 @@ public class RunExecutionService {
                             : "本次任务未完成（" + code + "），请查看运行记录。";
             if (code.startsWith("BROWSER_ERR_") || code.equals("BROWSER_NAVIGATION_TIMEOUT"))
               message = "网页连接暂时未能建立，尚未取得查询结果，也未提交操作。请稍后重试；如需登录或验证，会在当前会话展示。";
+            if (code.startsWith("COMPUTER_"))
+              message =
+                  switch (code) {
+                    case "COMPUTER_FILE_NOT_REQUESTED" -> "本次请求没有指定需要回传的文件。请告诉我准确文件名，再把它作为附件发送。";
+                    case "COMPUTER_FILE_ROOT_NOT_GRANTED", "COMPUTER_FILE_OUTSIDE_GRANTED_ROOT" ->
+                        "该文件不在本机已配置的文档访问目录中，暂时无法发送。";
+                    case "COMPUTER_FILE_ACCESS_DENIED" -> "macOS 暂未允许读取该文件，请检查它的访问权限。";
+                    case "COMPUTER_FILE_UNAVAILABLE", "COMPUTER_REGULAR_FILE_REQUIRED" ->
+                        "没有找到可读取的普通文件。请确认文件名；当前不支持发送整个文件夹或应用程序目录。";
+                    case "COMPUTER_FILE_SIZE_LIMIT" -> "该附件超过当前 25 MB 的回传上限，请选择较小文件。";
+                    case "COMPUTER_SEARCH_PAGE_UNAVAILABLE",
+                        "COMPUTER_SEARCH_NO_VERIFIED_RESULTS" ->
+                        "Chrome 已打开，但这次未读取到可核实的搜索结果，请稍后重试。";
+                    case "COMPUTER_APP_NOT_INSTALLED" -> "没有找到指定的本机应用，请确认安装情况或提供准确名称。";
+                    case "COMPUTER_CONTROL_NOT_ALLOWED", "COMPUTER_APP_CONTROLS_UNAVAILABLE" ->
+                        "当前应用的这个控件暂时无法操作，这一步尚未完成。";
+                    default -> "本机操作这一步未完成，请查看运行记录中的具体原因。";
+                  };
             if (code.equals("PROVIDER_UNKNOWN")) message = "本次供应商调用结果未知，系统已停止自动重试，请核对运行记录。";
             var payload =
                 new LinkedHashMap<String, Object>(

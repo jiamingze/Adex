@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Return explicitly requested Desktop documents to the original chat through App-owned private attachments, with frozen Run file scope, bounded no-follow reads, idempotent import and hash/size readback. Add iOS Save to Files through a native share sheet.
+- Format local Chrome results as named source links and excerpts with query time; remove raw URL dumps, duplicated headings and the misleading “desktop stopped” label.
+
+- Repair semantic Chrome requests and schema-guided retries; preflight installed app access before task creation. Add explicit owner-bound whole-Mac application policy and real Chrome search with source readback, without write approval for search. Exclude pre-existing tabs/account/footer from search summaries.
+
 - Add optional owner-bound macOS accessibility operation: existing Automation Runs, chat approvals, native UI snapshots and effect receipts. Initial Calculator/TextEdit allowlist; disabled by default, no shell or unrestricted desktop access. See `docs/runbooks/macos-computer.md`.
 
 - Restore already-authorized iPhone push registration after login and foregrounding even when logout/reinstallation removed the local device hint. Respect account opt-out and iOS denial without another permission prompt; discard stale authentication callbacks.

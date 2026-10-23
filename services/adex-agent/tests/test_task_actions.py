@@ -83,3 +83,46 @@ def test_frequency_changes_cannot_silently_ignore_incompatible_timing():
                 {"tool": "schedule.update", "target_id": data["schedules"][0]["id"], "arguments": arguments},
                 data,
             )
+
+
+async def test_chrome_search_repair_preserves_goal_without_schedule_fields():
+    import json
+
+    request = "帮我打开Mac上的浏览器Chrome浏览器然后搜一下CET版结果给我"
+    calls = []
+
+    class Runtime:
+        async def invoke(self, key, owner, messages):
+            calls.append(messages)
+            yield {
+                "type": "completed",
+                "content": json.dumps(
+                    {
+                        "tool": "computer.start",
+                        "arguments": {
+                            "goal": request,
+                            "app_name": "Chrome",
+                            **({"query": "CET版"} if len(calls) == 1 else {}),
+                        },
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+
+    result = await plan_task(
+        Runtime(), "owner", "chrome-repair", {"request": request, "todos": [], "schedules": []}
+    )
+    assert result["tool"] == "computer.start"
+    assert result["arguments"] == {"goal": request, "app_name": "Chrome"}
+    assert "extra_forbidden" in calls[1][-1]["content"]
+    assert calls[1][-2]["role"] == "assistant"
+
+
+async def test_failed_parameters_do_not_invent_a_schedule_requirement():
+    class Runtime:
+        async def invoke(self, *args):
+            yield {"type": "completed", "content": "{}"}
+
+    result = await plan_task(Runtime(), "owner", "failure", {"request": "打开Chrome搜索CET版"})
+    assert "事项及时间" not in result["message"]
+    assert "尚未执行" in result["message"]

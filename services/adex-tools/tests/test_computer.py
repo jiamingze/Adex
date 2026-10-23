@@ -34,3 +34,51 @@ async def test_fixture_never_activates_on_real_db(monkeypatch):
     with pytest.raises(HTTPException) as error:
         await MacRunner().call({"command": "status"})
     assert error.value.status_code == 503
+
+
+def test_chrome_alias_and_preflight_reject_unknown_app(monkeypatch):
+    owner = uuid4()
+    monkeypatch.setenv("ADEX_COMPUTER_ENABLED", "true")
+    monkeypatch.setenv("ADEX_COMPUTER_OWNER_ID", str(owner))
+    monkeypatch.setenv("ADEX_COMPUTER_APPS", "Chrome=com.google.Chrome,谷歌浏览器=com.google.Chrome")
+    service = ComputerService(None)
+    assert service.grant(owner, "Chrome") == service.grant(owner, "谷歌浏览器")
+    with pytest.raises(HTTPException):
+        service.grant(owner, "Safari")
+
+
+def test_search_contract_is_bounded_and_not_an_arbitrary_command():
+    from adex_tools.computer.contracts import ComputerObservation
+
+    body = dict(run_id=uuid4(), epoch=1, attempt_id=uuid4(), app_name="Chrome", search_query="ChatGPT")
+    assert ComputerObservation(**body).search_query == "ChatGPT"
+    for extra in ({"url": "file:///etc/passwd"}, {"search_query": "x" * 501}, {"search_query": ""}):
+        with pytest.raises(ValueError):
+            ComputerObservation(**{**body, **extra})
+
+
+def test_whole_mac_policy_is_explicit_and_still_owner_bound(monkeypatch):
+    owner = uuid4()
+    monkeypatch.setenv("ADEX_COMPUTER_ENABLED", "true")
+    monkeypatch.setenv("ADEX_COMPUTER_OWNER_ID", str(owner))
+    monkeypatch.setenv("ADEX_COMPUTER_APP_POLICY", "all_installed")
+    service = ComputerService(None)
+    assert service.grant(owner, "Safari") == "Safari"
+    with pytest.raises(HTTPException):
+        service.grant(uuid4(), "Safari")
+
+
+async def test_search_cannot_navigate_an_unrelated_app(monkeypatch):
+    owner = uuid4()
+    monkeypatch.setenv("ADEX_COMPUTER_ENABLED", "true")
+    monkeypatch.setenv("ADEX_COMPUTER_OWNER_ID", str(owner))
+    monkeypatch.setenv("ADEX_COMPUTER_APPS", "计算器=com.apple.calculator")
+
+    class Runner:
+        async def call(self, body):
+            assert body["command"] == "resolve"
+            return {"bundle_id": "com.apple.calculator"}
+
+    with pytest.raises(HTTPException) as error:
+        await ComputerService(None, Runner()).observe(owner, {"app_name": "计算器", "search_query": "CET版"})
+    assert error.value.detail == "COMPUTER_SEARCH_REQUIRES_CHROME"

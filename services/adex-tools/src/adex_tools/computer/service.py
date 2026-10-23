@@ -21,6 +21,8 @@ class ComputerService:
         apps = dict(pairs)
         if app_name is None:
             return apps
+        if os.getenv("ADEX_COMPUTER_APP_POLICY", "allowlist") == "all_installed":
+            return apps.get(app_name, app_name)
         bundle = apps.get(app_name) or next((b for b in apps.values() if b == app_name), None)
         if bundle in {
             "com.apple.Terminal",
@@ -33,14 +35,24 @@ class ComputerService:
             raise HTTPException(403, "COMPUTER_APP_NOT_GRANTED")
         return bundle
 
-    async def status(self, owner):
+    async def resolve(self, owner, app_name):
+        target = self.grant(owner, app_name)
+        result = await self.runner.call({"command": "resolve", "bundle_id": target})
+        if not result.get("bundle_id"):
+            raise HTTPException(409, "COMPUTER_APP_NOT_INSTALLED")
+        return result["bundle_id"]
+
+    async def status(self, owner, app_name=None):
         apps = self.grant(owner)
+        if app_name is not None:
+            await self.resolve(owner, app_name)
         result = await self.runner.call({"command": "status"})
         return {
             "availability": "READY"
             if result.get("accessibility")
             else "COMPUTER_ACCESSIBILITY_PERMISSION_REQUIRED",
             "apps": list(apps),
+            "app_policy": os.getenv("ADEX_COMPUTER_APP_POLICY", "allowlist"),
         }
 
     async def authorize(self, owner, body):
@@ -95,7 +107,10 @@ class ComputerService:
             )
 
     async def observe(self, owner, body):
-        bundle = self.grant(owner, body["app_name"])
+        bundle = await self.resolve(owner, body["app_name"])
+        query = body.get("search_query")
+        if query is not None and bundle != "com.google.Chrome":
+            raise HTTPException(400, "COMPUTER_SEARCH_REQUIRES_CHROME")
         # Opportunistic retention cleanup uses the existing request path, not a new scheduler.
         await self.core.query(
             "DELETE FROM computer_observations WHERE owner_id=%s AND created_at<clock_timestamp()-interval '1 day'",
@@ -103,7 +118,7 @@ class ComputerService:
         )
         await self.authorize(owner, body)
         async with self.command():
-            snapshot = await self.runner.call({"bundle_id": bundle})
+            snapshot = await self.runner.call({"bundle_id": bundle, "search_query": query})
             await self.authorize(owner, body)
             identifier = uuid4()
             await self.core.query(
@@ -113,7 +128,7 @@ class ComputerService:
             return {"observation_id": str(identifier), **snapshot}
 
     async def step(self, owner, body):
-        bundle = self.grant(owner, body["app_name"])
+        bundle = await self.resolve(owner, body["app_name"])
         run = await self.authorize(owner, body)
         observed = await self.core.query(
             "SELECT * FROM computer_observations WHERE id=%s AND owner_id=%s AND run_id=%s AND created_at>clock_timestamp()-interval '10 minutes'",

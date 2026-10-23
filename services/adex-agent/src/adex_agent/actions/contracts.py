@@ -67,6 +67,7 @@ class ComputerStart(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     goal: str = Field(min_length=2, max_length=16000)
     app_name: str = Field(min_length=1, max_length=200)
+    file_path: str | None = Field(default=None, min_length=1, max_length=2048)
 
 
 class WorkflowStart(BaseModel):

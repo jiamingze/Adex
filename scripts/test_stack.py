@@ -1,6 +1,8 @@
 """Isolated real-PG stack: 3 schedulers, mock model, explicit SIGKILL recovery tests."""
 
 import os
+import base64
+from secrets import token_bytes
 import sys
 import signal
 import shutil
@@ -14,6 +16,11 @@ from config import load, ROOT
 from dev import service_env
 
 e = load()
+chrome_live_key = (
+    e.get("DASHSCOPE_API_KEY", "")
+    if os.environ.get("ADEX_TEST_REAL_CHROME") == "1"
+    else ""
+)
 if e["ADEX_PG_HOST"] not in ("127.0.0.1", "localhost") or e["ADEX_PG_DB"] != "adex_dev":
     raise SystemExit(
         "Test runner only targets the isolated local development PostgreSQL instance."
@@ -55,11 +62,8 @@ e["ADEX_VISION_PROVIDER"] = "disabled"
 e["ADEX_VISION_API_KEY"] = ""
 e["ADEX_MEDIA_WEBHOOK_SECRET"] = "adex-integration-webhook-fixture"
 # External fixtures only run against a random adex_test_* database.
-import base64
 
 e["ADEX_BROWSER_ENCRYPTION_KEY"] = base64.b64encode(os.urandom(32)).decode()
-from secrets import token_bytes
-
 e["ADEX_CONNECTOR_TEST_FIXTURE"] = "true"
 e["ADEX_APNS_TEST_FIXTURE"] = "true"
 e["ADEX_CONNECTOR_ENCRYPTION_KEY"] = base64.b64encode(token_bytes(32)).decode()
@@ -83,10 +87,17 @@ try:
     subprocess.run(
         ["uv", "run", "python", "scripts/migrate.py"], cwd=ROOT, env=e, check=True
     )
+    document_root = ROOT / ".local-data" / name / "computer-documents"
+    document_root.mkdir(parents=True, exist_ok=True)
+    (document_root / "fixture-document.pdf").write_bytes(
+        b"%PDF-1.4\nTEST_FIXTURE document transfer\n"
+    )
+    e["ADEX_COMPUTER_FILE_ROOTS"] = str(document_root)
     # The native fixture binds to the normal test owner after App bootstrap; never
     # seed or alter credentials just to configure a runner.
     e.update(
         ADEX_COMPUTER_TEST_FIXTURE="true",
+        ADEX_COMPUTER_APP_POLICY="allowlist",
         ADEX_COMPUTER_ENABLED="true",
         ADEX_COMPUTER_OWNER_ID="",
         ADEX_COMPUTER_APPS="测试应用=io.adex.fixture",
@@ -97,6 +108,15 @@ try:
         e["ADEX_COMPUTER_RUNNER"] = str(
             ROOT / ".local-data/computer-runner/AdexComputerRunner"
         )
+    if os.environ.get("ADEX_TEST_REAL_CHROME") == "1":
+        e["ADEX_COMPUTER_TEST_FIXTURE"] = "false"
+        e["ADEX_COMPUTER_APP_POLICY"] = "all_installed"
+        e["ADEX_COMPUTER_APPS"] = "Chrome=com.google.Chrome"
+        e["ADEX_COMPUTER_RUNNER"] = str(
+            ROOT / ".local-data/computer-runner/AdexComputerRunner"
+        )
+        e["ADEX_MODEL_PROVIDER"] = "qwen"
+        e["DASHSCOPE_API_KEY"] = chrome_live_key
     os.environ.update(e)
     redislog = (ROOT / ".local-data/test-redis.log").open("w")
     logs.append(redislog)
