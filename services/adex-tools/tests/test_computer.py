@@ -82,3 +82,14 @@ async def test_search_cannot_navigate_an_unrelated_app(monkeypatch):
     with pytest.raises(HTTPException) as error:
         await ComputerService(None, Runner()).observe(owner, {"app_name": "计算器", "search_query": "CET版"})
     assert error.value.detail == "COMPUTER_SEARCH_REQUIRES_CHROME"
+
+
+async def test_navigation_rejects_private_addresses_before_runner(monkeypatch):
+    from adex_tools.computer.service import ComputerService
+    class Service(ComputerService):
+        async def resolve(self,*args):return 'com.google.Chrome'
+    service=Service(None)
+    for url in ('http://example.com','https://localhost/','https://127.0.0.1/','https://user:pass@example.com/'):
+        with pytest.raises(HTTPException) as error:
+            await service.observe('owner',{'app_name':'Chrome','navigate_url':url})
+        assert error.value.detail=='COMPUTER_PUBLIC_HTTPS_REQUIRED'

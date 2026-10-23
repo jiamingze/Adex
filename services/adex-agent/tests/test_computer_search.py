@@ -125,3 +125,36 @@ async def test_operator_repairs_wrong_search_fields_without_any_execution():
     )
     assert result.action == "search" and result.text == "CET版" and len(calls) == 2
     assert "extra_forbidden" in calls[1][-1]["content"]
+
+
+async def test_navigation_is_allowed_as_first_action_and_empty_block_is_repaired():
+    from adex_agent.computer.planner import plan_operation
+    import json
+    class Runtime:
+        def __init__(self, plans): self.plans=iter(plans)
+        async def invoke(self,*args):yield {'type':'completed','content':json.dumps(next(self.plans))}
+    runtime=Runtime([{'action':'navigate','text':'https://www.youtube.com/'}])
+    plan=await plan_operation(runtime,'owner','key',[{'role':'system','content':''}],{'status':'not_observed'})
+    assert plan.action=='navigate'
+    runtime=Runtime([{'action':'blocked','text':''},{'action':'blocked','text':'页面显示网络连接失败'}])
+    plan=await plan_operation(runtime,'owner','key',[{'role':'system','content':''}],{})
+    assert plan.text=='页面显示网络连接失败'
+
+
+async def test_navigation_is_checkpointed_before_dispatch_and_returns_observed_link():
+    calls, checkpoints = [], []
+    async def call(*args, **kwargs):
+        assert checkpoints
+        assert args[4]['navigate_url']=='https://example.com/'
+        calls.append(args)
+        return {'nodes':[{'role':'AXLink','title':'Example','url':'https://example.com/item'}]}
+    async def save(*args):checkpoints.append(args);return 'checkpoint'
+    async def write(*args):pass
+    plans=iter([{'action':'navigate','text':'https://example.com/'},{'action':'done','text':'[Example](https://example.com/item)'}])
+    async def invoke(*args):yield {'type':'completed','content':json.dumps(next(plans))}
+    worker=SimpleNamespace(core=SimpleNamespace(call=call),checkpoints=SimpleNamespace(save_checkpoint=save),run_write=write,runtime=SimpleNamespace(invoke=invoke))
+    run={'id':'run','owner_id':'owner','epoch':1,'attempt_id':'attempt','instruction':'打开网站返回链接','request':{'params':{'app_name':'Chrome'}}}
+    result=await ComputerWorkflow(worker).run(run,{'memory_revision':1},None)
+    assert result['artifact']['computer_status']=='DONE'
+    assert len(calls)==1
+    assert 'https://example.com/item' in result['content']

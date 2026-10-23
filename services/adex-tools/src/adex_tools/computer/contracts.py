@@ -14,6 +14,7 @@ class ComputerExecution(BaseModel):
 
 
 class ComputerObservation(ComputerExecution):
+    navigate_url: str | None = Field(default=None, min_length=1, max_length=2048)
     search_query: str | None = Field(default=None, min_length=1, max_length=500)
 
 

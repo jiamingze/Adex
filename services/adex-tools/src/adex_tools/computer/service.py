@@ -109,6 +109,24 @@ class ComputerService:
     async def observe(self, owner, body):
         bundle = await self.resolve(owner, body["app_name"])
         query = body.get("search_query")
+        navigate = body.get("navigate_url")
+        if navigate:
+            from urllib.parse import urlsplit
+            from adex_tools.runners.browser_policy import admitted_hosts, resolve_public_hosts
+            import asyncio
+
+            try:
+                address = urlsplit(navigate)
+                if address.scheme != "https" or query or bundle != "com.google.Chrome":
+                    raise ValueError()
+                admitted_hosts(navigate)
+                resolved = await asyncio.wait_for(
+                    asyncio.to_thread(resolve_public_hosts, (address.hostname,)), 4
+                )
+                if address.hostname not in resolved:
+                    raise ValueError()
+            except Exception:
+                raise HTTPException(400, "COMPUTER_PUBLIC_HTTPS_REQUIRED") from None
         if query is not None and bundle != "com.google.Chrome":
             raise HTTPException(400, "COMPUTER_SEARCH_REQUIRES_CHROME")
         # Opportunistic retention cleanup uses the existing request path, not a new scheduler.
@@ -118,7 +136,9 @@ class ComputerService:
         )
         await self.authorize(owner, body)
         async with self.command():
-            snapshot = await self.runner.call({"bundle_id": bundle, "search_query": query})
+            snapshot = await self.runner.call(
+                {"bundle_id": bundle, "search_query": query, "navigate_url": navigate}
+            )
             await self.authorize(owner, body)
             identifier = uuid4()
             await self.core.query(

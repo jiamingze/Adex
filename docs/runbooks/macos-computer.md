@@ -108,3 +108,15 @@ blob access; the updated iOS client opens the system share sheet, including Save
 Files. iOS uses a temporary local copy removed after share completion/cancellation.
 A client update is needed for this new card/native plugin. Physical-device installation
 is verified separately from the user completing the share/save flow.
+
+### Direct webpage navigation
+
+The computer operator supports `navigate` with a public HTTPS URL in `text`, besides
+Google `search`. Tools validates public address admission, then the native helper
+opens it in the user's installed Chrome/profile and reads the focused page AX tree.
+Opening/reading does not need an action approval. Arbitrary scripts, local/private
+network URLs and shell commands are outside this capability. Mutating controls keep
+the existing effect/approval/fencing path. `blocked` plans must have a user-facing
+reason; blank completion text is invalid and receives bounded schema repair.
+No migration or second task engine is needed; navigation intent uses existing immutable
+checkpoint + authoritative Run checkpoint-ref commit before native dispatch.

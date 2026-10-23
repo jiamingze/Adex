@@ -418,3 +418,33 @@ def test_computer_document_becomes_owned_chat_attachment_with_idempotent_readbac
             json={"username": "file_" + uuid4().hex[:10], "password": "fixture"},
         ).raise_for_status()
         assert other.get("/api/v1/files/" + fid + "/content").is_error
+
+
+@pytest.mark.skipif(os.getenv('ADEX_TEST_REAL_CHROME') != '1',reason='Opt-in actual Chrome/Qwen; isolated DB')
+def test_actual_chrome_youtube_navigation_returns_observed_video_without_approval(client,db):
+    conv=client.post('/api/v1/conversations',json={'title':'TEST_FIXTURE requested YouTube navigation'}).json()['id']
+    client.post(f'/api/v1/conversations/{conv}/messages',json={'client_message_id':str(uuid4()),'content':'打开我的Mac上的Chrome，直接访问YouTube首页，把首页推荐的第一个视频标题和链接发给我。不要用Google搜索YouTube。'}).raise_for_status()
+    run=wait(lambda:db.execute("SELECT * FROM automation.runs WHERE origin_conversation_id=%s AND kind='COMPUTER'",(conv,)).fetchone(),timeout=60)
+    active=claim();assert active['id']==str(run['id'])
+    execute_claimed(active)
+    current=db.execute('SELECT status,error_code FROM automation.runs WHERE id=%s',(run['id'],)).fetchone()
+    if current['status']!='COMPLETED':
+        debug=db.execute("SELECT result FROM agent.invocations WHERE invocation_key LIKE %s ORDER BY created_at",('%'+str(run['id'])+'%',)).fetchall()
+        (ROOT/'.local-data/youtube-e2e-debug.json').write_text(json.dumps(debug,default=str,ensure_ascii=False))
+    assert current['status']=='COMPLETED',current
+    result=wait(lambda:next((m for m in client.get(f'/api/v1/conversations/{conv}/messages').json()['items'] if m['role']=='assistant' and 'youtube.com/watch?v=' in m['content']),None),timeout=30)
+    assert '桌面操作受阻' not in result['content']
+    snapshots=db.execute('SELECT snapshot FROM tools.computer_observations WHERE run_id=%s',(run['id'],)).fetchall()
+    from urllib.parse import urlsplit
+    homepage_seen=False
+    observed_urls=set()
+    for row in snapshots:
+        for node in row['snapshot'].get('nodes',[]):
+            url=node.get('url','')
+            observed_urls.add(url)
+            if node.get('role')=='AXWebArea' and urlsplit(url).hostname in ('youtube.com','www.youtube.com') and urlsplit(url).path in ('','/'):
+                homepage_seen=True
+    assert homepage_seen, 'Must actually observe the homepage, not search snippets or another page'
+    assert any('youtube.com/watch?v=' in url and url in result['content'] for url in observed_urls)
+    assert not db.execute("SELECT id FROM tools.approvals WHERE kind='computer.step'").fetchone()
+    (ROOT/'.local-data/youtube-e2e-result.md').write_text(result['content'])

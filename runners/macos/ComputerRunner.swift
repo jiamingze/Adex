@@ -101,6 +101,26 @@ func execute(_ input: [String: Any]) -> [String: Any] {
   guard let target = app else { return ["error": "COMPUTER_APP_UNAVAILABLE"] }
   let application = AXUIElementCreateApplication(target.processIdentifier)
   AXUIElementSetMessagingTimeout(application, 2)
+  let navigation = input["navigate_url"] as? String
+  if let navigation = navigation {
+    guard bundle == "com.google.Chrome", input["action"] == nil,
+      input["search_query"] == nil || input["search_query"] is NSNull,
+      let address = URL(string: navigation), address.scheme == "https",
+      address.user == nil, address.password == nil,
+      let host = address.host, host.contains("."), host != "localhost",
+      !host.hasSuffix(".local"), address.port == nil || address.port == 443
+    else { return ["error": "COMPUTER_PUBLIC_HTTPS_REQUIRED"] }
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.activates = true
+    var finished = false
+    var failed = false
+    NSWorkspace.shared.open([address], withApplicationAt: url, configuration: configuration) { _, error in
+      failed = error != nil; finished = true
+    }
+    let deadline = Date().addingTimeInterval(4)
+    while !finished && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+    guard finished && !failed else { return ["error": "COMPUTER_NAVIGATION_OPEN_FAILED"] }
+  }
   let query = input["search_query"] as? String
   if let query = query {
     guard bundle == "com.google.Chrome", !query.isEmpty, query.count <= 500,
@@ -165,6 +185,26 @@ func execute(_ input: [String: Any]) -> [String: Any] {
       (nodes, elements) = tree(currentRoot())
     }
     if !loaded { return ["error": "COMPUTER_SEARCH_PAGE_UNAVAILABLE"] }
+  }
+  if let navigation = navigation, let expected = URL(string: navigation) {
+    let deadline = Date().addingTimeInterval(8)
+    var loaded = false
+    while Date() < deadline {
+      let correctPage = nodes.contains { node in
+        guard node["role"] as? String == "AXWebArea", let raw = node["url"] as? String,
+          let actual = URL(string: raw) else { return false }
+        return actual.host == expected.host && actual.path == expected.path
+      }
+      let hasContent = nodes.contains { $0["role"] as? String == "AXLink" && !($0["url"] as? String ?? "").isEmpty }
+      if correctPage && hasContent { loaded = true; break }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+      (nodes, elements) = tree(currentRoot())
+    }
+    if !loaded {
+      // A browser acknowledgement is not page readiness. Keep the existing Run
+      // alive for a subsequent observation rather than claiming a permission fault.
+      return ["status": "loading", "target_url": navigation, "nodes": []]
+    }
   }
   guard nodes.count > 1 else { return ["error": "COMPUTER_APP_CONTROLS_UNAVAILABLE"] }
   let serialized = try! JSONSerialization.data(withJSONObject: nodes, options: [.sortedKeys])

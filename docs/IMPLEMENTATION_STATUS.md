@@ -1005,3 +1005,33 @@ Known limits: one stream per user, 45-second capture budget, 15-second finalizat
 network access and a funded/authorized DashScope account are required. No silent
 fallback to Apple or fabricated transcript when Alibaba fails. Browser capture currently
 uses ScriptProcessorNode; AudioWorklet migration remains a latency optimization.
+
+## Direct native Chrome navigation and actionable computer errors (2026-10-23)
+
+The native computer operator previously offered only Google `search` plus generic
+AX controls. “Open YouTube homepage” could become a search for “YouTube home page”,
+then an empty `blocked` plan produced an empty user-facing error. Host policy was
+already `all_installed`; granting more macOS permissions would not repair this gap.
+
+Added `navigate` to the typed operator vocabulary and `navigate_url` to Tools
+observations. Tools admits public HTTPS destinations and verifies public DNS before
+native Chrome navigation. Reading/opening uses the existing observation path, without
+an approval. The signed helper uses the user's existing installed Chrome/profile;
+it exposes no scripts, debug port, cookies or passwords. Native page readiness has a
+bounded poll, and slow loads return `loading` for subsequent observation. Repeated
+navigation does not reload a still-rendering page. The planner rejects blank final
+reports, completion while loading, repeated navigation and unobserved result URLs.
+Web observations sent to the model focus on page content rather than browser chrome.
+
+State ownership is unchanged: navigation intent is checkpointed before native dispatch
+and the existing Automation Run/lease/fencing and Tools command mutex stay authoritative.
+No migration or additional scheduler. Existing write approvals and file grants remain.
+
+Validation: `make build test check-style` passed (33 client tests, Java tests,
+127 Agent tests, 147 Tools tests, 101 OpenAPI operations, architecture/style).
+`uv run python scripts/build_computer_runner.py` compiled and signed the helper.
+Real isolated-DB Chrome/Qwen YouTube end-to-end checks passed, returning an actual
+observed homepage video title/link to the originating conversation with no computer
+write approval. Personalized titles, URLs and AX snapshots are kept only in ignored
+local evidence, never committed. See the runbook for native prerequisites and limits;
+these targeted checks are not a universal website or computer-operation guarantee.
