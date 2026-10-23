@@ -9,6 +9,26 @@ import org.junit.jupiter.api.Test;
 
 class NotificationRulesTest {
   @Test
+  void observationIdentityControlsChangesOnlyInsteadOfWording() {
+    String same = "a".repeat(64), changed = "b".repeat(64);
+    assertFalse(
+        NotificationRules.observationChanged(
+            same,
+            "Rewritten summary",
+            Map.of("observation_fingerprint", same, "result", "Original summary")));
+    assertTrue(
+        NotificationRules.observationChanged(
+            changed,
+            "Same wording",
+            Map.of("observation_fingerprint", same, "result", "Same wording")));
+    assertFalse(
+        NotificationRules.observationChanged(null, " summary ", Map.of("result", "summary")));
+    assertNull(
+        NotificationRules.observationFingerprint(
+            Map.of("artifact", Map.of("observation_fingerprint", "model says same"))));
+  }
+
+  @Test
   void numericEvidenceAndConditionControlNotificationNotAnswerText() {
     var condition =
         Map.of("description", "fixture", "operator", "lt", "threshold", "800", "unit", "CNY/g");

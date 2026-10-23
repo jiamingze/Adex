@@ -1,6 +1,8 @@
 import asyncio
 import json
 import os
+import logging
+import re
 from typing import Protocol, AsyncIterator, Any
 import httpx
 
@@ -121,6 +123,20 @@ class MiniMaxProvider:
                         headers={"Authorization": "Bearer " + self.key},
                     ) as response:
                         if response.status_code >= 400:
+                            provider_code = "unknown"
+                            try:
+                                body = json.loads((await response.aread())[:64000])
+                                raw = body.get("code") or body.get("error", {}).get("code", "unknown")
+                                if re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", str(raw)):
+                                    provider_code = str(raw)
+                            except (ValueError, AttributeError, TypeError):
+                                pass
+                            logging.getLogger(__name__).warning(
+                                "Model rejected: provider=%s http=%s code=%s",
+                                self.name,
+                                response.status_code,
+                                provider_code,
+                            )
                             code = (
                                 "PROVIDER_AUTH_FAILED"
                                 if response.status_code in (401, 403)
@@ -138,6 +154,19 @@ class MiniMaxProvider:
                                 break
                             event = json.loads(data)
                             if event.get("base_resp", {}).get("status_code", 0) != 0 or event.get("error"):
+                                raw = (
+                                    event.get("error", {}).get("code", "unknown")
+                                    if isinstance(event.get("error"), dict)
+                                    else "unknown"
+                                )
+                                safe = (
+                                    str(raw)
+                                    if re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", str(raw))
+                                    else "unknown"
+                                )
+                                logging.getLogger(__name__).warning(
+                                    "Model stream rejected: provider=%s code=%s", self.name, safe
+                                )
                                 raise ProviderFailure("PROVIDER_REJECTED")
                             if event.get("usage"):
                                 usage = event["usage"]

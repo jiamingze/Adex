@@ -10,7 +10,10 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Literal
 from adex_kernel.core import digest
-from adex_kernel.text import strip_json_fence
+from .planning import validated_plan
+from .evidence import observation_fingerprint
+import re
+import unicodedata
 from adex_agent.models.provider import ProviderFailure
 
 SYSTEM = """DURABLE_RESEARCH_V1：你是Adex研究执行器。每轮根据目标、验收项、工作摘要和已观察证据决定下一步。original_request是用户的原始需求，优先保留其中的约束；不能因摘要或改写丢失目标。
@@ -110,24 +113,31 @@ class DurableAgentLoop:
                     "observations": observations,
                     "sources": sorted(self.urls(state)),
                     "steps_remaining": limit - len(state["steps"]),
+                    "progress": {
+                        "observed_source_count": len(self.urls(state)),
+                        "recent_new_evidence": [step.get("new_evidence", True) for step in observations],
+                        "guidance": "若连续观察没有新增证据，换查询或来源；不要重复同义词空转。缺证据不得声称已验证。",
+                    },
                 }
                 messages = [
                     {"role": "system", "content": SYSTEM},
                     {"role": "user", "content": json.dumps(view, ensure_ascii=False)},
                 ]
-                output = ""
-                async with asyncio.timeout(150):
-                    async for event in self.worker.runtime.invoke(
-                        f"run:{run['id']}:loop:{revision}:{len(state['steps'])}:{digest(view)[:16]}",
-                        run["owner_id"],
-                        messages,
-                    ):
-                        if event["type"] == "completed":
-                            output = event["content"]
-                try:
-                    step = Step.model_validate_json(strip_json_fence(output))
-                    if step.tool == "read" and step.url not in self.urls(state):
+
+                def validate(proposal):
+                    if proposal.tool == "read" and proposal.url not in self.urls(state):
                         raise ValueError("Unobserved URL")
+
+                try:
+                    async with asyncio.timeout(150):
+                        step = await validated_plan(
+                            self.worker.runtime,
+                            run["owner_id"],
+                            f"run:{run['id']}:loop:{revision}:{len(state['steps'])}:{digest(view)[:16]}",
+                            messages,
+                            Step,
+                            validate,
+                        )
                 except ValueError:
                     state["steps"].append({"error": "INVALID_TOOL_CALL"})
                     await self.commit(run, state, revision)
@@ -141,7 +151,7 @@ class DurableAgentLoop:
                 pending = step.model_dump()
                 state["pending"] = pending
                 await self.commit(run, state, revision)
-            signature = (pending["tool"], pending["query"], pending["url"])
+            signature = self.signature(pending)
             repeats = sum(tuple(s.get("signature", [])) == signature for s in state["steps"])
             if repeats >= 2:
                 return self.partial(state, "重复查询未取得进展，已停止以避免空转。")
@@ -171,11 +181,25 @@ class DurableAgentLoop:
                 raise
             except Exception:
                 observation = {"items": [], "error": "SOURCE_UNAVAILABLE"}
-            state["steps"].append({"signature": list(signature), "observation": observation})
+            fingerprint = observation_fingerprint(observation["items"])
+            state["steps"].append(
+                {
+                    "signature": list(signature),
+                    "observation": observation,
+                    "observation_fingerprint": fingerprint,
+                    "new_evidence": bool(fingerprint)
+                    and not any(s.get("observation_fingerprint") == fingerprint for s in state["steps"]),
+                }
+            )
             state["summary"] = pending["summary"]
             state["pending"] = None
             await self.commit(run, state, revision)
         return self.partial(state, "已达到本次研究步骤预算，以下为已取得的证据，尚未完成全部验收。")
+
+    @staticmethod
+    def signature(pending):
+        query = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", pending["query"])).strip().casefold()
+        return pending["tool"], query, pending["url"]
 
     @staticmethod
     def urls(state):
@@ -216,6 +240,9 @@ class DurableAgentLoop:
                 "checks": [c.model_dump() for c in step.checks],
                 "sources": sorted(urls),
                 "step_count": len(state["steps"]),
+                "observation_fingerprint": observation_fingerprint(
+                    [item for step in state["steps"] for item in step.get("observation", {}).get("items", [])]
+                ),
             },
         }
 

@@ -18,7 +18,7 @@ Adex connects **chat, memory, daily planning, notes and background work** in one
 - **Keep working after you leave.** Scheduled briefs and background tasks persist, recover after interruption and return results to the original conversation.
 - **Stay in control of actions.** Web tasks can ask for login inside the chat, show a frozen draft for approval, and report observed receipts. Real merchant flows still need external validation.
 
-- **Speak naturally.** Hold to dictate with Alibaba realtime ASR, live transcription and release-to-send; keys stay server-side. [Setup and protocol](docs/architecture/speech.md).
+- **Speak naturally.** Hold to dictate with native iOS recognition and Alibaba cloud fallback, live transcription and release-to-send; provider keys stay server-side. [Setup and protocol](docs/architecture/speech.md).
 
 **Early developer preview.** There is no hosted public service or App Store download. UI demos use synthetic data. Real models, Google OAuth, APNs and media require your own configuration; availability varies by provider. See [what is verified and what is blocked](docs/IMPLEMENTATION_STATUS.md).
 

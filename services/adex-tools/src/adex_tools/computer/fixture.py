@@ -2,6 +2,10 @@
 
 
 def execute(body):
+    if body.get("action") and body.get("tree_hash") != "TEST_FIXTURE":
+        from fastapi import HTTPException
+
+        raise HTTPException(409, "COMPUTER_STALE_OBSERVATION")
     if body.get("command") == "status":
         return {"accessibility": True}
     return {

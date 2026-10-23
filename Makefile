@@ -71,3 +71,15 @@ test-ios-speech:
 	mkdir -p .local-data/native-tests
 	swiftc apps/ios/ios/App/CapApp-SPM/Sources/CapApp-SPM/SpeechGestureGate.swift tests/swift/SpeechGestureGate/main.swift -o .local-data/native-tests/speech-gesture
 	.local-data/native-tests/speech-gesture
+
+.PHONY: test-ios-speech-stream
+test-ios-speech-stream:
+	mkdir -p .local-data/native-tests
+	swiftc apps/ios/ios/App/CapApp-SPM/Sources/CapApp-SPM/SpeechStream.swift tests/swift/SpeechStream/main.swift -o .local-data/native-tests/speech-stream
+	.local-data/native-tests/speech-stream
+
+.PHONY: test-ios-speech-choice
+test-ios-speech-choice:
+	mkdir -p .local-data/native-tests
+	swiftc apps/ios/ios/App/CapApp-SPM/Sources/CapApp-SPM/SpeechTranscriptChoice.swift tests/swift/SpeechTranscriptChoice/main.swift -o .local-data/native-tests/speech-choice
+	.local-data/native-tests/speech-choice

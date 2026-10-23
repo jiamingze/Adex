@@ -158,3 +158,21 @@ async def test_navigation_is_checkpointed_before_dispatch_and_returns_observed_l
     assert result['artifact']['computer_status']=='DONE'
     assert len(calls)==1
     assert 'https://example.com/item' in result['content']
+
+
+async def test_stale_pre_dispatch_refusal_reobserves_instead_of_failing_or_replaying():
+    calls=[]
+    async def call(*args,**kwargs):
+        calls.append(args[3])
+        if args[3].endswith('/step'):return {'status':'REOBSERVE_REQUIRED','action_id':'old'}
+        return {'nodes':[{'role':'AXStaticText','title':'Fresh page'}]}
+    async def save(*args):return 'checkpoint'
+    async def write(*args):pass
+    async def invoke(*args):yield {'type':'completed','content':json.dumps({'action':'done','text':'已重新读取页面'})}
+    worker=SimpleNamespace(core=SimpleNamespace(call=call),checkpoints=SimpleNamespace(save_checkpoint=save),run_write=write,runtime=SimpleNamespace(invoke=invoke))
+    current={'id':'run','owner_id':'owner','epoch':1,'attempt_id':'attempt','instruction':'Read page','request':{'params':{'app_name':'Chrome'}}}
+    saved={'phase':'computer_waiting','completed_steps':[],'pending':{'approval_id':'old','step':{'action':'set_value','element_id':'1','text':'test'}}}
+    result=await ComputerWorkflow(worker).run(current,{'memory_revision':1},saved)
+    assert result['artifact']['computer_status']=='DONE'
+    assert calls==['/internal/computer/step','/internal/computer/observe']
+    assert result['completed_steps'][0]['receipt']=='NOT_APPLIED_STALE'

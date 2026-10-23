@@ -209,13 +209,27 @@ public class RunExecutionService {
     String content = Kernel.text(state, "content", 64000);
     return k.tx.execute(
         s -> {
+          // Serialize surfacing for concurrent occurrences before taking a Run lock.
+          // This short transaction contains no LLM/network work. Delete may lock
+          // schedule -> Run, so never add a schedule row lock after this Run lock.
+          var schedule =
+              k.db.queryForList(
+                  "SELECT schedule_id FROM runs WHERE id=? AND owner_id=?",
+                  id,
+                  Kernel.uuid(claims.get("owner")));
+          if (!schedule.isEmpty() && schedule.getFirst().get("schedule_id") != null)
+            k.db.queryForList(
+                "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
+                "notification:" + schedule.getFirst().get("schedule_id"));
           var run = authorize(claims, id, b);
           if (!b.get("checkpoint_ref").equals(String.valueOf(run.get("checkpoint_ref"))))
             throw Kernel.error(409, "UNCOMMITTED_CHECKPOINT");
+          String observationFingerprint =
+              io.adex.automation.schedule.NotificationRules.observationFingerprint(state);
           k.db.update(
-              "UPDATE runs SET status='COMPLETED',result=?,lease_until=NULL,updated_at=now() WHERE"
-                  + " id=?",
+              "UPDATE runs SET status='COMPLETED',result=?,observation_fingerprint=?,lease_until=NULL,updated_at=clock_timestamp() WHERE id=?",
               content,
+              observationFingerprint,
               id);
           k.db.update(
               "UPDATE attempts SET status='COMPLETED',ended_at=now() WHERE id=?",
@@ -230,14 +244,13 @@ public class RunExecutionService {
               && "CHANGES_ONLY".equals(request.get("notification_policy"))) {
             var previous =
                 k.db.queryForList(
-                    "SELECT result FROM runs WHERE schedule_id=? AND id<>? AND status='COMPLETED' ORDER BY updated_at DESC LIMIT 1",
+                    "SELECT result,observation_fingerprint FROM runs WHERE schedule_id=? AND id<>? AND status='COMPLETED' ORDER BY updated_at DESC LIMIT 1",
                     run.get("schedule_id"),
                     id);
             notify =
                 previous.isEmpty()
-                    || !content
-                        .strip()
-                        .equals(String.valueOf(previous.getFirst().get("result")).strip());
+                    || io.adex.automation.schedule.NotificationRules.observationChanged(
+                        observationFingerprint, content, previous.getFirst());
           }
           // Read without taking a schedule lock after the Run lock (delete locks in reverse order).
           // A tightened rule must silence old snapshots lacking its matching assessment.

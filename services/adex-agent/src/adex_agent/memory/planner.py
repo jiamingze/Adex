@@ -6,7 +6,7 @@ import json
 import re
 from typing import Literal
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from adex_kernel.core import digest
 from adex_agent.models.provider import provider
 
@@ -67,14 +67,25 @@ async def propose(runtime, owner, turn, snapshot, model=""):
             proposal = MemoryProposal.model_validate_json(raw)
             validate_proposal(proposal, snapshot)
             return proposal.model_dump(mode="json")
-        except ValueError:
+        except ValueError as error:
             if attempt:
                 raise
+            details = (
+                [
+                    {"loc": list(item["loc"]), "type": item["type"]}
+                    for item in error.errors(include_input=False, include_url=False)
+                ][:8]
+                if isinstance(error, ValidationError)
+                else [{"type": str(error)[:200]}]
+            )
             messages = [
                 *messages,
+                {"role": "assistant", "content": str(output or "")[:12000]},
                 {
                     "role": "user",
-                    "content": "提案校验失败。只使用输入中的真实记忆ID及revision，evidence必须摘自latest；learn只可save/correct，规范化原子事实最多300字，不明确就none。请重新输出合法JSON。",
+                    "content": "提案校验失败："
+                    + json.dumps(details, ensure_ascii=False)
+                    + "。只使用输入中的真实记忆ID及revision，evidence必须摘自latest；learn只可save/correct，规范化原子事实最多300字，不明确就none。请重新输出合法JSON。",
                 },
             ]
 

@@ -65,6 +65,8 @@ test("release finalizes once and only authoritative final is returned", async ()
   releaseCloudSpeech();
   await tick();
   assert.deepEqual(JSON.parse(ws.sent[1]), { type: "finish" });
+  await ws.message({ type: "partial", text: "松手后重新从头转写" });
+  assert.equal(partial, "草稿", "released preview must stay frozen until final submission");
   await ws.message({ type: "final", text: "最终文字" });
   assert.equal(await pending, "最终文字");
   assert.equal(stopped, 1);
@@ -99,4 +101,36 @@ test("disconnect after partial must fail rather than sending a draft", async () 
   await ws.message({ type: "partial", text: "不可发送草稿" });
   ws.onclose();
   await assert.rejects(pending, /SPEECH_INCOMPLETE/);
+});
+
+test("audio before network ready survives release and flushes before finish", async () => {
+  let emit,
+    resolveSession,
+    stopped = 0;
+  const pending = streamSpeech(
+    () => new Promise((resolve) => (resolveSession = resolve)),
+    async (audio) => {
+      emit = audio;
+      return async () => {
+        stopped++;
+      };
+    },
+  );
+  await tick();
+  emit(new Uint8Array([1, 2, 3, 4]).buffer);
+  releaseCloudSpeech();
+  await tick();
+  assert.equal(stopped, 1);
+  resolveSession(await load());
+  await tick();
+  const ws = Socket.last;
+  ws.onopen();
+  await ws.message({ type: "ready" });
+  await tick();
+  assert.ok(ws.sent[1] instanceof ArrayBuffer);
+  assert.deepEqual(Array.from(new Uint8Array(ws.sent[1])), [1, 2, 3, 4]);
+  assert.deepEqual(JSON.parse(ws.sent[2]), { type: "finish" });
+  await ws.message({ type: "final", text: "明天下午三点开会" });
+  assert.equal(await pending, "明天下午三点开会");
+  assert.equal(stopped, 1);
 });

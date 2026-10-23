@@ -207,7 +207,10 @@ class ComputerService:
                     if old:
                         if old["request_hash"] != fingerprint:
                             raise HTTPException(409, "IDEMPOTENCY_CONFLICT")
-                        if old["state"] == "SUCCEEDED":
+                        if old["state"] == "SUCCEEDED" or (
+                            old["state"] == "FAILED"
+                            and (old.get("result") or {}).get("status") == "REOBSERVE_REQUIRED"
+                        ):
                             return old["result"]
                         await conn.execute(
                             "UPDATE effects SET state='UNKNOWN' WHERE owner_id=%s AND effect_key=%s AND state='IN_FLIGHT'",
@@ -243,7 +246,21 @@ class ComputerService:
                     (Jsonb(result), body["approval_id"], owner),
                 )
                 return result
-            except BaseException:
+            except BaseException as error:
+                if isinstance(error, HTTPException) and error.detail == "COMPUTER_STALE_OBSERVATION":
+                    # The native guard runs before AX mutation, so this is known
+                    # NOT_APPLIED, unlike a timeout/crash after possible dispatch.
+                    result = {"status": "REOBSERVE_REQUIRED", "action_id": str(body["approval_id"])}
+                    async with self.core.pool.connection() as conn, conn.transaction():
+                        await conn.execute(
+                            "UPDATE effects SET state='FAILED',result=%s WHERE owner_id=%s AND effect_key=%s AND state='IN_FLIGHT'",
+                            (Jsonb(result), owner, effect_key),
+                        )
+                        await conn.execute(
+                            "UPDATE approvals SET state='REVOKED',result=%s WHERE id=%s AND owner_id=%s AND state='APPROVED'",
+                            (Jsonb(result), body["approval_id"], owner),
+                        )
+                    return result
                 # Crash after IN_FLIGHT is deliberately not replayable. APPLIED is only
                 # native command evidence, never proof of an external purchase or publish.
                 await self.core.query(

@@ -18,111 +18,155 @@ export async function streamSpeech(
   onPartial?: (text: string) => void,
 ) {
   if (current) throw new Error("SPEECH_BUSY");
-  const gesture: { release: boolean; stop?: (cancel?: boolean) => void } = {
-    release: false,
-  };
+  const gesture = { release: false, stop: (_cancel = false) => {} };
   current = gesture;
-  const captureAbort = new AbortController();
-  let socket: WebSocket | undefined,
-    stopCapture: (() => Promise<void>) | undefined;
-  let captureStopped: Promise<void> | undefined;
-  const stopCaptureOnce = () =>
-    stopCapture ? (captureStopped ??= stopCapture()) : Promise.resolve();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let captureTimer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const session = await load();
-    if (gesture.release) return "";
-    socket = new WebSocket(session.url);
-    const ws = socket;
-    return await new Promise<string>((resolve, reject) => {
-      let settled = false,
-        started = false,
-        finishing = false;
-      const done = (text?: string, error?: Error) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        error ? reject(error) : resolve(text || "");
-      };
-      const finish = () => {
-        if (settled || finishing || !stopCapture) return;
-        finishing = true;
-        stopCaptureOnce()
-          .then(() => {
-            if (ws.readyState === WebSocket.OPEN)
-              ws.send(JSON.stringify({ type: "finish" }));
-            else done("", new Error("SPEECH_CONNECTION_FAILED"));
-          })
-          .catch(() => done("", new Error("SPEECH_CAPTURE_FAILED")));
-      };
-      gesture.stop = (cancel = false) => {
-        if (cancel) {
-          captureAbort.abort();
-          done("");
-          return;
-        }
-        if (!stopCapture) captureAbort.abort();
-        if (!started) {
-          done("");
-          return;
-        }
-        finish();
-      };
-      timer = setTimeout(() => done("", new Error("SPEECH_TIMEOUT")), 65000);
+  const controller = new AbortController();
+  let ws: WebSocket | undefined,
+    stopCapture: (() => Promise<void>) | undefined,
+    stopping: Promise<void> | undefined;
+  let ready = false,
+    settled = false,
+    captureEnded = false,
+    finishSent = false,
+    queuedBytes = 0;
+  let queue: ArrayBuffer[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined,
+    captureTimer: ReturnType<typeof setTimeout> | undefined;
+  const stopOnce = () =>
+    stopCapture ? (stopping ??= stopCapture()) : Promise.resolve();
+  let complete: (text: string) => void = () => {},
+    fail: (error: Error) => void = () => {};
+  const result = new Promise<string>((resolve, reject) => {
+    complete = (text) => {
+      if (settled) return;
+      settled = true;
+      resolve(text);
+    };
+    fail = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+  });
+  const finish = async () => {
+    captureEnded = true;
+    try {
+      await stopOnce();
+      if (settled || !ready || finishSent || !stopCapture) return;
+      finishSent = true;
+      ws!.send(JSON.stringify({ type: "finish" }));
+    } catch {
+      fail(new Error("SPEECH_CAPTURE_FAILED"));
+    }
+  };
+  gesture.stop = (cancel = false) => {
+    if (cancel) {
+      controller.abort();
+      complete("");
+      return;
+    }
+    // Permission has not completed: lifting must never start the microphone later.
+    if (!stopCapture && !queuedBytes) {
+      controller.abort();
+      complete("");
+      return;
+    }
+    void finish();
+  };
+  const sendAudio = (pcm: ArrayBuffer) => {
+    if (settled || captureEnded) return;
+    if (ready) {
+      if (
+        !ws ||
+        ws.readyState !== WebSocket.OPEN ||
+        ws.bufferedAmount > 128000
+      ) {
+        fail(new Error("SPEECH_NETWORK_SLOW"));
+        return;
+      }
+      ws.send(pcm);
+    } else {
+      queuedBytes += pcm.byteLength;
+      if (queuedBytes > 1440000) {
+        fail(new Error("SPEECH_AUDIO_LIMIT"));
+        return;
+      }
+      queue.push(pcm.slice(0));
+    }
+  };
+  timer = setTimeout(() => fail(new Error("SPEECH_TIMEOUT")), 65000);
+  // Start capture independently of DNS, tunnel and provider setup. Never delay
+  // microphone startup until the user's first sentence has already finished.
+  void Promise.resolve()
+    .then(async () => {
+      if (controller.signal.aborted) return;
+      stopCapture = await capture(sendAudio, controller.signal);
+      if (settled) {
+        await stopOnce();
+        return;
+      }
+      if (gesture.release) await finish();
+      else
+        captureTimer = setTimeout(() => {
+          gesture.release = true;
+          void finish();
+        }, 44000);
+    })
+    .catch((error) => {
+      if (gesture.release) complete("");
+      else
+        fail(
+          error instanceof Error ? error : new Error("SPEECH_CAPTURE_FAILED"),
+        );
+    });
+  void load()
+    .then((session) => {
+      if (settled) return;
+      ws = new WebSocket(session.url);
       ws.onopen = () => {
-        if (gesture.release) {
-          done("");
-          return;
-        }
-        ws.send(JSON.stringify({ token: session.token }));
+        if (!settled) ws!.send(JSON.stringify({ token: session.token }));
       };
-      ws.onerror = () => done("", new Error("SPEECH_CONNECTION_FAILED"));
+      ws.onerror = () => fail(new Error("SPEECH_CONNECTION_FAILED"));
       ws.onclose = () => {
-        if (!settled) done("", new Error("SPEECH_INCOMPLETE"));
+        if (!settled) fail(new Error("SPEECH_INCOMPLETE"));
       };
-      ws.onmessage = async (event) => {
+      ws.onmessage = (event) => {
+        if (settled) return;
         try {
           const data = JSON.parse(event.data);
-          if (data.type === "ready" && !started) {
-            started = true;
-            if (gesture.release) {
-              done("");
-              return;
-            }
-            stopCapture = await capture((pcm) => {
-              if (!settled && ws.readyState === WebSocket.OPEN) {
-                if (ws.bufferedAmount > 128000) {
-                  done("", new Error("SPEECH_NETWORK_SLOW"));
-                  return;
-                }
-                ws.send(pcm);
-              }
-            }, captureAbort.signal);
-            if (settled) {
-              await stopCaptureOnce();
-              return;
-            }
-            if (gesture.release) finish();
-            else captureTimer = setTimeout(finish, 44000);
-          } else if (data.type === "partial" && !settled)
-            onPartial?.(data.text);
-          else if (data.type === "final") done(data.text);
+          if (data.type === "ready" && !ready) {
+            ready = true;
+            // Flush in capture order before finish, including release-before-ready.
+            for (const pcm of queue) ws!.send(pcm);
+            queue = [];
+            queuedBytes = 0;
+            if (gesture.release) void finish();
+          } else if (data.type === "partial" && !gesture.release) onPartial?.(data.text);
+          else if (data.type === "final") complete(data.text);
           else if (data.type === "error")
-            done("", new Error(data.code || "SPEECH_UNAVAILABLE"));
+            fail(new Error(data.code || "SPEECH_UNAVAILABLE"));
         } catch {
-          gesture.release
-            ? done("")
-            : done("", new Error("SPEECH_UNAVAILABLE"));
+          fail(new Error("SPEECH_UNAVAILABLE"));
         }
       };
-    });
+    })
+    .catch((error) =>
+      fail(
+        error instanceof Error ? error : new Error("SPEECH_CONNECTION_FAILED"),
+      ),
+    );
+  try {
+    return await result;
   } finally {
     clearTimeout(timer);
     clearTimeout(captureTimer);
-    captureAbort.abort();
-    socket?.close();
-    await stopCaptureOnce();
-    if (current === gesture) current = undefined;
+    controller.abort();
+    queue = [];
+    ws?.close();
+    try {
+      await stopOnce();
+    } finally {
+      if (current === gesture) current = undefined;
+    }
   }
 }

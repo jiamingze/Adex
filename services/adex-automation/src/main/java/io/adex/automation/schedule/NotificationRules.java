@@ -53,6 +53,22 @@ public final class NotificationRules {
     return result;
   }
 
+  /** The application derives this from readback; the language model cannot set it. */
+  public static String observationFingerprint(Map<String, Object> state) {
+    if (state.get("artifact") instanceof Map<?, ?> artifact
+        && artifact.get("observation_fingerprint") instanceof String value
+        && value.matches("[a-f0-9]{64}")) return value;
+    return null;
+  }
+
+  public static boolean observationChanged(
+      String current, String content, Map<String, Object> previous) {
+    Object prior = previous.get("observation_fingerprint");
+    if (current != null && prior instanceof String value && value.matches("[a-f0-9]{64}"))
+      return !current.equals(value);
+    return !content.strip().equals(String.valueOf(previous.get("result")).strip());
+  }
+
   public static boolean conditional(Map<String, Object> request) {
     return "CONDITION_MET".equals(request.get("notification_policy"));
   }

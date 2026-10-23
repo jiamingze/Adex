@@ -1035,3 +1035,62 @@ observed homepage video title/link to the originating conversation with no compu
 write approval. Personalized titles, URLs and AX snapshots are kept only in ignored
 local evidence, never committed. See the runbook for native prerequisites and limits;
 these targeted checks are not a universal website or computer-operation guarantee.
+
+## Native speech latency and agent reliability milestone (2026-10-23)
+
+See [nanoMuse code comparison and implementation plan](architecture/nanomuse-review.md)
+for the pinned upstream evidence, license boundary, migration, contracts and acceptance.
+Native iOS now captures before network setup and streams PCM through URLSession rather
+than one JavaScript bridge event per audio buffer. A synthetic real native test observed
+nonempty interim transcription at 2.484 seconds, while finish was sent at 16.176 seconds.
+This proves pre-release native transport, not a microphone or touch-tracking UI acceptance.
+Following real iPhone feedback, already-authorized on-device recognition now owns the
+submitted text as well as the displayed draft. A bounded 800 ms tail-finalization window
+preserves the final words; a different cloud interpretation cannot overwrite accurate
+local text. Alibaba remains the final source when no local text is available. The released
+panel is frozen rather than replaying cloud prefixes. Apple cloud recognition remains
+disabled and no new speech permission dialog is forced. This supersedes cloud-final mode.
+
+
+Final observed validation for this milestone:
+- `make format build test check-style`: Java/web builds, 17 script tests, 34 client tests,
+  131 Agent tests, 147 Tools tests, Java tests, OpenAPI 101 operations, architecture/style passed.
+- `make test-ios-speech test-ios-speech-stream test-ios-speech-choice`: gesture fencing,
+  one-shot native transport cancellation, local transcript priority and no late cloud
+  overwrite passed. Native live transport with synthetic speech also received interim
+  text before finish. Latest source-choice behavior is unit-tested; final microphone
+  accuracy still depends on device language support and actual speech.
+- `uv run python scripts/test_stack.py tests/integration/test_observation_notifications.py tests/integration/test_conditional_notifications.py tests/integration/test_reliability.py::test_three_schedulers_sigkill_fencing_resume_and_outbox tests/integration/test_reliability.py::test_memory_deletion_invalidates_context_and_inflight_results tests/integration/test_reliability.py::test_unknown_provider_call_never_resubmits tests/integration/test_speech.py -q`:
+  **10 passed, 1 skipped in 33.63 seconds**. The skipped case requires explicit real-ASR opt-in;
+  it is not a fabricated external execution. Change-only tests verify identical evidence /
+  changed prose is silent, changed evidence / identical prose notifies, every result still
+  reaches its original chat, and concurrent identical occurrences create only one push.
+- Applied `automation/010.sql` locally. Agent planning includes typed schemas and one bounded
+  correction of invalid completed output; normalized query signatures and novelty feedback
+  reduce empty repetition while preserving the existing 24-step budget and pending-intent
+  checkpoint protocol. Memory repair includes actual validation details but cannot bypass
+  App evidence/revision/deletion rules.
+- Notification comparison takes a short per-schedule advisory lock before locking the Run;
+  no network/LLM work occurs inside it. The existing outbox/fencing remains authoritative.
+- Latest signed iOS build: BUILD SUCCEEDED; devicectl confirmed installation and launch.
+  All four services report UP. No public URL or credentials were changed.
+
+Known limits: this is the first bounded reliability milestone from the comparison,
+not all nanoMuse capabilities. Automatic destructive memory consolidation, universal
+computer access, new connectors and broader self-directed goal execution remain separate
+acceptance work. On-device speech requires prior authorization and language support;
+Alibaba is used when usable local text is unavailable. Both may run concurrently.
+
+## Read-only site search and stale desktop recovery (2026-10-23)
+
+Read-only site searches use the public HTTPS GET search URL without approving text entry.
+Native observation/pid guards remain strict. A definite pre-dispatch stale observation
+returns REOBSERVE_REQUIRED, records the effect as FAILED and revokes the obsolete approval;
+the Agent checkpoints the non-applied step and observes again. UNKNOWN actions are never
+blindly replayed. Publishing, ordering and other external writes still require approval.
+
+Observed validation:
+- `make format build test check-style`: passed, including 131 Agent and 147 Tools tests.
+- `uv run python scripts/test_stack.py tests/integration/test_computer.py tests/integration/test_observation_notifications.py -q`: 4 passed, 4 skipped in 21.20s. Skips are opt-in real desktop cases.
+- `ADEX_TEST_REAL_CHROME=1 uv run python scripts/test_stack.py tests/integration/test_computer.py::test_actual_youtube_site_search_does_not_request_typing_approval -q`: 1 passed in 18.88s. Actual Chrome/Qwen opened YouTube search without approval and returned video/Shorts links present in actual observations.
+- One earlier live attempt encountered a provider rejection; a fresh run passed. This is not a guarantee of provider availability or all-site login/shopping support. Safe diagnostics record only HTTP status and a bounded provider error code.

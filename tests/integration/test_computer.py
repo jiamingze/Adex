@@ -270,6 +270,19 @@ def test_computer_security_and_unknown_are_fail_closed(client, db):
             ).fetchone()["state"]
             == "UNKNOWN"
         )
+        # Definitive native stale guards precede dispatch. They must be FAILED /
+        # REVOKED and replay a readback instruction, never become UNKNOWN.
+        stale_view = observe().json()
+        stale_step = {**execution, "observation_id": stale_view["observation_id"], "command_key": "stale", "step": {"action": "press", "element_id": "0.0", "text": ""}}
+        stale_action = http.post(base + "step", headers=headers, json=stale_step).json()["action_id"]
+        db.execute("UPDATE tools.approvals SET state='APPROVED' WHERE id=%s", (stale_action,))
+        db.execute("UPDATE tools.computer_observations SET snapshot=jsonb_set(snapshot,'{tree_hash}',to_jsonb('TEST_FIXTURE_STALE'::text)) WHERE id=%s", (stale_view["observation_id"],))
+        for replay in range(2):
+            stale = http.post(base + "step", headers=headers, json={**stale_step, "approval_id": stale_action})
+            stale.raise_for_status()
+            assert stale.json()["status"] == "REOBSERVE_REQUIRED"
+        assert db.execute("SELECT state FROM tools.effects WHERE owner_id=%s AND effect_key=%s",(owner,"computer:"+rid+":stale")).fetchone()["state"] == "FAILED"
+        assert db.execute("SELECT state FROM tools.approvals WHERE id=%s",(stale_action,)).fetchone()["state"] == "REVOKED"
         db.execute(
             "UPDATE tools.computer_observations SET created_at=clock_timestamp()-interval '11 minutes' WHERE id=%s",
             (view["observation_id"],),
@@ -448,3 +461,24 @@ def test_actual_chrome_youtube_navigation_returns_observed_video_without_approva
     assert any('youtube.com/watch?v=' in url and url in result['content'] for url in observed_urls)
     assert not db.execute("SELECT id FROM tools.approvals WHERE kind='computer.step'").fetchone()
     (ROOT/'.local-data/youtube-e2e-result.md').write_text(result['content'])
+
+
+@pytest.mark.skipif(os.getenv('ADEX_TEST_REAL_CHROME') != '1',reason='Opt-in actual Chrome/Qwen site search')
+def test_actual_youtube_site_search_does_not_request_typing_approval(client,db):
+    conv=client.post('/api/v1/conversations',json={'title':'TEST_FIXTURE requested site search'}).json()['id']
+    client.post(f'/api/v1/conversations/{conv}/messages',json={'client_message_id':str(uuid4()),'content':'帮我打开Mac的Chrome，在UTube也就是YouTube网站搜一下特别好玩的视频，给我三条实际搜索到的视频标题和链接。'}).raise_for_status()
+    run=wait(lambda:db.execute("SELECT * FROM automation.runs WHERE origin_conversation_id=%s AND kind='COMPUTER'",(conv,)).fetchone(),timeout=60)
+    active=claim();assert active['id']==str(run['id'])
+    execute_claimed(active)
+    assert not db.execute("SELECT id FROM tools.approvals WHERE kind='computer.step'").fetchone(),'Read-only site search must not prepare a control-write approval'
+    current=db.execute('SELECT status,error_code FROM automation.runs WHERE id=%s',(run['id'],)).fetchone()
+    assert current['status']=='COMPLETED',current
+    observations=db.execute('SELECT snapshot FROM tools.computer_observations WHERE run_id=%s',(run['id'],)).fetchall()
+    assert any('youtube.com/results?search_query=' in node.get('url','') for row in observations for node in row['snapshot'].get('nodes',[]) if node.get('role')=='AXWebArea')
+    (ROOT/'.local-data/youtube-site-search-debug.json').write_text(json.dumps({'run':dict(db.execute('SELECT result FROM automation.runs WHERE id=%s',(run['id'],)).fetchone()),'observations':observations},default=str,ensure_ascii=False))
+    result=wait(lambda:next((m for m in client.get(f'/api/v1/conversations/{conv}/messages').json()['items'] if m['role']=='assistant' and ('youtube.com/watch?v=' in m['content'] or 'youtube.com/shorts/' in m['content'])),None),timeout=30)
+    observed={node.get('url','') for row in observations for node in row['snapshot'].get('nodes',[])}
+    import re
+    links=re.findall(r'https://www.youtube.com/(?:watch\?v=|shorts/)[^\s)\]<>]+',result['content'])
+    assert links and all(url.rstrip('。，；') in observed for url in links)
+    (ROOT/'.local-data/youtube-site-search-result.md').write_text(result['content'])

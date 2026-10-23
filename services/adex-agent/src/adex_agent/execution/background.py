@@ -189,6 +189,7 @@ class BackgroundWorker:
                     messages = saved["messages"]
                     evidence = saved.get("travel_evidence")
                     notification_evidence = saved.get("notification_evidence", [])
+                    observation_fingerprint = saved.get("observation_fingerprint")
                 else:
                     context["messages"].append({"role": "user", "content": run["instruction"], "seq": 0})
                     kind = run.get("kind", "CHAT")
@@ -231,6 +232,9 @@ class BackgroundWorker:
                         research=kind == "RESEARCH",
                         cards=evidence_cards,
                     )
+                    from .evidence import cards_fingerprint
+
+                    observation_fingerprint = cards_fingerprint(evidence_cards)
                     notification_evidence = []
                     if conditional:
                         from .notification import collect_evidence
@@ -250,6 +254,7 @@ class BackgroundWorker:
                     "travel_evidence": evidence if "evidence" in locals() else None,
                     "pending_effects": [],
                     "notification_evidence": notification_evidence,
+                    "observation_fingerprint": observation_fingerprint,
                     "budget": {
                         "max_model_calls": 2
                         if run.get("request", {}).get("notification_policy") == "CONDITION_MET"
@@ -278,6 +283,8 @@ class BackgroundWorker:
                     "usage": output["usage"],
                     "provider": output["provider"],
                 }
+                if observation_fingerprint:
+                    result["artifact"]["observation_fingerprint"] = observation_fingerprint
             if (
                 run.get("request", {}).get("notification_policy") == "CONDITION_MET"
                 and "notification_assessment" not in result

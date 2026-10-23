@@ -87,3 +87,19 @@ async def test_memory_invalid_json_repairs_once_then_normalizes_without_keyword(
     runtime = Runtime()
     result = await propose(runtime, "owner", "turn", {"latest": "我平常真受不了辣", "memories": []})
     assert result["operations"][0]["content"] == "用户不吃辣。"
+
+
+async def test_memory_repair_includes_bad_proposal_and_validation_feedback():
+    from adex_agent.memory.planner import propose
+    import json
+    from types import SimpleNamespace
+    observed=[]
+    async def invoke(key,owner,messages):
+        observed.append(messages)
+        if len(observed)==1:
+            yield {'type':'completed','content':json.dumps({'mode':'learn','operations':[{'operation':'save','content':'用户不喜欢辣。','evidence':'编造证据','confidence':0.99}]})}
+        else:yield {'type':'completed','content':'{"mode":"none","operations":[]}'}
+    result=await propose(SimpleNamespace(invoke=invoke),'owner','turn',{'latest':'今天怎么样','memories':[]})
+    assert result['mode']=='none'
+    assert observed[1][-2]['role']=='assistant'
+    assert 'Unsupported memory evidence' in observed[1][-1]['content']

@@ -120,3 +120,13 @@ the existing effect/approval/fencing path. `blocked` plans must have a user-faci
 reason; blank completion text is invalid and receives bounded schema repair.
 No migration or second task engine is needed; navigation intent uses existing immutable
 checkpoint + authoritative Run checkpoint-ref commit before native dispatch.
+
+### Read-only site search and stale controls
+
+For ordinary website queries the operator navigates directly to the public HTTPS
+GET search page rather than preparing an approved control write. It must not use
+the Google-only `search` primitive to replace an explicitly requested site's search.
+A native `COMPUTER_STALE_OBSERVATION` is a definitive pre-dispatch refusal: persist
+FAILED/REVOKED with `REOBSERVE_REQUIRED`, then checkpoint the non-applied step and
+re-observe. Do not weaken tree/pid checks or blindly retry an UNKNOWN effect. A changed
+page still needs a fresh approval for an actual write; read navigation needs none.

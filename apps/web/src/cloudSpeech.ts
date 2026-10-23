@@ -1,24 +1,21 @@
 import { streamSpeech, type SpeechCapture } from "./speechStream";
 export { releaseCloudSpeech, type SpeechCapture } from "./speechStream";
+export async function speechConnection() {
+  const { request } = await import("./api");
+  const session = await request<{ session_id: string; token: string }>(
+    "/speech/session",
+    "POST",
+  );
+  const base = import.meta.env.VITE_ADEX_API_BASE || location.origin;
+  const url = new URL("/speech-ws/" + session.session_id, base);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return { url: url.toString(), token: session.token };
+}
 export function cloudSpeech(
   capture: SpeechCapture,
   onPartial?: (text: string) => void,
 ) {
-  return streamSpeech(
-    async () => {
-      const { request } = await import("./api");
-      const session = await request<{ session_id: string; token: string }>(
-        "/speech/session",
-        "POST",
-      );
-      const base = import.meta.env.VITE_ADEX_API_BASE || location.origin;
-      const url = new URL("/speech-ws/" + session.session_id, base);
-      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-      return { url: url.toString(), token: session.token };
-    },
-    capture,
-    onPartial,
-  );
+  return streamSpeech(speechConnection, capture, onPartial);
 }
 
 export const browserCapture: SpeechCapture = async (audio, signal) => {

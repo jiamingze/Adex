@@ -2,6 +2,9 @@
 
 import asyncio
 import json
+import logging
+import time
+import re
 from uuid import UUID
 from fastapi import HTTPException, WebSocketDisconnect
 from adex_tools.speech.provider import Transcript, audio_event, connection, event
@@ -49,7 +52,9 @@ def error_code(error):
 
 
 async def relay(socket, core, session):
+    started = time.monotonic()
     claimed = False
+    metrics = {"frames": 0, "bytes": 0, "final_chars": 0, "outcome": "disconnected"}
     try:
         async with asyncio.timeout(5):
             raw = await socket.receive_text()
@@ -81,10 +86,14 @@ async def relay(socket, core, session):
                         if message.get("bytes") is not None:
                             audio = message["bytes"]
                             total += len(audio)
+                            metrics["frames"] += 1
+                            metrics.setdefault("first_audio_s", round(time.monotonic() - started, 3))
+                            metrics["bytes"] = total
                             if total > 1440000:
                                 raise ValueError("SPEECH_AUDIO_LIMIT")
                             await upstream.send(json.dumps(audio_event(audio)))
                         elif json.loads(message.get("text", "{}")) == {"type": "finish"}:
+                            metrics["finish_s"] = round(time.monotonic() - started, 3)
                             finishing.set()
                             await upstream.send(json.dumps(event("session.finish")))
                             return
@@ -98,13 +107,24 @@ async def relay(socket, core, session):
                     if kind == "session.updated":
                         await socket.send_json({"type": "ready"})
                     elif kind == "error" or kind.endswith("transcription.failed"):
+                        provider_code = str(data.get("error", {}).get("code", "unknown"))
+                        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", provider_code):
+                            provider_code = "unknown"
+                        logging.getLogger(__name__).warning("ASR provider rejection: %s", provider_code)
                         raise ValueError("SPEECH_PROVIDER_REJECTED")
                     elif kind.endswith(("transcription.text", "transcription.completed")):
-                        await socket.send_json({"type": "partial", "text": transcript.update(data)})
+                        preview = transcript.update(data)
+                        if preview:
+                            metrics.setdefault("first_partial_s", round(time.monotonic() - started, 3))
+                        metrics["partials"] = metrics.get("partials", 0) + 1
+                        await socket.send_json({"type": "partial", "text": preview})
                     elif kind == "session.finished":
                         if not finishing.is_set():
                             raise ValueError("SPEECH_INCOMPLETE")
-                        await socket.send_json({"type": "final", "text": transcript.final()})
+                        final = transcript.final()
+                        metrics["final_chars"] = len(final)
+                        metrics["outcome"] = "completed"
+                        await socket.send_json({"type": "final", "text": final})
                         return
                 raise ValueError("SPEECH_INCOMPLETE")
 
@@ -119,11 +139,17 @@ async def relay(socket, core, session):
         pass
     except (Exception, ExceptionGroup) as error:
         code = error_code(error)
+        metrics["outcome"] = code
+        logging.getLogger(__name__).warning(
+            "ASR failure %s: code=%s category=%s claimed=%s", session, code, type(error).__name__, claimed
+        )
         try:
             await socket.send_json({"type": "error", "code": code})
         except Exception:
             pass
     finally:
+        if claimed:
+            logging.getLogger("uvicorn.error").info("ASR stream %s: %s", session, metrics)
         try:
             if claimed:
                 await core.query("UPDATE speech_sessions SET active_until=now() WHERE id=%s", (session,))

@@ -189,7 +189,7 @@ export function VoiceInput({
     try {
       const releaseGate = new Promise<void>((resolve) => { released.current = resolve; });
       const text = (await transcribe((partial) => {
-        if (mounted.current && active.current && !cancelled.current) setTranscript(partial);
+        if (mounted.current && active.current && held.current && !cancelled.current) setTranscript(partial);
       })).trim();
       // Recognition may finish on silence before the finger lifts. Only release sends.
       if (held.current) await releaseGate;
@@ -334,7 +334,7 @@ export function VoiceInput({
                 <>
                   <LoaderCircle size={22} className="voice-spinner" />
                   <strong>录音已结束</strong>
-                  <span>正在识别并发送…</span>
+                  <span>正在发送…</span>
                 </>
               )}
             </div>

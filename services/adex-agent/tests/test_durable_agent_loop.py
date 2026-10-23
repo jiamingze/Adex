@@ -99,7 +99,16 @@ def test_closed_loop_rejects_writes():
 
 
 async def test_invalid_tool_calls_stop_without_dispatching_or_granting_new_budget():
-    worker = Worker([{"tool": "purchase"}, {"tool": "shell"}])
+    worker = Worker([{"tool": "purchase"}, {"tool": "shell"}] * 2)
     result = await DurableAgentLoop(worker).run(run(), {"memory_revision": 1})
     assert not worker.calls and result["artifact"]["workflow_status"] == "PARTIAL"
     assert result["artifact"]["step_count"] == 2
+
+
+async def test_invalid_completed_plan_is_repaired_before_any_tool_dispatch():
+    worker=Worker([{'tool':'read','url':'https://invented.example/'},{'tool':'search','query':'  AI   Agents  '},{'tool':'search','query':'ai agents'},{'tool':'search','query':'ＡＩ agents'}])
+    result=await DurableAgentLoop(worker).run(run(),{'memory_revision':1})
+    assert len(worker.calls)==2
+    assert worker.calls[0][4]['query']=='  AI   Agents  '
+    assert result['artifact']['workflow_status']=='PARTIAL'
+    assert worker.saved[-1]['steps'][-1]['new_evidence'] is False

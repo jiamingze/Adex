@@ -1,8 +1,10 @@
 # Streaming speech recognition
 
-Clients capture 16 kHz mono signed little-endian PCM16; recognition is performed by
-Alibaba Cloud `qwen3-asr-flash-realtime` in Tools. Apple Speech and browser SpeechRecognition
-are not fallback providers. Microphone permission remains an OS responsibility.
+Clients capture 16 kHz mono signed little-endian PCM16. Web recognition uses Alibaba Cloud
+`qwen3-asr-flash-realtime` in Tools. On already-authorized iPhones with on-device Chinese
+recognition, local text takes priority so the accurate displayed utterance is not
+overwritten by a different cloud interpretation. Alibaba covers unavailable local ASR.
+Microphone permission remains an OS responsibility.
 
 App authenticates `POST /api/v1/speech/session` and returns a session UUID and a scoped
 180-second capability. The client opens same-origin `/speech-ws/{session_id}`, sends
@@ -46,3 +48,43 @@ in Tools only. Use TLS for any non-local entry point. No schema migration in App
 Provider references: [Alibaba realtime guide](https://help.aliyun.com/zh/model-studio/real-time-speech-recognition-user-guide),
 [client events](https://help.aliyun.com/en/model-studio/qwen-asr-realtime-client-events),
 [server events](https://help.aliyun.com/en/model-studio/qwen-asr-realtime-server-events).
+
+### Capture before network readiness
+
+Microphone capture begins on the held gesture, concurrently with authenticated session
+creation. PCM is queued only in client memory (bounded to the existing 45-second
+budget) until the provider is ready. Releasing after capture stops the microphone
+immediately but preserves the queued utterance until upload and provider finalization;
+release/cancel while microphone permission is pending prevents late recording.
+Cancellation discards the queue and closes the connection. Network setup must never
+silently erase already captured speech. Lifecycle logs contain frame/byte counts and
+bounded error categories only, never audio, transcript, API keys or bearer tickets.
+
+### Native iOS streaming
+
+iOS sends microphone PCM directly through a native URLSession WebSocket, using the
+same App-issued scoped ticket and Tools relay. PCM no longer traverses the WebView
+JavaScript bridge on every audio buffer; only transcript/status events cross it.
+A serial, bounded queue preserves audio/finish ordering during handshake and touch
+tracking. Browser capture retains the shared JS transport. All credential, duration,
+release/cancel and server final-result rules remain the same.
+
+
+### Consistent displayed and submitted text
+
+After actual iPhone feedback, the source-selection policy is local-first on iOS.
+Already-authorized, explicitly on-device-only Chinese recognition supplies interim
+text and the submitted utterance. After release, allow up to 800 ms for its final tail;
+use the last nonempty local draft if a final result does not arrive. A cloud result
+must never overwrite this text. When no local text is available, use Alibaba's final
+transcript instead. The native cloud stream may run concurrently for fallback readiness;
+it is not selected when usable local text exists. No Apple cloud fallback and no forced extra permission dialog.
+The released panel stays frozen while finalization completes; intermediate cloud
+prefixes are not replayed into it. Each gesture owns a fresh selection state and
+cancellation settles once. This intentionally supersedes the earlier cloud-final policy.
+
+
+Native selection regression: `make test-ios-speech-choice` verifies accurate local text
+wins even if a differing cloud result arrives first or later; no usable local text falls
+back to the cloud. This encodes actual iPhone feedback, rather than assuming the cloud
+is always more accurate. `make test-ios-speech-stream` separately tests cancellation.
