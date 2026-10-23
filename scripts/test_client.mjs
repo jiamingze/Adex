@@ -9,6 +9,7 @@ for (const [command, args] of [
       "exec",
       "tsc",
       "apps/web/src/navigation.ts",
+      "apps/web/src/speechStream.ts",
       "apps/web/src/profileModel.ts",
       "apps/web/src/pushRegistration.ts",
       "apps/web/src/locationModel.ts",
@@ -27,7 +28,7 @@ for (const [command, args] of [
       "--strict",
     ],
   ],
-  [process.execPath, ["--test", "tests/client/experience.test.mjs"]],
+  [process.execPath, ["--test", "tests/client/experience.test.mjs", "tests/client/speech.test.mjs"]],
 ]) {
   const result = spawnSync(command, args, { stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status ?? 1);

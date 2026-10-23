@@ -16,6 +16,7 @@ from config import load, ROOT
 from dev import service_env
 
 e = load()
+asr_live_key = e.get("DASHSCOPE_API_KEY", "") if os.environ.get("ADEX_TEST_REAL_ASR") == "1" else ""
 chrome_live_key = (
     e.get("DASHSCOPE_API_KEY", "")
     if os.environ.get("ADEX_TEST_REAL_CHROME") == "1"
@@ -44,7 +45,7 @@ e["ADEX_COOKIE_SECURE"] = "false"
 e["ADEX_CODE_RUNNER_MODE"] = "disabled"
 e["TAVILY_API_KEY"] = ""
 e["ADEX_MUSIC_API_KEY"] = ""
-e["DASHSCOPE_API_KEY"] = ""
+e["DASHSCOPE_API_KEY"] = asr_live_key
 e["ADEX_MUSIC_PROVIDER"] = "mock"
 e["ADEX_VIDEO_PROVIDER"] = "mock"
 e["ADEX_IMAGE_PROVIDER"] = "mock"

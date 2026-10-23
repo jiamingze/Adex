@@ -63,7 +63,7 @@ export function VoiceInput({
       clearTimeout(buttonTimer.current);
       cancelled.current = true;
       released.current?.();
-      if (active.current) void stopSpeech();
+      if (active.current) void stopSpeech(true);
     };
   }, []);
   useEffect(() => {
@@ -205,7 +205,7 @@ export function VoiceInput({
           cancelled.current
             ? "已取消录音"
             : message.includes("PERMISSION")
-              ? "请在系统设置中允许麦克风和语音识别"
+              ? "请在系统设置中允许麦克风"
               : message.includes("UNAVAILABLE")
                 ? "语音识别暂不可用，请稍后重试"
                 : message.includes("SPEECH_BUSY")
@@ -228,7 +228,7 @@ export function VoiceInput({
     released.current = null;
     setPhase("processing");
     try {
-      await stopSpeech();
+      await stopSpeech(cancelled.current);
     } catch {
       if (mounted.current) setHint("停止录音失败，请重试");
     }

@@ -970,3 +970,38 @@ Native bundle/install commands: `pnpm --dir apps/ios bundle`;
 `xcodebuild -project apps/ios/ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .local-data/computer-files-ios -allowProvisioningUpdates build`;
 `xcrun devicectl device install app --device <connected-device> .local-data/computer-files-ios/Build/Products/Debug-iphoneos/App.app`.
 Observed BUILD SUCCEEDED, App installed, and successful launch of io.adex.personal.
+
+## Alibaba realtime speech recognition (2026-10-23)
+
+Replaced iOS SFSpeechRecognizer and browser SpeechRecognition with Tools-owned
+`qwen3-asr-flash-realtime`. Native AVAudioEngine captures PCM16/16kHz; browser captures
+microphone PCM. Existing hold-to-talk, live text, slide cancellation, release-to-send
+and haptics remain. Apple speech authorization is removed; microphone authorization
+is still required. Provider credentials stay on the server. No audio/transcript is
+persisted or logged by this relay. [Contract and deployment](architecture/speech.md).
+
+Migration: `tools/010.sql` provides one-use tickets and a bounded per-owner connection
+lease. App authenticates a scoped capability; the gateway exposes only `/speech-ws/`,
+not internal Tools APIs. PostgreSQL failure denies new streams. No Automation Run,
+checkpoint or scheduling system is duplicated for short microphone input.
+
+Observed validation:
+- `make format build test check-style`: Java/web build, 33 client tests, Java tests,
+  125 Agent tests, 146 Tools tests, OpenAPI 101 operations and architecture/style passed.
+- `make test-ios-speech`: stop-before-start, overlap, stale-stop/release fencing passed.
+- `uv run python scripts/test_stack.py tests/integration/test_speech.py -q`:
+  **2 passed, 1 skipped** (real PG/auth/WS, wrong-resource ticket, invalid token,
+  duplicate ticket and owner connection limit; no-key provider failure).
+- `ADEX_TEST_REAL_ASR=1 uv run python scripts/test_stack.py tests/integration/test_speech.py -q`:
+  **2 passed, 1 skipped**. Actual Alibaba recognition of locally synthesized speech
+  through authenticated App → Tools WebSocket returned partial and final text including
+  “明天”“三点”“开会”. Only the missing-key fault case is skipped in this mode.
+- Separate synthetic audio provider call returned “请帮我创建一个待办事项。明天下午三点开会。”
+- `pnpm --dir apps/ios bundle` and signed Xcode Debug build passed. New iPhone app
+  installed and launched via devicectl. This proves installation, not physical
+  microphone/noise/accent acceptance; those remain device-specific manual checks.
+
+Known limits: one stream per user, 45-second capture budget, 15-second finalization;
+network access and a funded/authorized DashScope account are required. No silent
+fallback to Apple or fabricated transcript when Alibaba fails. Browser capture currently
+uses ScriptProcessorNode; AudioWorklet migration remains a latency optimization.

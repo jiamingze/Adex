@@ -14,6 +14,7 @@ from adex_tools.api import (
     connectors,
     browser,
     computer,
+    speech,
 )
 
 
@@ -45,6 +46,7 @@ def create_app():
     app.include_router(connectors.router)
     app.include_router(browser.router)
     app.include_router(computer.router)
+    app.include_router(speech.router)
     return app
 
 

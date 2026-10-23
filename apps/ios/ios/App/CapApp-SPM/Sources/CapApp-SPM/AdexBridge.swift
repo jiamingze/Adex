@@ -1,7 +1,6 @@
 import Capacitor
 import UIKit
 import Security
-import Speech
 import AVFoundation
 
 public class AdexBridge: CAPBridgeViewController {
@@ -46,96 +45,6 @@ public class SecureSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
     @objc public func clear(_ call: CAPPluginCall) { SecItemDelete(query as CFDictionary); call.resolve() }
-}
-
-@objc(AdexSpeechPlugin)
-public class AdexSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
-    public let identifier = "AdexSpeechPlugin"
-    public let jsName = "AdexSpeech"
-    public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise)]
-    private let engine = AVAudioEngine()
-    private var task: SFSpeechRecognitionTask?
-    private var request: SFSpeechAudioBufferRecognitionRequest?
-    private var pending: CAPPluginCall?
-    private var text = ""
-    private var tapInstalled = false
-    private let gestureGate = SpeechGestureGate()
-    @objc public func start(_ call: CAPPluginCall) {
-        guard let id = call.getString("session_id"), !id.isEmpty else { call.reject("SPEECH_SESSION_REQUIRED"); return }
-        // stop can reach the bridge before start while permissions initialize.
-        // A stopped gesture must never activate the microphone afterwards.
-        guard pending == nil else { call.reject("SPEECH_BUSY"); return }
-        guard gestureGate.begin(id) else { call.reject("SPEECH_CANCELLED"); return }
-        pending = call
-        SFSpeechRecognizer.requestAuthorization { status in
-            guard status == .authorized else { DispatchQueue.main.async { if self.pending === call { self.fail("SPEECH_PERMISSION_DENIED") } }; return }
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                DispatchQueue.main.async {
-                    guard self.pending === call else { return }
-                    guard granted else { self.fail("MICROPHONE_PERMISSION_DENIED"); return }
-                    guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")), recognizer.isAvailable else { self.fail("ON_DEVICE_SPEECH_UNAVAILABLE"); return }
-                    do {
-                        let session = AVAudioSession.sharedInstance()
-                        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
-                        // Recording suppresses haptics by default. This is optional:
-                        // lack of tactile feedback must never block microphone use.
-                        try? session.setAllowHapticsAndSystemSoundsDuringRecording(true)
-                        try session.setActive(true, options: .notifyOthersOnDeactivation)
-                        let request = SFSpeechAudioBufferRecognitionRequest(); request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition; request.shouldReportPartialResults = true
-                        self.pending = call; self.request = request; self.text = ""
-                        let node = self.engine.inputNode
-                        node.installTap(onBus: 0, bufferSize: 1024, format: node.outputFormat(forBus: 0)) { buffer, _ in request.append(buffer) }
-                        self.tapInstalled = true
-                        let feedback = UIImpactFeedbackGenerator(style: .light)
-                        feedback.prepare()
-                        self.engine.prepare(); try self.engine.start()
-                        // Confirm actual capture, not pointer-down or permission prompts.
-                        // This path runs once on main, after the gesture identity guard.
-                        feedback.impactOccurred()
-                        self.task = recognizer.recognitionTask(with: request) { result, error in
-                            DispatchQueue.main.async {
-                                guard self.pending === call else { return }
-                                if let result = result {
-                                    self.text = result.bestTranscription.formattedString
-                                    self.notifyListeners("partial", data: ["session_id": id, "text": self.text])
-                                }
-                                if error != nil { self.fail("SPEECH_RECOGNITION_FAILED") }
-                                else if result?.isFinal == true { self.finish() }
-                            }
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now()+45) { if self.pending === call { self.finish() } }
-                    } catch { self.fail("SPEECH_START_FAILED") }
-                }
-            }
-        }
-    }
-    private func finish() {
-        guard let call = pending else { return }; pending = nil; gestureGate.finish()
-        cleanup()
-        try? AVAudioSession.sharedInstance().setActive(false)
-        call.resolve(["text": text, "provider": "ios-speech"])
-    }
-    private func cleanup() {
-        engine.stop()
-        if tapInstalled { engine.inputNode.removeTap(onBus: 0); tapInstalled = false }
-        request?.endAudio(); task?.cancel(); task = nil; request = nil
-        try? AVAudioSession.sharedInstance().setActive(false)
-    }
-    private func fail(_ reason: String) {
-        guard let call = pending else { return }; pending = nil; gestureGate.finish()
-        cleanup(); call.reject(reason)
-    }
-    @objc public func stop(_ call: CAPPluginCall) {
-        guard let id = call.getString("session_id"), !id.isEmpty else { call.resolve(); return }
-        guard gestureGate.stop(id), let original = pending else { call.resolve(); return }
-        if !engine.isRunning { finish(); call.resolve(); return }
-        engine.stop()
-        if tapInstalled { engine.inputNode.removeTap(onBus: 0); tapInstalled = false }
-        request?.endAudio()
-        // Give the recognizer time to return the last spoken words after release.
-        DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { if self.pending === original { self.finish() } }
-        call.resolve()
-    }
 }
 
 // Push navigation carries only a notification identifier. The authenticated server

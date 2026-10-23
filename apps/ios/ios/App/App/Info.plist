@@ -40,8 +40,6 @@
 	<string>保存你创作的图片</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>选择用于对话与创作的图片</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>将你的语音转换为聊天输入；本机识别不可用时由 Apple 语音服务处理</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

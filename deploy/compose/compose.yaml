@@ -159,6 +159,8 @@ services:
       ADEX_CALDAV_OWNER_ID: "${ADEX_CALDAV_OWNER_ID:-}"
       TAVILY_API_KEY: "${TAVILY_API_KEY:-}"
       DASHSCOPE_API_KEY: "${DASHSCOPE_API_KEY:-}"
+      ADEX_ASR_MODEL: "${ADEX_ASR_MODEL:-qwen3-asr-flash-realtime}"
+      ADEX_ASR_WS_URL: "${ADEX_ASR_WS_URL:-wss://dashscope.aliyuncs.com/api-ws/v1/realtime}"
       DASHSCOPE_MEDIA_BASE_URL: "${DASHSCOPE_MEDIA_BASE_URL:-https://dashscope.aliyuncs.com/api/v1}"
       DASHSCOPE_IMAGE_MODEL: "${DASHSCOPE_IMAGE_MODEL:-qwen-image-3.0}"
       ADEX_BROWSER_MODE: "${ADEX_BROWSER_MODE:-public}"

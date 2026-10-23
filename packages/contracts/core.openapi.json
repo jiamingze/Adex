@@ -4089,6 +4089,40 @@
           }
         ]
       }
+    },
+    "/speech/session": {
+      "post": {
+        "operationId": "createSpeechSession",
+        "description": "Owner-bound one-use speech capability, expires in 180 seconds. No provider credentials. WebSocket protocol: docs/architecture/speech.md.",
+        "responses": {
+          "200": {
+            "description": "Speech session capability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "token"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
     }
   },
   "components": {
