@@ -55,6 +55,12 @@ public class AutomationGateway {
             k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest")))
       throw Kernel.error(403, "SIGN_IN_REQUIRED");
     chat.own(owner, Kernel.uuid(body.get("origin_conversation_id")));
+    if ("COMPUTER".equals(body.get("kind"))) {
+      var capability =
+          k.call("tools", "computer:read", owner, null, "GET", "/internal/computer/status", null);
+      if (!"READY".equals(capability.get("availability")))
+        throw Kernel.error(409, "COMPUTER_ACCESSIBILITY_PERMISSION_REQUIRED");
+    }
     var b = new HashMap<>(body);
     b.put("idempotency_key", key);
     return k.call("automation", "task:write", owner, null, "POST", "/internal/tasks", b);

@@ -63,6 +63,12 @@ class TodoPatch(BaseModel):
         return self
 
 
+class ComputerStart(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    goal: str = Field(min_length=2, max_length=16000)
+    app_name: str = Field(min_length=1, max_length=200)
+
+
 class WorkflowStart(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     goal: str = Field(min_length=10, max_length=16000)
@@ -79,6 +85,7 @@ class ToolCall(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     tool: Literal[
         "workflow.start",
+        "computer.start",
         "none",
         "clarify",
         "schedule.create",
@@ -94,6 +101,7 @@ class ToolCall(BaseModel):
 
 
 REGISTRY = {
+    "computer.start": ComputerStart,
     "workflow.start": WorkflowStart,
     "schedule.create": ScheduleDraft,
     "schedule.update": SchedulePatch,

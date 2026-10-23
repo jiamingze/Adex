@@ -80,6 +80,8 @@ public class RunExecutionService {
                   id);
     } else if (run.get("kind").equals("BROWSER")) {
       live = live && id.toString().equals(String.valueOf(b.get("browser_run_id")));
+    } else if (run.get("kind").equals("COMPUTER")) {
+      live = live && id.toString().equals(String.valueOf(b.get("computer_run_id")));
     } else if (run.get("kind").equals("CONNECTOR_SYNC")) {
       live =
           live
@@ -157,12 +159,12 @@ public class RunExecutionService {
   public Object suspend(Map<String, Object> claims, UUID id, Map<String, Object> b) {
     var cp = verifyCheckpoint(claims, id, b);
     Map<String, Object> state = (Map<String, Object>) cp.get("state");
-    if (!"browser_waiting".equals(state.get("phase")))
+    if (!Set.of("browser_waiting", "computer_waiting").contains(state.get("phase")))
       throw Kernel.error(409, "WAITING_CHECKPOINT_REQUIRED");
     return k.tx.execute(
         tx -> {
           var run = authorize(claims, id, b);
-          if (!"BROWSER".equals(run.get("kind"))
+          if (!Set.of("BROWSER", "COMPUTER").contains(run.get("kind"))
               || !String.valueOf(run.get("checkpoint_ref")).equals(b.get("checkpoint_ref")))
             throw Kernel.error(409, "UNCOMMITTED_CHECKPOINT");
           k.db.update(
@@ -179,7 +181,7 @@ public class RunExecutionService {
           payload.put("owner_id", run.get("owner_id"));
           payload.put("origin_conversation_id", run.get("origin_conversation_id"));
           payload.put("memory_revision", cp.get("memory_revision"));
-          payload.put("kind", "BROWSER");
+          payload.put("kind", run.get("kind"));
           payload.put("delivery_key", delivery);
           payload.put("schema_version", 1);
           payload.put("content", Kernel.text(state, "content", 64000));

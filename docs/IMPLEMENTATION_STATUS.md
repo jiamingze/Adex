@@ -881,3 +881,34 @@ stale callbacks. Logout revocation and server eligibility timestamps remain inta
 2 passed in 8.66s, isolated PG/API with explicit APNs fixture. Actual device unavailable and
 its server registration still inactive: real push restoration/delivery not yet verified.
 See [lifecycle and acceptance boundary](architecture/push-registration.md).
+
+## 2026-10-23 — M17 owner-bound macOS computer adapter
+
+User-requested extension beyond original desktop exclusion; four business domains and
+existing Automation lease/fencing/checkpoint/outbox retained. Tools migration 009 adds
+private AX observations and a serialized host command lease. Semantic `computer.start`
+creates/readbacks an owned Run; per-action chat approvals resume the same Run. Native
+press/set_value are bound to app/PID/fresh tree and recorded in existing effect ledger.
+Deleted conversations, other owners, expired observations and stale Run epochs deny
+execution. Interrupted IN_FLIGHT is UNKNOWN and is never blindly dispatched again.
+
+- `make build test check-style`: passed. Scripts 17, client 29, Java App 13 / Automation 5,
+  Agent 119 and Tools 135 tests passed; contract and architecture checks passed.
+- `uv run python scripts/test_stack.py`: **99 passed, 1 skipped in 371.48s**. Synthetic
+  computer flow covers wait → approve → same Run resume → final original-chat result;
+  isolated fault checks cover owner/fence/expiry/host contention/UNKNOWN/deleted chat.
+- Opt-in actual Calculator test uses isolated PG, real native Accessibility dispatch,
+  approvals/effects and final AX readback `1+2=3`. No personal documents or application
+  database are test fixtures. Default CI uses explicit synthetic UI, never native proof.
+- Native Swift compiled and locally signed; macOS Accessibility granted to the helper.
+  Production/local Tools capability API reports READY for the configured existing owner.
+  Tools 009 applied locally; four services and Redis report UP. Web and iOS bundle built.
+- Chat approval UI checked with synthetic data in browser: correct target/action,
+  approval state transition and disabled duplicate submission. Private evidence remains
+  in ignored `.local-data`; no personal desktop captures or credentials in Git.
+
+Limitations: Calculator/TextEdit only in initial local allowlist. No direct shell,
+scripts, screenshot, global keyboard/coordinate actions, arbitrary filesystem API or
+universal custom UI support. Every mutation requires an exact approval. A native command
+receipt does not prove external business success. Broader apps require explicit local
+configuration and further acceptance tests; see the [runbook](runbooks/macos-computer.md).

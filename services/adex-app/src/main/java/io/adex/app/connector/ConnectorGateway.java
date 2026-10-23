@@ -157,12 +157,15 @@ public class ConnectorGateway {
             k.call("tools", "approval:read", owner, id, "GET", "/internal/actions/" + id, null);
     var browserRequest = (Map<String, Object>) existing.get("request");
     boolean browser = "browser.request".equals(existing.get("kind"));
+    boolean computer = "computer.step".equals(existing.get("kind"));
     if (!browser
         && Boolean.TRUE.equals(
             k.row("SELECT is_guest FROM users WHERE id=?", owner).get("is_guest")))
       throw Kernel.error(403, "SIGN_IN_REQUIRED");
-    if (browser && decision.equals("approve") && "PENDING".equals(existing.get("state"))) {
-      UUID run = Kernel.uuid(browserRequest.get("browser_run_id"));
+    if ((browser || computer)
+        && decision.equals("approve")
+        && "PENDING".equals(existing.get("state"))) {
+      UUID run = Kernel.uuid(browserRequest.get(browser ? "browser_run_id" : "computer_run_id"));
       var current =
           (Map<String, Object>)
               k.call("automation", "run:read", owner, run, "GET", "/internal/runs/" + run, null);
@@ -178,6 +181,17 @@ public class ConnectorGateway {
             "POST",
             "/internal/actions/" + id + "/" + decision,
             body);
+    if (computer && decision.equals("revoke")) {
+      UUID run = Kernel.uuid(browserRequest.get("computer_run_id"));
+      k.call(
+          "automation",
+          "run:cancel",
+          owner,
+          run,
+          "POST",
+          "/internal/runs/" + run + "/cancel",
+          Map.of());
+    }
     if (browser && decision.equals("revoke")) {
       UUID session = Kernel.uuid(browserRequest.get("browser_session_id"));
       k.call(
@@ -193,6 +207,17 @@ public class ConnectorGateway {
       return result;
     UUID conv = Kernel.uuid(request.get("origin_conversation_id"));
     chat.own(owner, conv);
+    if (request.containsKey("computer_run_id")) {
+      UUID run = Kernel.uuid(request.get("computer_run_id"));
+      return k.call(
+          "automation",
+          "run:resume",
+          owner,
+          run,
+          "POST",
+          "/internal/runs/" + run + "/resume",
+          Map.of());
+    }
     if (request.containsKey("browser_session_id")) {
       UUID run = Kernel.uuid(request.get("browser_run_id"));
       return k.call(

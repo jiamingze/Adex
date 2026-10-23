@@ -40,6 +40,7 @@ public class ChatTaskActions {
     String tool = Kernel.text(call, "tool", 40);
     if (!Set.of(
             "workflow.start",
+            "computer.start",
             "schedule.create",
             "schedule.update",
             "schedule.list",
@@ -94,7 +95,48 @@ public class ChatTaskActions {
           });
     }
     Map<String, Object> receipt;
-    if (tool.equals("workflow.start")) {
+    if (tool.equals("computer.start")) {
+      var capability =
+          k.call("tools", "computer:read", owner, null, "GET", "/internal/computer/status", null);
+      if (!"READY".equals(capability.get("availability")))
+        throw Kernel.error(409, "COMPUTER_ACCESSIBILITY_PERMISSION_REQUIRED");
+      String goal = Kernel.text(args, "goal", 16000), app = Kernel.text(args, "app_name", 200);
+      var task =
+          k.call(
+              "automation",
+              "task:write",
+              owner,
+              null,
+              "POST",
+              "/internal/tasks",
+              Map.of(
+                  "kind",
+                  "COMPUTER",
+                  "instruction",
+                  goal,
+                  "origin_conversation_id",
+                  conv,
+                  "idempotency_key",
+                  "chat-computer:" + turn,
+                  "params",
+                  Map.of("app_name", app)));
+      UUID computerRun = Kernel.uuid(task.get("id"));
+      var savedComputer =
+          k.call(
+              "automation",
+              "run:read",
+              owner,
+              computerRun,
+              "GET",
+              "/internal/runs/" + computerRun,
+              null);
+      if (!"COMPUTER".equals(savedComputer.get("kind"))
+          || !goal.equals(savedComputer.get("instruction")))
+        throw Kernel.error(502, "TASK_READBACK_MISMATCH");
+      receipt =
+          Map.of(
+              "content", "已开始 Mac 应用操作：" + app + "。需要确认的动作会返回当前对话。", "record_id", task.get("id"));
+    } else if (tool.equals("workflow.start")) {
       String goal = Kernel.text(args, "goal", 16000);
       if (!(args.get("acceptance") instanceof List<?> acceptance)
           || acceptance.isEmpty()

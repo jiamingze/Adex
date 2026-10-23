@@ -66,7 +66,10 @@ public class ResultAttachmentService {
     String dedupe =
         "run:"
             + b.get("run_id")
-            + ("BROWSER".equals(b.get("kind")) && !"result".equals(delivery) ? ":" + delivery : "");
+            + (("BROWSER".equals(b.get("kind")) || "COMPUTER".equals(b.get("kind")))
+                    && !"result".equals(delivery)
+                ? ":" + delivery
+                : "");
     return k.tx.execute(
         s -> {
           var u = k.row("SELECT memory_revision FROM users WHERE id=? FOR SHARE", owner);
@@ -214,6 +217,31 @@ public class ResultAttachmentService {
                 resultMessage);
             chat.event(conv, "message.cards", Map.of("message_id", resultMessage));
           }
+          if ("COMPUTER".equals(kind)
+              && b.get("artifact") instanceof Map<?, ?> computer
+              && computer.get("action_id") != null) {
+            var card =
+                Map.of(
+                    "schema_version",
+                    1,
+                    "card_id",
+                    Kernel.id(),
+                    "conversation_id",
+                    conv,
+                    "message_id",
+                    resultMessage,
+                    "type",
+                    "computer_approval",
+                    "actions",
+                    List.of("approve"),
+                    "data",
+                    Map.of("action_id", computer.get("action_id")));
+            k.db.update(
+                "UPDATE messages SET cards=?::jsonb WHERE id=?",
+                k.encode(List.of(card)),
+                resultMessage);
+            chat.event(conv, "message.cards", Map.of("message_id", resultMessage));
+          }
           if (!Boolean.FALSE.equals(b.get("notify")))
             k.db.update(
                 "INSERT INTO notifications(id,event_id,owner_id,conversation_id,run_id,action_id,title,body)"
@@ -227,13 +255,13 @@ public class ResultAttachmentService {
                         && b.get("artifact") instanceof Map<?, ?> art
                         && art.get("action") instanceof Map<?, ?> action
                     ? Kernel.uuid(action.get("action_id"))
-                    : "BROWSER".equals(kind)
+                    : ("BROWSER".equals(kind) || "COMPUTER".equals(kind))
                             && b.get("artifact") instanceof Map<?, ?> browser
                             && browser.get("action_id") != null
                         ? Kernel.uuid(browser.get("action_id"))
                         : null,
-                "BROWSER".equals(kind) && !"result".equals(delivery)
-                    ? "网页任务需要你处理"
+                ("BROWSER".equals(kind) || "COMPUTER".equals(kind)) && !"result".equals(delivery)
+                    ? ("COMPUTER".equals(kind) ? "Mac 操作需要你确认" : "网页任务需要你处理")
                     : NotificationTitle.label(
                         b.get("task_title"), "ERROR".equals(kind) ? "未完成" : "已完成"),
                 content);

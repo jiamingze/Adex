@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add optional owner-bound macOS accessibility operation: existing Automation Runs, chat approvals, native UI snapshots and effect receipts. Initial Calculator/TextEdit allowlist; disabled by default, no shell or unrestricted desktop access. See `docs/runbooks/macos-computer.md`.
+
 - Restore already-authorized iPhone push registration after login and foregrounding even when logout/reinstallation removed the local device hint. Respect account opt-out and iOS denial without another permission prompt; discard stale authentication callbacks.
 
 - Add a closed semantic task-tool registry with validated arguments, bounded repair, frozen proposals, owned target/revision binding and persisted App receipts. Schedule edits replay committed command results after a lost response instead of failing on their old revision (App 028 / Automation 009).

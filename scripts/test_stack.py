@@ -83,6 +83,21 @@ try:
     subprocess.run(
         ["uv", "run", "python", "scripts/migrate.py"], cwd=ROOT, env=e, check=True
     )
+    # The native fixture binds to the normal test owner after App bootstrap; never
+    # seed or alter credentials just to configure a runner.
+    e.update(
+        ADEX_COMPUTER_TEST_FIXTURE="true",
+        ADEX_COMPUTER_ENABLED="true",
+        ADEX_COMPUTER_OWNER_ID="",
+        ADEX_COMPUTER_APPS="测试应用=io.adex.fixture",
+    )
+    if os.environ.get("ADEX_TEST_REAL_COMPUTER") == "1":
+        e["ADEX_COMPUTER_TEST_FIXTURE"] = "false"
+        e["ADEX_COMPUTER_APPS"] = "计算器=com.apple.calculator"
+        e["ADEX_COMPUTER_RUNNER"] = str(
+            ROOT / ".local-data/computer-runner/AdexComputerRunner"
+        )
+    os.environ.update(e)
     redislog = (ROOT / ".local-data/test-redis.log").open("w")
     logs.append(redislog)
     redisproc = subprocess.Popen(
@@ -165,6 +180,27 @@ try:
                 cmd, cwd=ROOT, env=se, stdout=log, stderr=log, start_new_session=True
             )
         )
+        if service == "app":
+            with psycopg.connect(
+                host=e["ADEX_PG_HOST"],
+                port=e["ADEX_PG_PORT"],
+                dbname=name,
+                user="adex_admin",
+                password=e["ADEX_ADMIN_PASSWORD"],
+                autocommit=True,
+            ) as setup:
+                for _ in range(100):
+                    owner = setup.execute(
+                        "SELECT id FROM app.users WHERE username=%s",
+                        (e["ADEX_OWNER_USERNAME"],),
+                    ).fetchone()
+                    if owner:
+                        e["ADEX_COMPUTER_OWNER_ID"] = str(owner[0])
+                        os.environ["ADEX_COMPUTER_OWNER_ID"] = str(owner[0])
+                        break
+                    time.sleep(0.1)
+                else:
+                    raise RuntimeError("Test owner bootstrap unavailable")
     for port in (18080, 18081, 18082, 18083, 18105, 18107):
         for _ in range(60):
             try:
@@ -187,7 +223,9 @@ try:
         flush=True,
     )
     result = subprocess.run(
-        ["uv", "run", "pytest", *(sys.argv[1:] or ["tests/integration", "-q"])], cwd=ROOT, env=e
+        ["uv", "run", "pytest", *(sys.argv[1:] or ["tests/integration", "-q"])],
+        cwd=ROOT,
+        env=e,
     )
 finally:
     for child in children:

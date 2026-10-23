@@ -27,3 +27,7 @@
 - A Mock Provider is mandatory for deterministic contract/e2e simulation but does not count as a real-world data-provider integration.
 - Mark `BLOCKED_EXTERNAL` when keys, contract, media license or internet reachability are missing. Never simulate a fake 'verified real hotel price' or 'full-song playable' response for release evidence.
 - Real tests should be opt-in via environment variables, cost-limited, and must not run in CI using personal data by default.
+
+## Explicit user-requested extension
+
+| M17 | Owner-bound macOS application operation via native Accessibility runner under Tools; existing Automation checkpoints, fencing, approvals and effects | Real Calculator observation → per-action approval → 1+2=3 readback; fail closed for other owners, deleted conversations, stale observations and UNKNOWN effects. Initial Calculator/TextEdit only. See ADR 005 and the macOS runbook; broader custom UI remains unsupported. |

@@ -239,6 +239,11 @@ class MockProvider:
                         "acceptance": ["提供证据来源"],
                     },
                 }
+            elif "COMPUTER_START_FIXTURE" in text:
+                plan = {
+                    "tool": "computer.start",
+                    "arguments": {"goal": "TEST_FIXTURE 点击测试按钮", "app_name": "测试应用"},
+                }
             elif "TASK_KERNEL_LIST_FIXTURE" in text:
                 plan = {"tool": "schedule.list"}
             yield {
@@ -271,6 +276,24 @@ class MockProvider:
             yield {
                 "type": "completed",
                 "content": json.dumps(planned, ensure_ascii=False),
+                "usage": {},
+                "provider": "mock",
+            }
+            return
+        if any(
+            m.get("content", "").startswith("COMPUTER_OPERATOR_V1")
+            for m in messages
+            if m.get("role") == "system"
+        ):
+            value = json.loads(latest)
+            result = (
+                {"action": "done", "text": "TEST_FIXTURE 已观察到操作回执"}
+                if value["recent_actions"]
+                else {"action": "press", "element_id": "0.0", "reason": "点击测试按钮"}
+            )
+            yield {
+                "type": "completed",
+                "content": json.dumps(result, ensure_ascii=False),
                 "usage": {},
                 "provider": "mock",
             }

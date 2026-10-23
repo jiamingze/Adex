@@ -17,6 +17,14 @@ public class ContextController {
     this.chat = chat;
   }
 
+  /** Desktop dispatch rechecks App ownership; deleted conversations cannot authorize a command. */
+  @GetMapping("/internal/conversations/{id}/computer-access")
+  public Object computerAccess(HttpServletRequest r, @PathVariable UUID id) {
+    var claims = k.require(r, "tools", "computer:access", id);
+    chat.own(Kernel.uuid(claims.get("owner")), id);
+    return Map.of("allowed", true);
+  }
+
   @GetMapping("/internal/context/{id}")
   public Object context(
       HttpServletRequest r,

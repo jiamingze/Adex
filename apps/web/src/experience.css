@@ -1924,3 +1924,5 @@ html.native-app .shell{animation:adex-launch-reveal .18s ease-out}
 .schedule-edit-options .form-row>label,.schedule-edit-notification>label:first-child{display:grid;grid-template-columns:84px minmax(0,1fr);align-items:center;padding-top:10px;padding-bottom:10px;min-height:58px}
 .schedule-edit-options select,.schedule-edit-notification>label:first-child select{text-align:right;min-height:36px}
 .schedule-edit-content textarea{resize:none}
+
+.computer-action-card{border:1px solid var(--line,#e6e9e8);border-radius:16px;padding:16px;max-width:100%;overflow-wrap:anywhere}.computer-action-card dl{margin:12px 0}.computer-action-card dl>div{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;margin:8px 0}.computer-action-card dt,.computer-action-card small{color:var(--muted,#767d7b);font-size:12px}.computer-action-card dd{margin:0;white-space:pre-wrap}

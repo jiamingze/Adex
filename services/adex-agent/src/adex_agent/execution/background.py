@@ -67,6 +67,17 @@ class BackgroundWorker:
                     "usage": {},
                     "provider": "deterministic",
                 }
+            elif run.get("kind") == "COMPUTER":
+                from adex_agent.computer.workflow import ComputerWorkflow
+
+                result = await ComputerWorkflow(self).run(run, context, saved)
+                if result["phase"] == "computer_waiting":
+                    ref = await self.checkpoints.save_checkpoint(
+                        run, f"computer-wait:{run['epoch']}", result, revision
+                    )
+                    await self.run_write(run, "checkpoint", {"checkpoint_ref": ref})
+                    await self.run_write(run, "suspend", {"checkpoint_ref": ref})
+                    return
             elif run.get("kind") == "BROWSER":
                 from adex_agent.browser.workflow import BrowserWorkflow
 

@@ -92,6 +92,8 @@ class ActionService:
         # Authorization is checked before preparing a side effect, including on
         # recovery. Automation alone decides whether this attempt is still live.
         initial = await self.own(owner, action)
+        if initial["kind"] == "computer.step":
+            raise HTTPException(409, "COMPUTER_USE_WORKFLOW_REQUIRED")
         if initial["kind"] == "browser.request":
             from adex_tools.browser.service import BrowserService
 
@@ -196,6 +198,9 @@ class ActionService:
                 )
 
     async def reconcile(self, owner, action):
+        checked = await self.own(owner, action)
+        if checked["kind"] == "computer.step":
+            raise HTTPException(409, "COMPUTER_RESULT_REQUIRES_MANUAL_REVIEW")
         row = await self.own(owner, action)
         if row["kind"] == "browser.request":
             from adex_tools.browser.service import BrowserService

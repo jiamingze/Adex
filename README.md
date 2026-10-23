@@ -141,3 +141,5 @@ Integration tests use isolated databases and explicitly labelled external fixtur
 [MIT](LICENSE). Independent project, not affiliated with OpenAI, Alibaba Cloud or MiniMax. Provider names identify integrations; dependencies and content retain their own rights.
 
 The unified workspace uses **Today · Conversations · Tasks · Materials**: grouped reviews, deadline-based todos, automation history, notes and private generated reports/files. Relevant conversations can reference current owned tasks/notes, schedules, and previously authorized iPhone calendars. See the [experience contract](docs/architecture/unified-assistant-experience.md) for snapshot limits and privacy boundaries.
+
+Optional [Mac application operation](docs/runbooks/macos-computer.md) uses an owner-bound native accessibility runner, existing Runs and per-action approvals. Initial Calculator/TextEdit support; disabled by default. This is a limited adapter, not unrestricted computer control.

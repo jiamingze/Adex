@@ -31,7 +31,8 @@ public class RunService {
             "CALENDAR",
             "CONNECTOR_SYNC",
             "CONNECTOR_ACTION",
-            "BROWSER")
+            "BROWSER",
+            "COMPUTER")
         .contains(kind)) throw Kernel.error(400, "INVALID_TASK_KIND");
     String hash = Kernel.hash(k.encode(new TreeMap<>(b)));
     return k.tx.execute(
@@ -84,7 +85,8 @@ public class RunService {
     return k.tx.execute(
         tx -> {
           var run = k.row("SELECT * FROM runs WHERE id=? AND owner_id=? FOR UPDATE", id, owner);
-          if (!"BROWSER".equals(run.get("kind"))) throw Kernel.error(409, "NOT_A_BROWSER_RUN");
+          if (!Set.of("BROWSER", "COMPUTER").contains(run.get("kind")))
+            throw Kernel.error(409, "NOT_A_BROWSER_RUN");
           if (Set.of("QUEUED", "RUNNING").contains(run.get("status"))) return run;
           if (!"WAITING_INPUT".equals(run.get("status")))
             throw Kernel.error(409, "RUN_NOT_WAITING");

@@ -4,7 +4,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from adex_tools.dependencies import core
-from adex_tools.api import health, retrieval, creation, approvals, workspace, usage, connectors, browser
+from adex_tools.api import (
+    health,
+    retrieval,
+    creation,
+    approvals,
+    workspace,
+    usage,
+    connectors,
+    browser,
+    computer,
+)
 
 
 @asynccontextmanager
@@ -34,6 +44,7 @@ def create_app():
     app.include_router(usage.router)
     app.include_router(connectors.router)
     app.include_router(browser.router)
+    app.include_router(computer.router)
     return app
 
 
