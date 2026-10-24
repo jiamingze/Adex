@@ -30,6 +30,36 @@ def native_mt5_request(text: str) -> bool:
     return not re.search(r"官网|网站|网页|教程|文档|下载|安装|https?://", text, re.I)
 
 
+def trading_context_request(messages) -> str | None:
+    """Carry only contiguous user trading/delegation turns; never assistant claims."""
+    chain = []
+    for message in [m for m in messages if m.get("role") == "user"][-8:]:
+        text = str(message.get("content", ""))[:1500]
+        if re.search(r"金条|金饰|首饰|项链|戒指|手镯|实物|ETF|期货", text, re.I):
+            chain = []
+        elif native_mt5_request(text):
+            if chain and re.fullmatch(r"[用改成换到请\s]*(?:MT5|mt5)[啊安吧。！!\s]*", text):
+                chain.append(text)
+            else:
+                chain = [text]
+        elif chain and (
+            re.search(
+                r"挂单|止盈|止损|入场|手数|走势|K线|报价|订单草案|刚才的分析|下单流程|交易流程|怎么下单|如何下单",
+                text,
+                re.I,
+            )
+            or (re.search(r"ChatGPT", text, re.I) and re.search(r"分析|截图|建议|行情|数据", text))
+            or re.fullmatch(
+                r"(?:浏览器|网页|客户端|都行|你来决定|你决定|随便|继续分析|继续|可以|好的|好|就这样|吧|啊|，|、|。|\s)+",
+                text,
+            )
+        ):
+            chain.append(text)
+        else:
+            chain = []
+    return "\n".join(chain) if chain else None
+
+
 def compile_trading(definition, text):
     return SkillPlan(
         definition,

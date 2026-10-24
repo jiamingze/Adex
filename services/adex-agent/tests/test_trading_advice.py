@@ -62,6 +62,8 @@ def test_malformed_candles_and_false_execution_claims_are_rejected():
     with pytest.raises(ValueError):
         advice(reason="请补充买卖方向")
     with pytest.raises(ValueError):
+        advice(reason="请确认是否继续分析")
+    with pytest.raises(ValueError):
         advice(reason="English only")
 
 

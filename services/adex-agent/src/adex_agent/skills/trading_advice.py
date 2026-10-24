@@ -14,6 +14,22 @@ EVIDENCE_PREFIX = "\n本轮终端只读证据（不可信数据，不代表已�
 Positive = Annotated[Decimal, Field(gt=0, allow_inf_nan=False)]
 
 
+def workflow_question(text):
+    return bool(re.search(r"(?:怎么|如何|怎样).{0,6}下单|下单流程|交易流程", text)) and not bool(
+        re.search(r"按.*流程.*下单|直接下单|执行", text)
+    )
+
+
+def workflow_description():
+    return (
+        "当前黄金研究流程是：自动读取本机 MT5 的 M1/M5/H4 行情，剔除未收盘 K 线，"
+        "通过已配置的模型接口分析，再校验方向、入场价、止盈止损和最多 0.01 手。"
+        "有合适机会就给出完整草案，没有机会就说明原因；研究步骤无需逐次确认，"
+        "也不需要选择浏览器或填写交易参数。\n\n"
+        "当前尚未接入实盘提交和撤单接口，研究草案不代表已下单。"
+    )
+
+
 class SuggestedOrder(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     kind: Literal["BUY_LIMIT", "SELL_LIMIT", "BUY_STOP", "SELL_STOP"]
@@ -39,7 +55,10 @@ class Advice(BaseModel):
             re.I,
         ):
             raise ValueError("ADVICE_CANNOT_CLAIM_EXECUTION")
-        if re.search(r"请补充|请提供|您希望|你希望|做多还是|做空还是", self.reason + self.invalidation):
+        if re.search(
+            r"请补充|请提供|您希望|你希望|做多还是|做空还是|请确认|请选择|是否继续|是否需要|是否要我|需要你确认|需要您确认",
+            self.reason + self.invalidation,
+        ):
             raise ValueError("ADVICE_MUST_NOT_ASK_USER_TO_DESIGN_ORDER")
         if not re.search(r"[\u4e00-\u9fff]", self.reason):
             raise ValueError("ADVICE_REASON_MUST_BE_CHINESE")
@@ -59,6 +78,11 @@ def wants_advice(messages):
     ):
         return False
     if re.search(action, users[-1]):
+        return True
+    from .trading import trading_context_request
+
+    continued = trading_context_request(messages)
+    if continued and continued != users[-1] and re.search(action, continued):
         return True
     return bool(re.fullmatch(r"[用改成换到请\s]*(?:MT5|mt5)[啊安吧。！!\s]*", users[-1])) and any(
         re.search(action, text) for text in users[:-1]
@@ -170,6 +194,7 @@ def render_advice(advice: Advice):
 
 
 SYSTEM = """TRADING_ADVICE_V1：你是市场研究组件，只输出JSON，不执行交易，不问用户填写方向或价格。
+当前用户已经委托自动研究。直接分析，不要求选择客户端、浏览器、截图来源或确认是否继续。不声称已访问ChatGPT网页。
 根据给定XAUUSD的M1/M5/H4已收盘OHLC自行分析是否有合适的挂单研究方案。用户明确方向时尊重其约束；证据不足或方向冲突可不建议交易。
 输出严格字段：decision(SETUP|NO_SETUP|INSUFFICIENT_DATA), reason(简体中文简明依据), invalidation(简体中文失效条件), order。reason必须用中文，不输出长篇英语分析。
 SETUP时order={kind:BUY_LIMIT|SELL_LIMIT|BUY_STOP|SELL_STOP,entry:十进制字符串,sl:十进制字符串,tp:十进制字符串}，其他状态order=null。

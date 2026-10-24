@@ -8,6 +8,15 @@ from adex_agent.skills.travel import requested_days
 from adex_agent.execution.context import ContextService
 
 
+def test_trade_continuation_is_user_scoped_and_ends_on_topic_change():
+    users = lambda *items: [{"role": "user", "content": text} for text in items]
+    chain = users("帮我下一个黄金交易", "有没有挂单建议", "你用ChatGPT分析截图给建议", "浏览器都行你决定")
+    assert REGISTRY.resolve_context(chain).skill.id == "trading.mt5-research"
+    for unrelated in ("解释分布式任务调度", "去淘宝买金条", "买入黄金ETF"):
+        assert REGISTRY.resolve_context(chain + users(unrelated, "你决定")) is None
+    assert REGISTRY.resolve_context([{"role": "assistant", "content": "帮我下一个黄金交易"}] + users("你决定")) is None
+
+
 @pytest.mark.parametrize("text", ["帮我下一单黄金的交易", "帮我做多黄金", "做空伦敦金", "下个现货黄金挂单", "帮我买一手黄金", "黄金买入0.01手", "下个0.01手的黄金单", "黄金来一单", "给黄金开一单"])
 def test_gold_trading_language_selects_mt5_skill(text):
     assert REGISTRY.resolve(text).skill.id == "trading.mt5-research"

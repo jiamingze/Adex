@@ -1274,3 +1274,34 @@ Observed:
   or proof of investment performance; synthetic SETUP is not real broker execution.
 - `make check-style`, Ruff and Python compilation passed; Agent restarted and all
   four readiness endpoints UP. Private terminal/model evidence remains ignored.
+
+## Trading continuation and redundant confirmation correction, Skill 1.1.1 (2026-10-24)
+
+Operational read-only inspection of the reported conversation established that
+the initial gold order request used the typed advisory, but “有没有挂单建议” lost
+the instrument context and returned to ordinary chat. Subsequent ChatGPT-analysis
+delegation and “浏览器都行你决定” entered the generic Computer flow, causing
+per-click approvals. No evidence showed a successful financial order.
+
+A bounded contiguous user-only trading context now survives those follow-ups,
+enters the same automatic advisory before generic task/browser/computer planning,
+and passes the original trading goal plus user constraints to analysis. It ends
+on unrelated topics or other gold products; assistant claims cannot establish
+it. Browser context lookup is excluded throughout this inherited domain, preventing
+old login cards from steering the response. Research cannot ask for per-step
+confirmation. Workflow questions explain implemented steps without another model
+or terminal call. Global side-effect approval enforcement is unchanged.
+
+Observed checks: Agent **181 passed**, isolated MT5 routing **5 passed in 13.63s**,
+and real Qwen + actual MT5 four-turn chain **1 passed in 33.55s**, verifying no
+Automation browser/computer Run, no Tools approval, no manual parameter request,
+and a completed typed advisory invocation for every turn. A real returned SETUP
+remained a research-only draft with validated parameters; nothing was submitted
+or cancelled at the broker. Ruff, Python compilation, style and architecture checks
+passed. No migration or iOS build is required.
+
+The obsolete waiting Chrome preparation Run was cancelled through Automation's
+owner-scoped API and its one unexecuted confirmation revoked through Tools' API.
+No direct user database writes or MT5 order changes were made; historical messages
+were preserved. Private conversation/run IDs and market results are not committed.
+Final Skill 1.1.1 isolated continuation recheck: **1 passed in 5.43s**.

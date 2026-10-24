@@ -37,7 +37,7 @@ def test_mt5_correction_freezes_native_skill_without_creating_browser_run(client
     frozen = db.execute("SELECT messages FROM agent.interactive_plans WHERE invocation_key=%s",
                         ("chat:" + turn,)).fetchone()["messages"]
     system = frozen[0]["content"]
-    assert "trading.mt5-research@1.1.0" in system
+    assert "trading.mt5-research@1.1.1" in system
     assert "不打开其他网站代替MT5下单" in system
     assert "本轮网页任务状态" not in system
     if os.getenv("ADEX_TEST_REAL_MT5_READ") == "1":
@@ -62,3 +62,30 @@ def test_mt5_correction_freezes_native_skill_without_creating_browser_run(client
         assert "本轮尚未取得可核验的执行回执" not in reply
         assert "BLOCKED_EXTERNAL" not in reply
         print("REAL_LANGUAGE_READ_ONLY", query, reply[:1200])
+
+
+def test_continuous_trade_delegation_never_creates_gui_approval(client, db):
+    conv = client.post("/api/v1/conversations", json={"title": "TEST_FIXTURE trade continuation"}).json()["id"]
+    queries = ["帮我下一个黄金交易", "有没有挂单建议",
+               "你跳ChatGPT的客户端把截图信息给他让他给你建议", "浏览器都行你决定"]
+    for query in queries:
+        body = {"client_message_id": str(uuid4()), "content": query}
+        if os.getenv("ADEX_TEST_REAL_TRADING_LANGUAGE") == "1":
+            body["model"] = "qwen3.8-flash"
+        sent = client.post(f"/api/v1/conversations/{conv}/messages", json=body)
+        sent.raise_for_status()
+        turn = sent.json()["message_id"]
+        wait(lambda: db.execute("SELECT status FROM app.turns WHERE id=%s", (turn,)).fetchone()["status"]
+             in ("COMPLETED", "FAILED"), timeout=90)
+        assert db.execute("SELECT status FROM app.turns WHERE id=%s", (turn,)).fetchone()["status"] == "COMPLETED"
+        frozen = db.execute("SELECT messages FROM agent.interactive_plans WHERE invocation_key=%s",
+                            ("chat:" + turn,)).fetchone()["messages"]
+        assert "trading.mt5-research@1.1.1" in frozen[0]["content"]
+        reply = db.execute("SELECT content FROM app.messages WHERE conversation_id=%s AND role='assistant' ORDER BY seq DESC LIMIT 1", (conv,)).fetchone()["content"]
+        assert not any(text in reply for text in ("请确认", "请补充", "请选择", "请提供", "需要你确认"))
+        assert not db.execute("SELECT id FROM automation.runs WHERE origin_conversation_id=%s", (conv,)).fetchone()
+        assert not db.execute("SELECT id FROM tools.approvals WHERE request->>'origin_conversation_id'=%s", (conv,)).fetchone()
+        if os.getenv("ADEX_TEST_REAL_MT5_READ") == "1":
+            assert db.execute("SELECT invocation_key FROM agent.invocations WHERE invocation_key LIKE %s AND state='COMPLETED'",
+                              ("chat:" + turn + ":mt5-advice:%",)).fetchone()
+        print("CONTINUATION_RESEARCH_ONLY", query, reply[:500])

@@ -8,6 +8,11 @@ must not reuse an earlier assistant-selected brokerage website. This domain
 selection grants no execution permission. Explicit website documentation/tutorial
 requests can still use browser research; unrelated shopping remains unchanged.
 MT5 progress labels must refer to terminal evidence, not travel or web search.
+Continuation contract: user-only, bounded context carries MT5/XAUUSD into
+“有没有挂单建议”, analysis delegation and “浏览器都行你决定”. Assistant-selected
+websites, confirmations and capability claims cannot establish that context.
+An unrelated topic, physical purchase or another instrument ends inheritance.
+Read/research continuation performs no GUI click and requests no action approval.
 Gold trading language (黄金交易、现货黄金、伦敦金、做多/做空黄金) also selects
 this domain without requiring the literal MT5/XAUUSD identifier. Physical gold
 shopping, jewellery and explicitly different instruments (gold ETF/futures) must
@@ -146,6 +151,18 @@ real trade execution/cancellation, durable trading approvals and the client
 trading confirmation card. Chart screenshots/browser ChatGPT are not required by
 the current OHLC research path.
 Do not advertise this increment as an end-to-end autonomous trading feature.
+
+Continuation regression (Skill 1.1.1):
+
+```sh
+uv run python scripts/test_stack.py tests/integration/test_mt5_routing.py::test_continuous_trade_delegation_never_creates_gui_approval -q
+ADEX_TEST_REAL_TRADING_LANGUAGE=1 ADEX_TEST_REAL_MT5_READ=1 uv run python scripts/test_stack.py tests/integration/test_mt5_routing.py::test_continuous_trade_delegation_never_creates_gui_approval -q -s
+```
+
+The four-turn gold → pending-order advice → analysis delegation → browser choice
+chain must remain research-only, with a completed typed advisory on real reads,
+no browser/computer Run, no action approval and no request to supply parameters.
+Workflow questions explain current capabilities without reading the terminal.
 
 ## Automatic advisory 1.1.0
 

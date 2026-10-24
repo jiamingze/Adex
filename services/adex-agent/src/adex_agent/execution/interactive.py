@@ -32,9 +32,19 @@ class InteractiveTurnService:
                     "qwen" if body.model in {"qwen3.8-flash", "qwen3.8-max"} else "minimax"
                 )
                 selected_runtime.provider = provider(selected_runtime.provider_mode)
-            from adex_agent.skills.trading import native_mt5_request
+            from adex_agent.skills.trading import trading_context_request
 
-            if native_mt5_request(latest) and not schedule_intent(latest):
+            if trading_context_request(body.context["messages"]) and not schedule_intent(latest):
+                from adex_agent.skills.trading_advice import workflow_question, workflow_description
+
+                if workflow_question(latest):
+                    yield (
+                        json.dumps(
+                            {"type": "completed", "content": workflow_description()}, ensure_ascii=False
+                        )
+                        + "\n"
+                    )
+                    return
                 # Domain ownership precedes generic "下单"/computer classifiers.
                 # This enters read/preparation only; it creates no order or approval.
                 async for chunk in self.reply(selected_runtime, body, latest, native_mt5=True):
@@ -351,6 +361,8 @@ class InteractiveTurnService:
         from adex_agent.skills.trading_advice import automatic_advice, wants_advice
 
         if terminal and wants_advice(context.get("messages", [])):
+            from adex_agent.skills.trading import trading_context_request
+
             yield (
                 json.dumps(
                     {"type": "progress", "text": "正在自动分析多周期行情并校验交易草案"}, ensure_ascii=False
@@ -358,7 +370,11 @@ class InteractiveTurnService:
                 + "\n"
             )
             content = await automatic_advice(
-                selected_runtime, body.owner_id, body.invocation_key, messages, latest
+                selected_runtime,
+                body.owner_id,
+                body.invocation_key,
+                messages,
+                trading_context_request(context.get("messages", [])) or latest,
             )
             yield (
                 json.dumps(

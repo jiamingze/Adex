@@ -6,7 +6,7 @@ import tomllib
 from adex_agent.routing.intent import travel_intent
 from .contracts import SkillDefinition, SkillPlan
 from .travel import compile_travel, requested_days
-from .trading import compile_trading, trading_intent
+from .trading import compile_trading, trading_intent, trading_context_request
 
 _ALLOWED = frozenset({"search:read", "trading:read"})
 
@@ -30,6 +30,9 @@ class SkillRegistry:
         return None
 
     def resolve_context(self, messages: list[dict]) -> SkillPlan | None:
+        trading_request = trading_context_request(messages)
+        if trading_request and "trading.mt5-research" in self.definitions:
+            return compile_trading(self.definitions["trading.mt5-research"], trading_request)
         users = [m["content"] for m in messages if m.get("role") == "user"][-12:]
         if not users:
             return None

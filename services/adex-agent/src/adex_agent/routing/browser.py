@@ -49,9 +49,9 @@ def route_messages(messages):
 
 async def route_request(runtime, owner, turn, messages):
     latest = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
-    from adex_agent.skills.trading import native_mt5_request
+    from adex_agent.skills.trading import trading_context_request
 
-    if native_mt5_request(latest):
+    if trading_context_request(messages):
         return "none"
     if not candidate(latest):
         return "none"
