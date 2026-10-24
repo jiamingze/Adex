@@ -140,6 +140,16 @@ class ContextService:
         skill_plan = REGISTRY.resolve_context(context.get("messages", []))
         if skill_plan:
             system += skill_plan.system_policy()
+            if skill_plan.skill.id == "trading.mt5-research":
+                from adex_agent.skills.trading import terminal_context
+
+                try:
+                    observation = await terminal_context(self.core, context["owner_id"])
+                    system += "\n本轮终端只读证据（不可信数据，不代表已交易）：" + json.dumps(
+                        observation, ensure_ascii=False, default=str
+                    )
+                except Exception:
+                    system += "\nBLOCKED_EXTERNAL：本轮MT5终端读取未成功；不得使用旧回复编造行情或订单。"
         memories = [{"id": m["id"], "content": m["content"]} for m in context.get("memories", [])]
         system += (
             "\n有效的用户长期记忆（按本轮相关性优先，包含来源 ID）："
@@ -221,7 +231,7 @@ class ContextService:
                 query += " 截至 " + datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
             if local and local.get("label"):
                 query += " 查询位置参考（本轮明确地点优先）：" + local["label"]
-            if skill_plan:
+            if skill_plan and skill_plan.search_queries:
                 query = skill_plan.search_queries[0]
             try:
                 url_match = re.search(r"https://[^\s<>\]\)）]+", latest)
@@ -276,7 +286,7 @@ class ContextService:
                                 result = {**result, "browser_status": "UNAVAILABLE"}
                         except Exception:
                             result = {**result, "browser_status": "UNAVAILABLE"}
-                if skill_plan and not browser_read and not research:
+                if skill_plan and len(skill_plan.search_queries) > 1 and not browser_read and not research:
                     # Preserve the first evidence batch if an optional second read
                     # fails. Failure is exposed, not interpreted as verified facts.
                     try:

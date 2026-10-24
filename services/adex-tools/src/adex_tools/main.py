@@ -15,6 +15,7 @@ from adex_tools.api import (
     browser,
     computer,
     speech,
+    trading,
 )
 
 
@@ -47,6 +48,7 @@ def create_app():
     app.include_router(browser.router)
     app.include_router(computer.router)
     app.include_router(speech.router)
+    app.include_router(trading.router)
     return app
 
 

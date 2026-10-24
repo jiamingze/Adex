@@ -8,6 +8,42 @@ from adex_agent.skills.travel import requested_days
 from adex_agent.execution.context import ContextService
 
 
+async def test_trading_skill_observes_terminal_without_claiming_execution():
+    plan = REGISTRY.resolve("MT5看一下XAUUSD的1分钟、5分钟、4小时图")
+    assert plan.skill.id == "trading.mt5-research"
+    assert plan.search_queries == ()
+    core = SimpleNamespace(call=AsyncMock(return_value={
+        "mode": "TERMINAL_READ_ONLY", "symbol": "XAUUSD", "broker_executed": False,
+        "frames": {name: [{"close": i} for i in range(120)] for name in ("M1", "M5", "H4")},
+    }))
+    messages = await ContextService(core).messages({
+        "owner_id": str(uuid4()), "messages": [{"role": "user", "content": "MT5分析XAUUSD"}],
+    })
+    assert "TERMINAL_READ_ONLY" in messages[0]["content"]
+    assert "不具备实盘提交接口" in messages[0]["content"]
+    assert core.call.await_args.args[3] == "/internal/trading/context"
+
+
+async def test_trading_read_failure_is_not_fake_market_evidence():
+    core = SimpleNamespace(call=AsyncMock(side_effect=RuntimeError("private detail")))
+    messages = await ContextService(core).messages({
+        "owner_id": str(uuid4()), "messages": [{"role": "user", "content": "MT5分析XAUUSD"}],
+    })
+    assert "BLOCKED_EXTERNAL" in messages[0]["content"]
+    assert "private detail" not in messages[0]["content"]
+
+
+async def test_trading_skill_has_no_required_web_search_batches():
+    core = SimpleNamespace(call=AsyncMock(side_effect=[
+        {"mode": "TERMINAL_READ_ONLY", "frames": {}},
+        {"items": [], "fetched_at": "fixture"},
+    ]))
+    await ContextService(core).messages({
+        "owner_id": str(uuid4()), "messages": [{"role": "user", "content": "MT5分析XAUUSD最新消息"}],
+    }, search=True)
+    assert core.call.await_count == 2
+
+
 def test_skill_permissions_fail_closed():
     definition = REGISTRY.definitions["travel.plan"]
     with pytest.raises(ValueError, match="UNSUPPORTED"):

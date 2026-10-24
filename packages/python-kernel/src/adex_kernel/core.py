@@ -104,6 +104,8 @@ class Core:
         async with httpx.AsyncClient(
             timeout=960
             if scope == "creative:write"
+            else 60
+            if scope == "trading:read"
             else 35
             if scope in ("browser:operate", "browser:control", "browser:read")
             else 90

@@ -6,6 +6,8 @@ not an unrestricted autonomous browser or a third-party skill marketplace.
 
 ## 当前可用
 
+- `trading.mt5-research@1.0.0`：通过本机 MT5 Wine 桥接读取 XAUUSD 三周期行情和挂单，注入只读证据；不发送或取消实盘订单。测试模拟器与终端预检均不能代表真实成交。当前范围和缺项见 [MT5 设计与验收](mt5-trading.md)。
+
 - `travel.plan@1.0.0`：仓库维护的 TOML 定义，包含执行阶段、能力与质量规则。
 - 注册表拒绝重复 ID 和不支持的能力；不加载远程代码或用户上传的提示词。
 - 计划编译器识别明确天数与交易意图，保持普通行程规划在当前对话执行。
