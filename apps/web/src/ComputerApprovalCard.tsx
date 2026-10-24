@@ -48,7 +48,7 @@ export function ComputerApprovalCard({ id }: { id: string }) {
                     text: "输入内容",
                   }[key] || key}
                 </dt>
-                <dd>{key === "action" ? ({ press: "点击", set_value: "填写内容" }[String(value)] || String(value)) : String(value)}</dd>
+                <dd>{key === "action" ? ({ press: "点击", set_value: "填写内容", confirm: "提交当前控件" }[String(value)] || String(value)) : String(value)}</dd>
               </div>
             ))}
           </dl>

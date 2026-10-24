@@ -68,20 +68,22 @@ def test_whole_mac_policy_is_explicit_and_still_owner_bound(monkeypatch):
         service.grant(uuid4(), "Safari")
 
 
-async def test_search_cannot_navigate_an_unrelated_app(monkeypatch):
+async def test_native_search_still_requires_run_authorization_before_dispatch(monkeypatch):
     owner = uuid4()
     monkeypatch.setenv("ADEX_COMPUTER_ENABLED", "true")
     monkeypatch.setenv("ADEX_COMPUTER_OWNER_ID", str(owner))
     monkeypatch.setenv("ADEX_COMPUTER_APPS", "计算器=com.apple.calculator")
-
     class Runner:
         async def call(self, body):
             assert body["command"] == "resolve"
             return {"bundle_id": "com.apple.calculator"}
-
+    class Service(ComputerService):
+        async def authorize(self, *args): raise HTTPException(403, "COMPUTER_RUN_REQUIRED")
+    class Core:
+        async def query(self, *args): pass
     with pytest.raises(HTTPException) as error:
-        await ComputerService(None, Runner()).observe(owner, {"app_name": "计算器", "search_query": "CET版"})
-    assert error.value.detail == "COMPUTER_SEARCH_REQUIRES_CHROME"
+        await Service(Core(), Runner()).observe(owner, {"app_name": "计算器", "search_query": "CET版"})
+    assert error.value.detail == "COMPUTER_RUN_REQUIRED"
 
 
 async def test_navigation_rejects_private_addresses_before_runner(monkeypatch):
@@ -93,3 +95,16 @@ async def test_navigation_rejects_private_addresses_before_runner(monkeypatch):
         with pytest.raises(HTTPException) as error:
             await service.observe('owner',{'app_name':'Chrome','navigate_url':url})
         assert error.value.detail=='COMPUTER_PUBLIC_HTTPS_REQUIRED'
+
+
+async def test_confirm_requires_current_control_capability(monkeypatch):
+    class Service(ComputerService):
+        async def resolve(self, *args): return "fixture"
+        async def authorize(self, *args): return {"origin_conversation_id": "conversation"}
+    class Core:
+        async def query(self, *args, **kwargs):
+            return {"bundle_id": "fixture", "snapshot": {"nodes": [{"id": "0", "actions": ["AXPress"]}]}}
+    body = {"app_name": "fixture", "run_id": uuid4(), "observation_id": uuid4(), "step": {"action": "confirm", "element_id": "0", "text": ""}}
+    with pytest.raises(HTTPException) as error:
+        await Service(Core()).step(uuid4(), body)
+    assert error.value.detail == "COMPUTER_CONTROL_NOT_ALLOWED"

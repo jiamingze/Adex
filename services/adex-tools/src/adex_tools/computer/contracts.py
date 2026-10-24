@@ -20,7 +20,7 @@ class ComputerObservation(ComputerExecution):
 
 class ComputerAction(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    action: Literal["press", "set_value"]
+    action: Literal["press", "set_value", "confirm"]
     element_id: str = Field(min_length=1, max_length=100)
     text: str = Field(default="", max_length=4000)
 

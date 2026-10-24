@@ -127,8 +127,6 @@ class ComputerService:
                     raise ValueError()
             except Exception:
                 raise HTTPException(400, "COMPUTER_PUBLIC_HTTPS_REQUIRED") from None
-        if query is not None and bundle != "com.google.Chrome":
-            raise HTTPException(400, "COMPUTER_SEARCH_REQUIRES_CHROME")
         # Opportunistic retention cleanup uses the existing request path, not a new scheduler.
         await self.core.query(
             "DELETE FROM computer_observations WHERE owner_id=%s AND created_at<clock_timestamp()-interval '1 day'",
@@ -164,6 +162,7 @@ class ComputerService:
             not node
             or node.get("secure")
             or (step["action"] == "press" and "AXPress" not in node.get("actions", []))
+            or (step["action"] == "confirm" and "AXConfirm" not in node.get("actions", []))
             or (step["action"] == "set_value" and not node.get("settable"))
         ):
             raise HTTPException(403, "COMPUTER_CONTROL_NOT_ALLOWED")

@@ -353,6 +353,8 @@ public class RunExecutionService {
                     case "COMPUTER_SEARCH_PAGE_UNAVAILABLE",
                         "COMPUTER_SEARCH_NO_VERIFIED_RESULTS" ->
                         "Chrome 已打开，但这次未读取到可核实的搜索结果，请稍后重试。";
+                    case "COMPUTER_SCREEN_LOCKED" -> "Mac 当前已锁屏，请解锁电脑后重新发起操作；这次尚未完成。";
+                    case "COMPUTER_APP_NAME_AMBIGUOUS" -> "找到多个名称相近的应用，请提供完整应用名称再试。";
                     case "COMPUTER_APP_NOT_INSTALLED" -> "没有找到指定的本机应用，请确认安装情况或提供准确名称。";
                     case "COMPUTER_CONTROL_NOT_ALLOWED", "COMPUTER_APP_CONTROLS_UNAVAILABLE" ->
                         "当前应用的这个控件暂时无法操作，这一步尚未完成。";

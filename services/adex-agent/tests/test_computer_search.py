@@ -176,3 +176,74 @@ async def test_stale_pre_dispatch_refusal_reobserves_instead_of_failing_or_repla
     assert result['artifact']['computer_status']=='DONE'
     assert calls==['/internal/computer/step','/internal/computer/observe']
     assert result['completed_steps'][0]['receipt']=='NOT_APPLIED_STALE'
+
+
+async def test_identical_observations_stop_before_exhausting_model_budget():
+    calls, plans = [], []
+    async def call(*args, **kwargs):
+        calls.append(args[3])
+        return {"observation_id": str(len(calls)), "nodes": [{"role": "AXStaticText", "title": "Loading"}]}
+    async def invoke(*args):
+        plans.append(args)
+        yield {"type": "completed", "content": json.dumps({"action": "observe"})}
+    worker = SimpleNamespace(core=SimpleNamespace(call=call), runtime=SimpleNamespace(invoke=invoke))
+    run = {"id": "run", "owner_id": "owner", "epoch": 1, "attempt_id": "attempt", "instruction": "读取行情", "request": {"params": {"app_name": "TEST_FIXTURE"}}}
+    result = await ComputerWorkflow(worker).run(run, {"memory_revision": 1}, None)
+    assert result["artifact"]["reason"] == "NO_OBSERVATION_PROGRESS"
+    assert len(plans) < 8
+    assert all(path.endswith("/observe") for path in calls)
+
+
+async def test_visual_evidence_reaches_planner_without_becoming_an_action_target():
+    async def call(*args, **kwargs):
+        return {"nodes": [], "visual_status": "OBSERVED", "visual_text": "TEST_FIXTURE 09961 BOLL MID:307.520"}
+    async def invoke(key, owner, messages):
+        view = json.loads(messages[1]["content"])
+        if view["observation"].get("status") == "not_observed":
+            action = {"action": "observe"}
+        else:
+            assert "09961" in view["read_only_visual_evidence"]["text"]
+            assert view["read_only_visual_evidence"]["status"] == "OBSERVED"
+            assert view["observation"]["nodes"] == []
+            action = {"action": "done", "text": "TEST_FIXTURE 已读取"}
+        yield {"type": "completed", "content": json.dumps(action)}
+    worker = SimpleNamespace(core=SimpleNamespace(call=call), runtime=SimpleNamespace(invoke=invoke))
+    run = {"id": "run", "owner_id": "owner", "epoch": 1, "attempt_id": "attempt", "instruction": "读取行情", "request": {"params": {"app_name": "TEST_FIXTURE"}}}
+    result = await ComputerWorkflow(worker).run(run, {"memory_revision": 1}, None)
+    assert result["artifact"]["computer_status"] == "DONE"
+
+
+async def test_native_search_preserves_visual_evidence_without_requiring_web_links():
+    calls, checkpoints = [], []
+    async def call(*args, **kwargs):
+        assert checkpoints
+        calls.append(args[4])
+        return {"bundle_id": "fixture.native", "nodes": [], "visual_status": "OBSERVED", "visual_text": "TEST_FIXTURE 09961 BOLL MID:307.520"}
+    async def save(*args): checkpoints.append(args); return "checkpoint"
+    async def write(*args): pass
+    async def invoke(key, owner, messages):
+        view = json.loads(messages[1]["content"])
+        action = {"action": "search", "text": "09961"} if not calls else {"action": "done", "text": "TEST_FIXTURE 09961 BOLL MID:307.520"}
+        if calls: assert "BOLL" in view["read_only_visual_evidence"]["text"]
+        yield {"type": "completed", "content": json.dumps(action)}
+    worker = SimpleNamespace(core=SimpleNamespace(call=call), runtime=SimpleNamespace(invoke=invoke), checkpoints=SimpleNamespace(save_checkpoint=save), run_write=write)
+    run = {"id": "run", "owner_id": "owner", "epoch": 1, "attempt_id": "attempt", "instruction": "读取行情", "request": {"params": {"app_name": "TEST_FIXTURE"}}}
+    result = await ComputerWorkflow(worker).run(run, {"memory_revision": 1}, None)
+    assert result["artifact"]["computer_status"] == "DONE"
+    assert calls[0]["search_query"] == "09961"
+
+
+async def test_conflicting_evidence_cannot_be_reported_as_successful_analysis():
+    from adex_agent.computer.planner import plan_operation
+    plans = iter([{"action": "done", "evidence_status": "conflicting", "text": "TEST_FIXTURE forecast"}, {"action": "blocked", "evidence_status": "conflicting", "text": "TEST_FIXTURE conflicting instruments"}])
+    async def invoke(*args): yield {"type": "completed", "content": json.dumps(next(plans))}
+    result = await plan_operation(SimpleNamespace(invoke=invoke), "owner", "key", [{"role": "system", "content": ""}], {})
+    assert result.action == "blocked" and result.evidence_status == "conflicting"
+
+
+async def test_indicator_value_cannot_replace_native_spatial_quote_readback():
+    from adex_agent.computer.planner import plan_operation
+    plans = iter([{"action": "done", "text": "TEST_FIXTURE", "quote_instrument": "09961", "quote_price": "307.520"}, {"action": "done", "text": "TEST_FIXTURE", "quote_instrument": "09961", "quote_price": "314.8"}])
+    async def invoke(*args): yield {"type": "completed", "content": json.dumps(next(plans))}
+    result = await plan_operation(SimpleNamespace(invoke=invoke), "owner", "key", [{"role": "system", "content": ""}], {"primary_numeric_readback": {"context": "09961", "value": "314.800", "line_ids": [1]}})
+    assert result.quote_price == "314.8"

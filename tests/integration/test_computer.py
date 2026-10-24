@@ -10,7 +10,7 @@ import pytest
 from test_reliability import client, db, sign, wait, claim, worker_env, ROOT
 
 
-def execute_claimed(run):
+def execute_claimed(run, timeout=60):
     done = subprocess.run(
         [
             "uv",
@@ -25,7 +25,7 @@ def execute_claimed(run):
         env=worker_env(),
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=timeout,
     )
     assert done.returncode == 0, done.stderr[-1000:]
 
@@ -482,3 +482,66 @@ def test_actual_youtube_site_search_does_not_request_typing_approval(client,db):
     links=re.findall(r'https://www.youtube.com/(?:watch\?v=|shorts/)[^\s)\]<>]+',result['content'])
     assert links and all(url.rstrip('。，；') in observed for url in links)
     (ROOT/'.local-data/youtube-site-search-result.md').write_text(result['content'])
+
+
+@pytest.mark.skipif(os.getenv("ADEX_TEST_REAL_CHROME") != "1", reason="Opt-in real installed Futu and Qwen; no simulated quotes")
+def test_actual_futu_localized_name_and_login_boundary(client, db):
+    binary = ROOT / ".local-data/computer-runner/AdexComputerRunner"
+    for name in ("富途", "富途牛牛", "富途牛牛经典版"):
+        response = subprocess.run([str(binary)], input=json.dumps({"command": "resolve", "bundle_id": name}), text=True, capture_output=True, timeout=20)
+        assert json.loads(response.stdout).get("bundle_id") == "cn.futu.Niuniu"
+    observation = subprocess.run([str(binary)], input=json.dumps({"bundle_id": "cn.futu.Niuniu"}), text=True, capture_output=True, timeout=20)
+    view = json.loads(observation.stdout)
+    if not any("登录" in (n.get("title", "") + n.get("value", "")) for n in view.get("nodes", [])):
+        pytest.skip("Real Futu already signed in; login-boundary acceptance requires signed-out UI")
+    conv = client.post("/api/v1/conversations", json={"title": "TEST_FIXTURE Futu login boundary"}).json()["id"]
+    response = client.post("/api/v1/tasks", headers={"Idempotency-Key": str(uuid4())}, json={"kind": "COMPUTER", "instruction": "打开富途牛牛查看携程股票价格，未登录时告知需要在应用中登录，不要编造行情，不要操作交易", "origin_conversation_id": conv, "idempotency_key": str(uuid4()), "params": {"app_name": "富途牛牛"}})
+    response.raise_for_status()
+    run = claim()
+    assert run["id"] == response.json()["id"]
+    execute_claimed(run)
+    result = db.execute("SELECT status,result,error_code FROM automation.runs WHERE id=%s", (run["id"],)).fetchone()
+    assert result["status"] == "COMPLETED", result
+    assert "登录" in result["result"], result
+    assert not db.execute("SELECT id FROM tools.approvals WHERE request->>'computer_run_id'=%s", (run["id"],)).fetchall()
+
+
+@pytest.mark.skipif(os.getenv("ADEX_TEST_REAL_CHROME") != "1", reason="Opt-in real signed-in Futu quote page and Qwen")
+def test_actual_futu_current_quote_uses_visual_evidence(client, db):
+    # Prove a real instrument change, not just successful extraction of the
+    # instrument a human already opened before the test.
+    binary = ROOT / ".local-data/computer-runner/AdexComputerRunner"
+    preparation = subprocess.run([str(binary)], input=json.dumps({"bundle_id": "cn.futu.Niuniu", "search_query": "TCOM"}), text=True, capture_output=True, timeout=22)
+    initial = json.loads(preparation.stdout)
+    assert any(n.get("role") == "AXStaticText" and n.get("value", "").startswith("TCOM") for n in initial.get("nodes", [])), "Native toolbar lookup did not open TCOM"
+    conv = client.post("/api/v1/conversations", json={"title": "TEST_FIXTURE actual Futu quote readback"}).json()["id"]
+    response = client.post(f"/api/v1/conversations/{conv}/messages", json={"client_message_id": str(uuid4()), "content": "帮我打开Mac上的富途牛牛，搜索携程港股09961，读取搜索后默认行情页面的价格及可见BOLL指标数值，区分美股TCOM。不需要切换周期或点击其他按钮；基于实际可见指标给出两个条件走势情景，说明数据的时间边界和历史数据不足，不要操作交易。"})
+    response.raise_for_status()
+    pending = wait(lambda: db.execute("SELECT id FROM automation.runs WHERE origin_conversation_id=%s AND kind='COMPUTER'", (conv,)).fetchone(), timeout=60)
+    run = claim()
+    assert run["id"] == str(pending["id"])
+    execute_claimed(run, timeout=120)
+    result = db.execute("SELECT status,result,error_code FROM automation.runs WHERE id=%s", (run["id"],)).fetchone()
+    if result["status"] == "WAITING_INPUT":
+        pending_actions = db.execute("SELECT request FROM tools.approvals WHERE request->>'computer_run_id'=%s", (run["id"],)).fetchall()
+        (ROOT / ".local-data/futu-live-pending.json").write_text(json.dumps(pending_actions, default=str, ensure_ascii=False))
+    assert result["status"] == "COMPLETED", result
+    (ROOT / ".local-data/futu-last-acceptance.json").write_text(json.dumps({"result": result, "plans": db.execute("SELECT result FROM agent.invocations ORDER BY created_at").fetchall()}, default=str, ensure_ascii=False))
+    observations = db.execute("SELECT snapshot FROM tools.computer_observations WHERE run_id=%s", (run["id"],)).fetchall()
+    evidence = "\n".join(row["snapshot"].get("visual_text", "") for row in observations)
+    assert "09961" in evidence and "BOLL" in evidence, "Actual quote page / visual evidence unavailable"
+    assert any(n.get("role") == "AXStaticText" and n.get("value") == "09961" for row in observations for n in row["snapshot"].get("nodes", [])), "Main instrument never switched from TCOM to 09961"
+    assert "09961" in result["result"] and "BOLL" in result["result"], result
+    readbacks = [row["snapshot"].get("primary_numeric_readback", {}) for row in observations]
+    native_quotes = [q for q in readbacks if q.get("context") == "09961" and q.get("value")]
+    assert native_quotes, "No spatially corroborated quote exists"
+    from decimal import Decimal
+    quote = native_quotes[-1]
+    normalized = str(Decimal(quote["value"]).normalize())
+    assert normalized in result["result"], "Returned quote omits the native price-axis value"
+
+    wait(lambda: any(m["role"] == "assistant" and "09961" in m["content"] and "BOLL" in m["content"] for m in client.get(f"/api/v1/conversations/{conv}/messages").json()["items"]), timeout=30)
+    import re
+    numbers = re.findall(r"(?<![0-9])\d{3}\.\d{3}(?![0-9])", evidence)
+    assert any(number in result["result"] for number in numbers), "No actual observed indicator/price returned"
+    assert not db.execute("SELECT id FROM tools.approvals WHERE request->>'computer_run_id'=%s", (run["id"],)).fetchall()

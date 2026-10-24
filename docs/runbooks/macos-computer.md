@@ -130,3 +130,46 @@ A native `COMPUTER_STALE_OBSERVATION` is a definitive pre-dispatch refusal: pers
 FAILED/REVOKED with `REOBSERVE_REQUIRED`, then checkpoint the non-applied step and
 re-observe. Do not weaken tree/pid checks or blindly retry an UNKNOWN effect. A changed
 page still needs a fresh approval for an actual write; read navigation needs none.
+
+### Localized application discovery and market-data boundary
+
+Resolve user application names against installed bundle identifiers, file names and localized
+display names. Only a unique normalized match may be selected; ambiguous matches fail closed.
+This changes application discovery, not owner authorization or the effect approval contract.
+After launch, allow a bounded window for native controls to appear. Repeated identical
+observations must stop with an actionable obstacle rather than exhaust the model budget.
+For market requests, report the observed instrument, exchange/currency, quote timestamp and
+any visible delay. Never invent prices, chart values or certain future returns. A login page
+is BLOCKED_EXTERNAL until the user signs in directly; credentials never enter model prompts.
+
+Native visual evidence: when macOS Screen Recording is already authorized, observe may
+OCR the selected application's window into a bounded `visual_text` field.
+No screenshot is persisted or uploaded; OCR text is untrusted read-only evidence and
+never creates actionable element IDs. Missing permission returns explicit availability.
+Action fencing hashes the native control tree, not fluctuating OCR pixels.
+
+The native action vocabulary also permits `confirm` only where the current AX control
+explicitly exposes AXConfirm. It uses the existing per-action approval/effect ledger
+and never synthesizes a global Return key. This permits submitting native search controls
+without adding shell/keyboard control or treating quote lookup as trade authorization.
+
+Read-only native `search` is restricted to a unique non-secure search field inside an
+AXToolbar, with a recognized search placeholder and AXConfirm. The native helper itself
+validates these properties; it cannot submit arbitrary fields or order forms. Like browser
+GET navigation this convergent lookup uses the existing checkpointed pending-search path,
+not a new job/effect system. Apps without a qualifying toolbar return an explicit error.
+
+Some native search fields acknowledge AXConfirm without running their delegate. The
+lookup path may send a fixed Return only after verifying the same search field
+still owns focus, the exact query value, and the target app is frontmost. A second fixed Return may select the candidate only if the same toolbar editor
+retains focus and has been cleared. No generic
+keyboard action or model-provided key code is exposed. Acknowledgement is never proof
+of a successful lookup: the subsequent observation must show the requested instrument.
+
+Visual lines retain normalized bounding boxes and numeric-label emphasis. A primary
+numeric readback is produced only when an AX context label corroborates a visual heading
+and a unique highlighted numeric value aligns with that content region. It is bounded
+visual evidence, not an exchange feed. Typed quote fields must match this readback; a
+BOLL midpoint cannot replace the price-axis value. Conflicting/insufficient evidence cannot
+be marked done. The response renders the source numeric readback directly. Full OHLCV
+retrieval, delay guarantees and prediction accuracy remain outside this acceptance.

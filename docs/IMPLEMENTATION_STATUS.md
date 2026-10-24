@@ -1094,3 +1094,67 @@ Observed validation:
 - `uv run python scripts/test_stack.py tests/integration/test_computer.py tests/integration/test_observation_notifications.py -q`: 4 passed, 4 skipped in 21.20s. Skips are opt-in real desktop cases.
 - `ADEX_TEST_REAL_CHROME=1 uv run python scripts/test_stack.py tests/integration/test_computer.py::test_actual_youtube_site_search_does_not_request_typing_approval -q`: 1 passed in 18.88s. Actual Chrome/Qwen opened YouTube search without approval and returned video/Shorts links present in actual observations.
 - One earlier live attempt encountered a provider rejection; a fresh run passed. This is not a guarantee of provider availability or all-site login/shopping support. Safe diagnostics record only HTTP status and a bounded provider error code.
+
+## Localized Mac application discovery and Futu boundary (2026-10-24)
+
+Diagnosed conversation failures as COMPUTER_SCREEN_LOCKED, an exhausted observation loop,
+and COMPUTER_APP_NOT_INSTALLED before a Futu Run could start. The installed application is
+FutuNiuniu.app / cn.futu.Niuniu; its Chinese name lives in localized bundle metadata.
+Native discovery now reads installed localized names and accepts only unique normalized
+name/prefix matches. Ambiguity fails closed; authorization and action approvals are unchanged.
+Added a bounded native startup wait, no-progress observation guard, and explicit lock-screen
+and ambiguous-name messages. No database migration or new execution system was introduced.
+
+Validation includes Java/web builds, native helper compilation/signing,
+`make build test check-style` (136 Agent tests, 148 Tools tests, client/Java/contract
+tests and architecture/style checks), plus the following real/isolated acceptance.
+`ADEX_TEST_REAL_CHROME=1 uv run python scripts/test_stack.py tests/integration/test_computer.py::test_actual_futu_localized_name_and_login_boundary -q`: **1 passed in 11.92s**, using the real
+installed Futu application and Qwen with isolated database state. All three Chinese names
+resolved, the actual login UI was observed, and no action approval/trade was created.
+
+The initial login boundary was **BLOCKED_EXTERNAL**. The user subsequently signed in.
+Native observation now selects the focused/main AX window instead of traversing unrelated
+application menus, activates/reopens the requested application, and supplies bounded
+Vision OCR for custom-drawn quotes/charts when Screen Recording is already authorized.
+It selects only windows of the target process: matching AX geometry where available,
+otherwise an unambiguous principal window. Missing permission, ambiguous windows or
+capture/OCR failure remain explicit unavailable states. Images stay in memory; bounded
+OCR text is private observation evidence, never executable controls. Native mutations
+continue to fence on the AX tree rather than fluctuating OCR pixels.
+
+Added `confirm` only for controls exposing AXConfirm, using the existing approval/effect
+ledger. It permits submitting native search fields without global keyboard injection.
+Planner input explicitly surfaces OCR evidence and distinguishes the main instrument
+from other stocks in the watchlist. Regression tests cover no-progress termination,
+visual evidence forwarding and rejection of confirm on unsupported controls.
+
+Actual signed-in desktop extraction read the 09961 chart, displayed price and BOLL
+values. Complete historical OHLCV extraction and prediction quality are not accepted
+by this milestone; forecasts must remain limited conditional scenarios, not guaranteed
+future prices. OCR can misread values; read time is not quote-update time.
+
+Native toolbar search is independently restricted to a unique non-secure input under
+AXToolbar with a recognized search placeholder and AXConfirm. The lookup focuses that
+field, verifies the target application remains frontmost, and permits only the fixed
+Return needed to submit/select its search candidate. It exposes neither arbitrary keys
+nor model-provided coordinates. The previous generic native AXConfirm action remains
+approval-bound. Read-only searches reuse pending-search checkpoints and do not request
+per-keystroke approval; actual instrument readback, not command acknowledgement, is the
+success criterion. Desktop applications without qualifying search controls fail closed.
+
+Window OCR now preserves normalized text positions and numeric emphasis. An AX context
+label must corroborate the visual heading; only a unique aligned highlighted numeric
+readback is selected. Typed quote_instrument/quote_price must match that readback, with
+one bounded planning repair on mismatch. The reply renders the native source value
+directly. Conflicting/insufficient evidence cannot produce a done forecast. Tests reject
+an indicator midpoint substituted for the current price. This reduces the observed
+watchlist/main-chart and BOLL/current-price confusion; it is not a universal visual parser
+or a substitute for licensed historical market data.
+
+Final observed acceptance:
+- `ADEX_TEST_REAL_CHROME=1 uv run python scripts/test_stack.py tests/integration/test_computer.py::test_actual_futu_current_quote_uses_visual_evidence -q`: **1 passed in 32.42s**. The test first uses native toolbar lookup to open TCOM, sends a natural-language chat request for 09961, verifies the main AX instrument really switches to 09961, checks returned numeric readback against actual spatial evidence, and waits for the result in the origin conversation. No action approval or trade is created. The inspected final reply uses the correct main-chart value and limited conditional BOLL scenarios.
+- `uv run python scripts/test_stack.py tests/integration/test_computer.py -q`: **3 passed, 6 skipped**. Skips are explicitly opt-in actual Mac/Chrome/Futu acceptance, not simulated external execution.
+- Earlier live runs exposed mismatched watchlist/chart values and a BOLL midpoint
+  misreported as price. Those results were rejected during development; position-aware
+  evidence and typed readback validation were added before deployment. Complete historical
+  market-data ingestion and investment prediction quality are still not validated.

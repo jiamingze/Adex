@@ -10,7 +10,10 @@ from adex_agent.models.provider import ProviderFailure
 
 class Plan(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    action: Literal["press", "set_value", "observe", "search", "navigate", "done", "blocked"]
+    action: Literal["press", "set_value", "confirm", "observe", "search", "navigate", "done", "blocked"]
+    evidence_status: Literal["verified", "insufficient", "conflicting", "not_applicable"] = "not_applicable"
+    quote_price: str | None = Field(default=None, max_length=40)
+    quote_instrument: str | None = Field(default=None, max_length=100)
     element_id: str = Field(default="", max_length=100)
     text: str = Field(default="", max_length=4000)
     reason: str = Field(default="", max_length=500)
@@ -47,6 +50,26 @@ async def plan_operation(runtime, owner, key, messages, observation):
                     )
                 if address.scheme != "https" or not address.hostname or address.username or address.password:
                     raise ValueError("Navigate text must be a public HTTPS URL without credentials")
+            readback = observation.get("primary_numeric_readback") or {}
+            if result.action == "done" and readback.get("value"):
+                from decimal import Decimal, InvalidOperation
+
+                try:
+                    matched = result.quote_instrument == readback["context"] and Decimal(
+                        result.quote_price or "NaN"
+                    ) == Decimal(readback["value"])
+                except InvalidOperation:
+                    matched = False
+                if not matched:
+                    raise ValueError(
+                        "Quote must match native AX/OCR spatial readback: "
+                        + json.dumps(readback, ensure_ascii=False)
+                        + "; populate quote_instrument/quote_price or return blocked. BOLL MID is not the latest price."
+                    )
+            if result.action == "done" and result.evidence_status in {"conflicting", "insufficient"}:
+                raise ValueError(
+                    "Conflicting/insufficient evidence cannot support done or a forecast; return blocked with the missing evidence"
+                )
             if result.action == "done" and observation.get("status") == "loading":
                 raise ValueError("Page is still loading; observe again, no successful result exists yet")
             if result.action in {"done", "blocked"} and not result.text.strip():
