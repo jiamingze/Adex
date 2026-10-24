@@ -1238,3 +1238,39 @@ Real model tests use isolated App/Agent/Automation databases. Native reads are n
 separately opt-in; no test submits, cancels or modifies a financial order. These
 checks establish routing/context/reply behavior, not a complete trading workflow.
 No database migration or iOS binary change was required.
+
+## Automatic OHLC trading advisory, Skill 1.1.0 (2026-10-24)
+
+Order requests now run a dedicated typed market-analysis step rather than asking
+the user to choose direction, entry, SL or TP. The existing model provider receives
+de-identified native MT5 M1/M5/H4 OHLC, quote and broker specification data from the
+frozen interactive plan. Potentially forming final bars are excluded. The model
+returns SETUP / NO_SETUP / INSUFFICIENT_DATA; code checks schema, finite positive
+prices, tick precision, pending-entry side, SL/TP direction, minimum stop distance
+and fixed 0.01 lot compatibility. Invalid proposals get one bounded repair, then
+a safe no-draft response. False execution claims and requests to make the user
+design the order are rejected. Chinese Markdown rendering happens only after
+validation; raw proposal JSON is not streamed to the user.
+
+Reuses `agent.invocations` and `interactive_plans`, without new scheduler, business
+service or migration. Drafts are not broker receipts or durable action approvals;
+there is no live submit/cancel interface. No old ticket or account identifier is
+sent to the analysis model. No screenshot or browser ChatGPT login is required.
+
+Observed:
+
+- `uv run --project services/adex-agent pytest services/adex-agent/tests -q`:
+  **176 passed**. Positive synthetic SETUP rendering, no-opportunity, missing
+  data, invalid broker levels, schema repair, private-data exclusion, closed-bar
+  selection, no fake success, no manual parameter requests and explicit negation.
+- `uv run python scripts/test_stack.py tests/integration/test_mt5_routing.py -q`:
+  **4 passed in 8.83s** with fixture terminal access disabled.
+- `ADEX_TEST_REAL_TRADING_LANGUAGE=1 ADEX_TEST_REAL_MT5_READ=1 uv run python
+  scripts/test_stack.py tests/integration/test_mt5_routing.py -k gold_trade -q -s`:
+  **1 passed, 3 deselected in 11.21s**. Reads actual owner-authorized terminal data,
+  calls real Qwen, checks the typed `:mt5-advice:` model ledger record, the frozen
+  Skill version, no browser Run and no parameter questionnaire. Observed result
+  was NO_SETUP, in Chinese. This is read/research acceptance, not trade execution
+  or proof of investment performance; synthetic SETUP is not real broker execution.
+- `make check-style`, Ruff and Python compilation passed; Agent restarted and all
+  four readiness endpoints UP. Private terminal/model evidence remains ignored.

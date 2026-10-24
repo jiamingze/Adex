@@ -348,6 +348,25 @@ class InteractiveTurnService:
             (body.invocation_key,),
             one=True,
         )
+        from adex_agent.skills.trading_advice import automatic_advice, wants_advice
+
+        if terminal and wants_advice(context.get("messages", [])):
+            yield (
+                json.dumps(
+                    {"type": "progress", "text": "正在自动分析多周期行情并校验交易草案"}, ensure_ascii=False
+                )
+                + "\n"
+            )
+            content = await automatic_advice(
+                selected_runtime, body.owner_id, body.invocation_key, messages, latest
+            )
+            yield (
+                json.dumps(
+                    {"type": "completed", "content": content, "cards": card_row["cards"]}, ensure_ascii=False
+                )
+                + "\n"
+            )
+            return
         async for event in selected_runtime.invoke(body.invocation_key, body.owner_id, messages):
             if event["type"] == "completed":
                 event = {**event, "cards": card_row["cards"]}

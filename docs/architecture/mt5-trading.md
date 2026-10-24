@@ -14,6 +14,16 @@ shopping, jewellery and explicitly different instruments (gold ETF/futures) must
 not be silently normalized to XAUUSD. Receipt failures must not ask for an
 unrelated todo title or schedule time.
 
+Automatic advisory contract: native OHLCV, quotes and symbol constraints are frozen
+in the existing interactive plan. The existing model API receives de-identified
+market data and returns a closed `SETUP | NO_SETUP | INSUFFICIENT_DATA` document.
+For SETUP it proposes one pending order (direction/type/entry/SL/TP); volume is
+fixed by code at 0.01, not requested from the user. Code validates precision,
+lot minimum/step, pending-entry relation, SL/TP and minimum stop distances before
+rendering a research-only draft. Missing/malformed evidence cannot become a trade
+proposal. No independent ChatGPT website login, scheduler, effect or execution is
+introduced. Draft generation is not approval, preflight, submission or a broker receipt.
+
 The target is the owner's installed macOS MetaTrader 5 Wine prefix. This is a
 Tools runner, not a fifth business service or scheduler. No credentials are
 accepted by the model or runner: it uses the terminal's existing session.
@@ -46,8 +56,9 @@ invalidate approval; replays must return the stored simulated receipt.
    lease/epoch/attempt/checkpoint/outbox. No second recovery loop.
 3. Client proposal card with account mode, source time, chart provenance,
    exact old tickets/new parameters, risk and approval expiry.
-4. Real terminal data + chart import via App File API and analysis integration.
-   Browser ChatGPT interaction and order execution are not claimed by simulation.
+4. Automatic de-identified OHLC advisory via the existing model API (implemented
+   in Skill 1.1.0). Screenshots and browser ChatGPT handoff are optional alternatives,
+   not prerequisites for research. This does not add order execution.
 
 No database migration is required for the pure read/preflight/simulator increment.
 Before adding durable proposals, extend existing Tools approvals/effects rather
@@ -131,6 +142,24 @@ Observed on this Mac on 2026-10-24:
   Agent unit tests: **139 passed**; Tools unit tests: **159 passed**.
 
 `BLOCKED_EXTERNAL` / not delivered: a connected **demo** trading account,
-real trade execution/cancellation, native chart screenshot import, browser
-ChatGPT upload/analysis, durable trading approvals and the client trading card.
+real trade execution/cancellation, durable trading approvals and the client
+trading confirmation card. Chart screenshots/browser ChatGPT are not required by
+the current OHLC research path.
 Do not advertise this increment as an end-to-end autonomous trading feature.
+
+## Automatic advisory 1.1.0
+
+Trading order requests now bypass the general free-text answer and use a typed
+analysis invocation (`:mt5-advice:`) on the existing durable model ledger. Market
+observations are reused from the frozen interactive plan; retries do not silently
+substitute a different quote. The provider gets no account mask, balance, order
+ticket or credentials. The last potentially forming candle is excluded on each
+timeframe. No model-generated JSON is streamed before validation.
+
+The renderer provides a pending-order research draft with entry/SL/TP, fixed
+0.01 lots, price-distance reward/risk ratio, rationale and invalidation, or a
+distinct no-opportunity/insufficient-data result. One bounded schema repair is
+allowed. Invalid prices, broker minimum/step incompatibility, false execution
+claims, requests to make the user design the order, or unavailable models cannot
+produce an executable receipt. This is not a proven profitable strategy or a
+market-open/freshness check. No live submission endpoint is exposed.

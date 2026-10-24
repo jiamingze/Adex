@@ -37,13 +37,26 @@ def test_mt5_correction_freezes_native_skill_without_creating_browser_run(client
     frozen = db.execute("SELECT messages FROM agent.interactive_plans WHERE invocation_key=%s",
                         ("chat:" + turn,)).fetchone()["messages"]
     system = frozen[0]["content"]
-    assert "trading.mt5-research@1.0.0" in system
+    assert "trading.mt5-research@1.1.0" in system
     assert "不打开其他网站代替MT5下单" in system
     assert "本轮网页任务状态" not in system
     if os.getenv("ADEX_TEST_REAL_MT5_READ") == "1":
         assert "TERMINAL_READ_ONLY" in system
+        import json
+        import re
+        analyses = db.execute("SELECT state,result FROM agent.invocations WHERE invocation_key LIKE %s",
+                              ("chat:" + turn + ":mt5-advice:%",)).fetchall()
+        structured = []
+        for row in analyses:
+            if row["state"] == "COMPLETED":
+                try:
+                    structured.append(json.loads(re.sub(r"^```(?:json)?\s*|\s*```$", "", row["result"]["content"].strip())))
+                except (ValueError, KeyError):
+                    pass
+        assert any(a.get("decision") in ("SETUP", "NO_SETUP", "INSUFFICIENT_DATA") for a in structured)
     reply = db.execute("SELECT content FROM app.messages WHERE conversation_id=%s AND role='assistant' ORDER BY seq DESC LIMIT 1", (conv,)).fetchone()["content"]
     assert "事项及时间" not in reply
+    assert not any(text in reply for text in ("请补充", "做多还是做空", "需要明确以下关键参数"))
     if real_language:
         assert "MT5" in reply or "XAUUSD" in reply.upper()
         assert "本轮尚未取得可核验的执行回执" not in reply
