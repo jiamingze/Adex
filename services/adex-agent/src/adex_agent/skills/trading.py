@@ -5,7 +5,19 @@ from .contracts import SkillPlan
 
 
 def trading_intent(text: str) -> bool:
-    return bool(re.search(r"(?<![A-Za-z0-9])(?:MT5|XAUUSD)(?![A-Za-z0-9])|MetaTrader", text, re.I))
+    if re.search(r"(?<![A-Za-z0-9])(?:MT5|XAUUSD)(?![A-Za-z0-9])|MetaTrader", text, re.I):
+        return True
+    # Normalize common spot-gold language, not all uses of the word gold.
+    # Physical purchases and explicitly different instruments keep their own
+    # domain; they must never inherit XAUUSD pricing or order assumptions.
+    if re.search(r"金条|金饰|首饰|项链|戒指|手镯|实物|ETF|期货|黄金时代|黄金分割", text, re.I):
+        return False
+    return bool(re.search(r"黄金|伦敦金", text)) and bool(
+        re.search(
+            r"交易|做多|做空|开仓|平仓|建仓|挂单|撤单|买入|卖出|止盈|止损|(?:下|开|买|卖|来).{0,12}(?:单|手)|\d+(?:\.\d+)?\s*手",
+            text,
+        )
+    )
 
 
 def native_mt5_request(text: str) -> bool:

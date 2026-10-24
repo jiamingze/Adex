@@ -79,6 +79,28 @@ async def test_terminal_read_endpoint_enforces_host_owner_before_runner(monkeypa
     call.assert_not_called()
 
 
+async def test_test_fixture_never_reads_real_terminal_without_separate_opt_in(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from unittest.mock import AsyncMock
+    from fastapi import HTTPException
+    monkeypatch.setenv("ADEX_TOOLS_KEY", "local-unit-fixture-key-" * 3)
+    monkeypatch.setenv("ADEX_DB_URL", "postgresql://localhost/adex_test_unit")
+    from adex_tools.api import trading
+    owner = str(uuid4())
+    monkeypatch.setenv("ADEX_COMPUTER_ENABLED", "true")
+    monkeypatch.setenv("ADEX_COMPUTER_OWNER_ID", owner)
+    monkeypatch.setenv("ADEX_COMPUTER_TEST_FIXTURE", "true")
+    monkeypatch.delenv("ADEX_MT5_TEST_READ_ALLOWED", raising=False)
+    monkeypatch.setattr(trading, "core", SimpleNamespace(require=lambda *args: {"owner": owner}))
+    call = AsyncMock()
+    monkeypatch.setattr(trading.Mt5ReadBridge, "call", call)
+    with pytest.raises(HTTPException) as exc:
+        await trading.context(None, trading.TradingQuery())
+    assert exc.value.detail == "BLOCKED_EXTERNAL:MT5_DISABLED_IN_FIXTURE"
+    call.assert_not_called()
+
+
 def snapshot():
     return Snapshot(
         account_ref="demo:1234", strategy_id=18, symbol="XAUUSD",

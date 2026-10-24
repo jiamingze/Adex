@@ -1208,3 +1208,33 @@ synthetic stale brokerage/login history. These use the test model and do not
 execute trades or validate broker execution. Python compilation, Ruff, style and
 architecture checks passed. Agent restarted; all four readiness endpoints UP.
 No database migration was required.
+
+## Gold-language routing and complete reply regression (2026-10-24)
+
+The previous MT5 correction covered literal MT5/XAUUSD but missed the actual
+phrase “帮我下一单黄金的交易”. Common spot-gold trading language now selects
+the same MT5 Skill before generic tasks/browser routing; physical gold,
+jewellery, ETF and futures are not silently normalized. Added buying/long/short/
+lot-size/order variants and negative product cases. The receipt guard still
+rejects unverified success claims, but no longer asks for unrelated todo/schedule
+“事项及时间”. Missing trade parameters and terminal read errors use the trading
+reply policy, without exposing internal error codes or promising real execution.
+
+Observed verification:
+
+- Agent: **167 passed**; Tools trading: **12 passed**; script tests: **17 passed**.
+- Java App/kernel tests and `make build check-style` passed; architecture and Ruff passed.
+- Isolated four-phrase chat regression: **4 passed in 17.12s**.
+- Real Qwen language checks of the two gold phrases, with synthetic stale website
+  history: **4 passed in 39.90s** (two real model responses; two mock controls).
+- Final real Qwen run with stale website **and task-error** history, terminal
+  disabled by fixture: **4 passed in 22.69s**. Explicit terminal-read + real
+  Qwen original-phrase acceptance: **1 passed, 3 deselected in 7.41s**.
+- After final plain-language reply policy: real Qwen original phrase with terminal
+  blocked: **1 passed, 3 deselected in 8.22s**; no internal BLOCKED_EXTERNAL code
+  in the reply, no browser Run, no unrelated task-time request.
+
+Real model tests use isolated App/Agent/Automation databases. Native reads are now
+separately opt-in; no test submits, cancels or modifies a financial order. These
+checks establish routing/context/reply behavior, not a complete trading workflow.
+No database migration or iOS binary change was required.

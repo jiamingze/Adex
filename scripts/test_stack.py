@@ -22,6 +22,11 @@ chrome_live_key = (
     if os.environ.get("ADEX_TEST_REAL_CHROME") == "1"
     else ""
 )
+trading_language_key = (
+    e.get("DASHSCOPE_API_KEY", "")
+    if os.environ.get("ADEX_TEST_REAL_TRADING_LANGUAGE") == "1"
+    else ""
+)
 if e["ADEX_PG_HOST"] not in ("127.0.0.1", "localhost") or e["ADEX_PG_DB"] != "adex_dev":
     raise SystemExit(
         "Test runner only targets the isolated local development PostgreSQL instance."
@@ -45,7 +50,7 @@ e["ADEX_COOKIE_SECURE"] = "false"
 e["ADEX_CODE_RUNNER_MODE"] = "disabled"
 e["TAVILY_API_KEY"] = ""
 e["ADEX_MUSIC_API_KEY"] = ""
-e["DASHSCOPE_API_KEY"] = asr_live_key
+e["DASHSCOPE_API_KEY"] = asr_live_key or trading_language_key
 e["ADEX_MUSIC_PROVIDER"] = "mock"
 e["ADEX_VIDEO_PROVIDER"] = "mock"
 e["ADEX_IMAGE_PROVIDER"] = "mock"
@@ -53,6 +58,7 @@ e["ADEX_CALDAV_URL"] = ""
 e["ADEX_SMTP_HOST"] = ""
 e["ADEX_BACKGROUND_WORKER"] = "false"
 e["ADEX_BROWSER_TEST_FIXTURE"] = "true"
+e["ADEX_MT5_TEST_READ_ALLOWED"] = "true" if os.environ.get("ADEX_TEST_REAL_MT5_READ") == "1" else "false"
 e["ADEX_BROWSER_UPSTREAM_PROXY"] = ""
 e["ADEX_BROWSER_DIRECT_FALLBACK"] = "0"
 e["ADEX_BROWSER_CHANNEL"] = "chromium"

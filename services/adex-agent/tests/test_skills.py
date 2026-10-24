@@ -8,6 +8,16 @@ from adex_agent.skills.travel import requested_days
 from adex_agent.execution.context import ContextService
 
 
+@pytest.mark.parametrize("text", ["帮我下一单黄金的交易", "帮我做多黄金", "做空伦敦金", "下个现货黄金挂单", "帮我买一手黄金", "黄金买入0.01手", "下个0.01手的黄金单", "黄金来一单", "给黄金开一单"])
+def test_gold_trading_language_selects_mt5_skill(text):
+    assert REGISTRY.resolve(text).skill.id == "trading.mt5-research"
+
+
+@pytest.mark.parametrize("text", ["去淘宝买一条黄金项链", "帮我下单买金条", "黄金ETF买入", "开仓黄金期货", "黄金时代这本书多少钱"])
+def test_other_gold_products_are_not_silently_xauusd(text):
+    assert REGISTRY.resolve(text) is None
+
+
 async def test_trading_skill_observes_terminal_without_claiming_execution():
     plan = REGISTRY.resolve("MT5看一下XAUUSD的1分钟、5分钟、4小时图")
     assert plan.skill.id == "trading.mt5-research"

@@ -7,7 +7,7 @@ import pytest
 from adex_agent.execution.interactive import InteractiveTurnService
 
 
-@pytest.mark.parametrize("text", ["帮我下单xauusd", "用mt5下单安", "用MT5"])
+@pytest.mark.parametrize("text", ["帮我下单xauusd", "用mt5下单安", "用MT5", "帮我下一单黄金的交易", "帮我做多黄金", "做空伦敦金", "下个现货黄金挂单"])
 async def test_native_mt5_precedes_generic_planners_and_returns_terminal_progress(monkeypatch, text):
     for module, name in [
         ("adex_agent.actions.planner", "task_action"),

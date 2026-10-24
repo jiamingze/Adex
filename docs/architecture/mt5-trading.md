@@ -8,6 +8,11 @@ must not reuse an earlier assistant-selected brokerage website. This domain
 selection grants no execution permission. Explicit website documentation/tutorial
 requests can still use browser research; unrelated shopping remains unchanged.
 MT5 progress labels must refer to terminal evidence, not travel or web search.
+Gold trading language (黄金交易、现货黄金、伦敦金、做多/做空黄金) also selects
+this domain without requiring the literal MT5/XAUUSD identifier. Physical gold
+shopping, jewellery and explicitly different instruments (gold ETF/futures) must
+not be silently normalized to XAUUSD. Receipt failures must not ask for an
+unrelated todo title or schedule time.
 
 The target is the owner's installed macOS MetaTrader 5 Wine prefix. This is a
 Tools runner, not a fifth business service or scheduler. No credentials are
@@ -79,6 +84,21 @@ uv run --project services/adex-agent pytest services/adex-agent/tests/test_skill
 make build test check-style
 uv run python scripts/test_stack.py
 ```
+
+Gold-language routing checks (isolated PostgreSQL, no order sender):
+
+```sh
+uv run python scripts/test_stack.py tests/integration/test_mt5_routing.py -q
+# Real Qwen text generation; terminal reads disabled in the fixture by default.
+ADEX_TEST_REAL_TRADING_LANGUAGE=1 uv run python scripts/test_stack.py tests/integration/test_mt5_routing.py -q -s
+# Separately opt into actual owner-authorized MT5 read-only evidence.
+ADEX_TEST_REAL_TRADING_LANGUAGE=1 ADEX_TEST_REAL_MT5_READ=1 uv run python scripts/test_stack.py tests/integration/test_mt5_routing.py -k gold_trade -q -s
+```
+
+The real model requires the configured DashScope key. Neither flag enables order
+submission. The first development real-language check also read terminal data;
+fixture terminal access is now independently gated so text tests do not silently
+depend on a personal terminal session. Private responses stay in ignored local logs.
 
 The diagnostic prints only connection/mode/count summaries. For an explicit
 read-only broker check, pass `--preflight /private/path/order.json`, using the
