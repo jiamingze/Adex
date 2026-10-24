@@ -1189,3 +1189,22 @@ This is not complete autonomous trading: simulator receipts are process-local
 test evidence only; durable proposal approval/client cards, chart import and
 browser ChatGPT handoff remain pending. No demo-trade execution or real order
 submission has been verified. See [MT5 scope and runbook](architecture/mt5-trading.md).
+
+## MT5 domain routing correction (2026-10-24)
+
+Explicit MT5/XAUUSD terminal requests now take precedence over generic computer,
+task and browser-commerce classification. “帮我下单xauusd” and “用mt5下单安”
+enter the existing read/preparation Skill; they cannot create a brokerage website
+Run. Stale browser/login context is excluded from the current system context.
+Explicit website documentation requests remain browser-capable; recurring read
+monitor requests retain the existing scheduler path. No trading permission or
+live order dispatch is added. MT5 progress no longer shows travel labels or
+forces Tavily search merely because a Skill was selected.
+
+Observed: Agent **149 passed**; related browser/task-kernel integration **9 passed
+in 32.49s**; two full isolated chat regressions **2 passed in 7.73s**, checking
+the frozen MT5 Skill prompt and absence of Automation browser Runs despite
+synthetic stale brokerage/login history. These use the test model and do not
+execute trades or validate broker execution. Python compilation, Ruff, style and
+architecture checks passed. Agent restarted; all four readiness endpoints UP.
+No database migration was required.

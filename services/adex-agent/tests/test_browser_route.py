@@ -14,6 +14,24 @@ class Runtime:
         yield {"type": "completed", "content": self.result}
 
 
+@pytest.mark.parametrize("text", ["帮我下单xauusd", "用mt5下单安", "用MT5", "MT5查一下XAUUSD行情"])
+async def test_mt5_never_enters_web_commerce_even_with_broker_history(text):
+    runtime = Runtime('{"mode":"operate"}')
+    messages = [
+        {"role": "assistant", "content": "网页助手 https://www.futunn.com/ 确认并继续"},
+        {"role": "user", "content": text},
+    ]
+    assert await route_request(runtime, "owner", "turn", messages) == "none"
+    assert runtime.messages is None
+
+
+async def test_mt5_documentation_can_still_use_explicit_website_research():
+    runtime = Runtime('{"mode":"lookup"}')
+    assert await route_request(runtime, "owner", "turn", [{
+        "role": "user", "content": "打开MT5官网查一下安装教程",
+    }]) == "lookup"
+
+
 @pytest.mark.parametrize(
     "text", ["到小红书上发表", "小红书上发表一篇关于最新苹果手机的文章", "把刚才的文章发出去"]
 )

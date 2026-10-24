@@ -15,7 +15,7 @@ class InteractiveTurnService:
         try:
             from adex_agent.routing.intent import (
                 original_music_intent,
-                search_intent,
+                schedule_intent,
                 background_kind,
                 video_intent,
                 catalog_music_intent,
@@ -32,6 +32,14 @@ class InteractiveTurnService:
                     "qwen" if body.model in {"qwen3.8-flash", "qwen3.8-max"} else "minimax"
                 )
                 selected_runtime.provider = provider(selected_runtime.provider_mode)
+            from adex_agent.skills.trading import native_mt5_request
+
+            if native_mt5_request(latest) and not schedule_intent(latest):
+                # Domain ownership precedes generic "下单"/computer classifiers.
+                # This enters read/preparation only; it creates no order or approval.
+                async for chunk in self.reply(selected_runtime, body, latest, native_mt5=True):
+                    yield chunk
+                return
             from adex_agent.actions.planner import task_action
 
             action = await task_action(selected_runtime, self.core, body)
@@ -51,8 +59,6 @@ class InteractiveTurnService:
             if todo:
                 yield json.dumps({"type": "todo.requested", "draft": todo}, ensure_ascii=False) + "\n"
                 return
-            from adex_agent.routing.intent import schedule_intent
-
             if schedule_intent(latest):
                 from adex_agent.routing.schedule import (
                     daily_chat_draft,
@@ -275,56 +281,74 @@ class InteractiveTurnService:
                     + "\n"
                 )
                 return
-            context = await selected_runtime.working(body.context)
-            from adex_agent.skills.registry import REGISTRY
-
-            skill_plan = REGISTRY.resolve_context(context.get("messages", []))
-            searching = body.web_search or search_intent(latest)
-            if skill_plan and not re.search(r"(不要|不用|无需|别).{0,6}(联网|搜索|搜)", latest):
-                searching = True
-            yield (
-                json.dumps(
-                    {
-                        "type": "progress",
-                        "text": "正在检索景点、预约要求与交通"
-                        if searching and skill_plan
-                        else "正在打开网页并读取内容"
-                        if searching and re.search(r"https?://|官网|网站|网页|浏览", latest, re.I)
-                        else "正在搜索最新资料"
-                        if searching
-                        else "正在理解你的问题",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
-            messages = await selected_runtime.interactive_messages(
-                body.invocation_key, body.owner_id, context, search=searching
-            )
-            yield (
-                json.dumps(
-                    {
-                        "type": "progress",
-                        "text": "正在编排逐日路线与检查行程约束"
-                        if skill_plan
-                        else "正在整理资料与回答"
-                        if searching
-                        else "正在思考回答",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
-            card_row = await self.core.query(
-                "SELECT cards FROM interactive_plans WHERE invocation_key=%s",
-                (body.invocation_key,),
-                one=True,
-            )
-            async for event in selected_runtime.invoke(body.invocation_key, body.owner_id, messages):
-                if event["type"] == "completed":
-                    event = {**event, "cards": card_row["cards"]}
-                yield json.dumps(event, ensure_ascii=False) + "\n"
+            async for chunk in self.reply(selected_runtime, body, latest):
+                yield chunk
         except ProviderFailure as e:
             yield json.dumps({"type": "error", "code": e.code}) + "\n"
         except Exception:
             yield json.dumps({"type": "error", "code": "AGENT_UNAVAILABLE"}) + "\n"
+
+    async def reply(self, selected_runtime, body, latest, native_mt5=False):
+        """Shared streamed reply path; native terminal selection grants no mutations."""
+        import re
+
+        context = await selected_runtime.working(body.context)
+        from adex_agent.skills.registry import REGISTRY
+
+        skill_plan = REGISTRY.resolve_context(context.get("messages", []))
+        from adex_agent.routing.intent import search_intent
+
+        terminal = native_mt5 or (skill_plan and skill_plan.skill.id == "trading.mt5-research")
+        searching = False if terminal else body.web_search or search_intent(latest)
+        if (
+            skill_plan
+            and skill_plan.search_queries
+            and not re.search(r"(不要|不用|无需|别).{0,6}(联网|搜索|搜)", latest)
+        ):
+            searching = True
+        yield (
+            json.dumps(
+                {
+                    "type": "progress",
+                    "text": "正在读取本机 MT5 行情与挂单"
+                    if terminal
+                    else "正在检索景点、预约要求与交通"
+                    if searching and skill_plan
+                    else "正在打开网页并读取内容"
+                    if searching and re.search(r"https?://|官网|网站|网页|浏览", latest, re.I)
+                    else "正在搜索最新资料"
+                    if searching
+                    else "正在理解你的问题",
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+        messages = await selected_runtime.interactive_messages(
+            body.invocation_key, body.owner_id, context, search=searching
+        )
+        yield (
+            json.dumps(
+                {
+                    "type": "progress",
+                    "text": "正在核对 MT5 数据与订单执行边界"
+                    if terminal
+                    else "正在编排逐日路线与检查行程约束"
+                    if skill_plan
+                    else "正在整理资料与回答"
+                    if searching
+                    else "正在思考回答",
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+        card_row = await self.core.query(
+            "SELECT cards FROM interactive_plans WHERE invocation_key=%s",
+            (body.invocation_key,),
+            one=True,
+        )
+        async for event in selected_runtime.invoke(body.invocation_key, body.owner_id, messages):
+            if event["type"] == "completed":
+                event = {**event, "cards": card_row["cards"]}
+            yield json.dumps(event, ensure_ascii=False) + "\n"

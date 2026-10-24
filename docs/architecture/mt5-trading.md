@@ -2,6 +2,13 @@
 
 ## Contract and boundaries
 
+Routing contract: an explicit XAUUSD/MT5 terminal request defaults to local MT5,
+before generic task or browser commerce routing. A correction such as “用MT5下单”
+must not reuse an earlier assistant-selected brokerage website. This domain
+selection grants no execution permission. Explicit website documentation/tutorial
+requests can still use browser research; unrelated shopping remains unchanged.
+MT5 progress labels must refer to terminal evidence, not travel or web search.
+
 The target is the owner's installed macOS MetaTrader 5 Wine prefix. This is a
 Tools runner, not a fifth business service or scheduler. No credentials are
 accepted by the model or runner: it uses the terminal's existing session.

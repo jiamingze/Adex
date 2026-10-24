@@ -44,6 +44,20 @@ async def test_trading_skill_has_no_required_web_search_batches():
     assert core.call.await_count == 2
 
 
+async def test_mt5_correction_does_not_load_stale_browser_login_context():
+    core = SimpleNamespace(call=AsyncMock(return_value={"mode": "TERMINAL_READ_ONLY", "frames": {}}))
+    messages = await ContextService(core).messages({
+        "owner_id": str(uuid4()), "conversation_id": str(uuid4()),
+        "messages": [
+            {"role": "assistant", "content": "网页助手 https://www.futunn.com/ 需要登录"},
+            {"role": "user", "content": "用mt5下单安"},
+        ],
+    })
+    assert core.call.await_count == 1
+    assert core.call.await_args.args[3] == "/internal/trading/context"
+    assert "不打开其他网站代替MT5下单" in messages[0]["content"]
+
+
 def test_skill_permissions_fail_closed():
     definition = REGISTRY.definitions["travel.plan"]
     with pytest.raises(ValueError, match="UNSUPPORTED"):

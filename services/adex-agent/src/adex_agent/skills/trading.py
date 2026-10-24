@@ -8,6 +8,16 @@ def trading_intent(text: str) -> bool:
     return bool(re.search(r"(?<![A-Za-z0-9])(?:MT5|XAUUSD)(?![A-Za-z0-9])|MetaTrader", text, re.I))
 
 
+def native_mt5_request(text: str) -> bool:
+    """Explicit terminal domain outranks commerce; past assistant sites grant nothing."""
+    if not trading_intent(text):
+        return False
+    if re.search(r"下单|挂单|撤单|开仓|平仓|买入|卖出", text):
+        return True
+    # A website teaching MT5 is still a website, not a terminal operation.
+    return not re.search(r"官网|网站|网页|教程|文档|下载|安装|https?://", text, re.I)
+
+
 def compile_trading(definition, text):
     return SkillPlan(
         definition,
