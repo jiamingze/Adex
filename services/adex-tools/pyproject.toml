@@ -7,7 +7,7 @@ dependencies = [
     "cryptography>=46.0.3",
     "uvicorn==0.34.2",
     "beautifulsoup4==4.13.4",
-    "pypdf>=6.20.0",
+    "pypdf>=6.21.2",
     "playwright==1.55.0",
     "tldextract==5.3.0",
     "websockets>=15,<17",
