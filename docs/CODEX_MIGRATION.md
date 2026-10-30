@@ -89,3 +89,38 @@ The executable is installed and protocol-ready. It is launched on demand, not as
 an unauthenticated network daemon. Adex runtime routing/cutover, model inference,
 native clients and remote Mac actions remain separate uncompleted integration
 work; this installation does not imply feature parity or production readiness.
+
+## Protocol transport contract
+
+The Agent transport owns one app-server subprocess per isolated session. It must
+correlate responses by request ID, preserve notifications and server requests,
+bound input frames/event buffering, and fail pending calls on EOF or malformed
+frames. RPC timeout is an uncertain outcome: never resend a turn automatically.
+Closing the session terminates and reaps the child, including cancellation paths.
+A transport is not an authorization gateway; server approval requests must be
+surfaced to the Tools integration, never auto-accepted. No database migration is
+required for this transport layer; durable owner/thread bindings precede cutover.
+
+## Agent transport and existing-provider compatibility
+
+The bounded asynchronous transport now lives in
+`services/adex-agent/src/adex_agent/codex/transport.py`. It is not selected by the
+production runtime yet. Six subprocess tests cover concurrent correlation,
+notifications, EOF, invalid JSON, uncertain timeout, approval request delivery
+and cancellation/reaping. The existing Agent suite reports **187 passed**.
+`make check-style` passes (136 formatted Python source files, architecture pass).
+
+The owner selected the existing Adex model interface. A bounded real probe using
+existing private environment configuration confirmed Qwen `qwen3.8-flash` returns
+HTTP 200 for both `/responses` and `/chat/completions`. More importantly, the
+installed app-server 0.166.0 completed a real turn through the Qwen Responses
+endpoint: initialized, ephemeral thread started, text delta received,
+`turn/completed.status=completed`, no terminal error. The probe used an isolated
+HOME/CODEX_HOME, read-only sandbox, shell disabled and web search disabled. It did
+not use personal Codex authentication or execute a business action. Credentials
+and response bodies were not saved to source or logs.
+
+This demonstrates basic real text-stream compatibility, not tool-call parity,
+images, budgets, long-turn recovery or complete kernel replacement. Remaining
+cutover gates include mapping business tools to the existing authorization/effect
+ledger, invocation bookkeeping, cancellation and checkpoint/fencing integration.

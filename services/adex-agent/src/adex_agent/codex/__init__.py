@@ -1,0 +1,1 @@
+"""Codex execution protocol integration."""
