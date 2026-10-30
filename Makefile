@@ -83,3 +83,7 @@ test-ios-speech-choice:
 	mkdir -p .local-data/native-tests
 	swiftc apps/ios/ios/App/CapApp-SPM/Sources/CapApp-SPM/SpeechTranscriptChoice.swift tests/swift/SpeechTranscriptChoice/main.swift -o .local-data/native-tests/speech-choice
 	.local-data/native-tests/speech-choice
+
+.PHONY: test-codex-runtime
+test-codex-runtime:
+	uv run python scripts/smoke_codex_runtime.py

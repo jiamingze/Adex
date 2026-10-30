@@ -44,3 +44,48 @@ No real purchase, trade or production database mutation is part of development.
 Runtime adapter, production cutover, SwiftUI apps and phone-to-Mac operation are
 still pending. Model/provider access and actual device/order acceptance have not
 been tested. This commit is source acquisition and migration groundwork only.
+
+## Installation follow-up: 2026-10-30
+
+Installed Rust/Cargo 1.95.0 with rustfmt, clippy and rust-src. The official Rust
+manifest checksum matched the rsproxy mirror used to complete the slow download.
+Homebrew Cargo still precedes rustup in the interactive PATH; use explicit
+`rustup run 1.95.0` (or prepend `$HOME/.cargo/bin`) for reproducible builds.
+
+Source build attempted:
+
+```sh
+cd third_party/codex/codex-rs
+PATH="$HOME/.cargo/bin:$PATH" CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 cargo +1.95.0 build --locked --profile dev-small -p codex-app-server --bin codex-app-server
+```
+
+Dependency acquisition is BLOCKED_EXTERNAL: the pinned V8 dependency requests
+`https://chromium.googlesource.com/chromium/src/buildtools.git`, which times out
+from this machine. The build was stopped; no source-built binary is claimed.
+
+Installed the official **prebuilt** Apple Silicon app-server release
+`rust-v0.166.0` in `.local-data/codex/bin/codex-app-server`. This release is separate
+from the vendored development commit. Release asset ID `689702267`, compressed
+SHA-256 `50ea739230a917af485c4fac0b0f3c9b5b25e06fa687bfd613aeab8d531bccb5`,
+verified against GitHub's release asset metadata before extraction. Local install
+provenance and binary hash are in `.local-data/codex/installation.json` (ignored).
+No existing Codex executable, credentials or global shell config were replaced.
+
+Observed commands/results:
+
+- `rustup run 1.95.0 rustc --version`: rustc 1.95.0.
+- `rustup run 1.95.0 cargo --version`: cargo 1.95.0.
+- `.local-data/codex/bin/codex-app-server --version`: codex-app-server 0.166.0.
+- `make test-codex-runtime`: PASS, actual stdio initialize/initialized handshake
+  with a temporary HOME/CODEX_HOME, no model call or personal credentials.
+- `uv run python scripts/smoke_codex_runtime.py --binary /usr/bin/false`:
+  correctly fails for process EOF before initialize (negative smoke case).
+- `make check-style`: PASS, 134 Python files formatted, architecture checks pass.
+- `uv run ruff check scripts/smoke_codex_runtime.py`: all checks passed.
+- `uv run python scripts/check_contract.py`: 101 operations validated.
+- `uv run python scripts/check_secrets.py`: PASS.
+
+The executable is installed and protocol-ready. It is launched on demand, not as
+an unauthenticated network daemon. Adex runtime routing/cutover, model inference,
+native clients and remote Mac actions remain separate uncompleted integration
+work; this installation does not imply feature parity or production readiness.
