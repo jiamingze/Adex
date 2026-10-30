@@ -22,6 +22,11 @@ async def ready():
             await runtime.redis.ping()
         except Exception:
             redis_state = "DEGRADED"
-        return {"status": "UP", "redis": redis_state, "provider": os.getenv("ADEX_MODEL_PROVIDER", "minimax")}
+        return {
+            "status": "UP",
+            "redis": redis_state,
+            "provider": os.getenv("ADEX_MODEL_PROVIDER", "minimax"),
+            "execution_engine": getattr(runtime.provider, "engine", "direct"),
+        }
     except Exception:
         return JSONResponse({"status": "DOWN"}, status_code=503)

@@ -124,3 +124,51 @@ This demonstrates basic real text-stream compatibility, not tool-call parity,
 images, budgets, long-turn recovery or complete kernel replacement. Remaining
 cutover gates include mapping business tools to the existing authorization/effect
 ledger, invocation bookkeeping, cancellation and checkpoint/fencing integration.
+
+## Initial runtime selection contract
+
+`ADEX_EXECUTION_ENGINE=codex` selects a bounded, ephemeral Codex turn for existing
+text model invocations; `direct` remains default pending full acceptance. The
+existing provider selects credentials/model; only Qwen is enabled after the live
+probe above. No automatic fallback. Each call gets a fresh private HOME and
+thread, rebuilding context from App-authorized messages; no resumable rollout
+can resurrect deleted memory. The initial adapter retains Adex business routing,
+not a claim of replacing the complete planner/tool loop. Shell, image viewing,
+web search, code mode, subagents and image generation are disabled; read-only
+sandbox, no approval escalation. Unexpected server calls fail closed. Provider
+failure/cancellation enters existing invocation error handling. Engine identity
+is included in invocation hashing to prevent replay across different engines.
+
+### Opt-in text backend verification (2026-10-31)
+
+Implementation: `adex_agent.codex.provider.CodexProvider`; selected by the existing
+`provider()` factory for Qwen when `ADEX_EXECUTION_ENGINE=codex`. Configure the
+absolute `ADEX_CODEX_BINARY` path shown in the installation section. The default
+remains `direct`; local/private deployment settings were not changed. Unknown
+engines and unverified model providers fail rather than falling back.
+
+The real adapter (not just a standalone protocol probe) completed a Qwen
+`qwen3.8-flash` turn with streamed output and prompt/completion/total token usage.
+It rebuilt system instructions and text history in an ephemeral thread. The
+invocation hash includes `codex-v1`, retaining the old direct-call hash for
+compatibility while rejecting reuse of an invocation key across engines. Health
+responses now report the selected execution engine.
+
+Checks: `make build test check-style` passed (Java/Web build, client/script tests,
+Agent 191 at that run, Tools 160, contract and architecture/style checks). After
+adding fail-closed selection, approval refusal and usage tests,
+`uv run --project services/adex-agent pytest services/adex-agent/tests -q` reported
+**194 passed**. Actual isolated app-server-to-Qwen adapter smoke passed.
+
+Limits: this is text execution integration, not full Codex tool-loop cutover.
+No new business tool permissions are granted. Existing Adex routing executes
+business tools. Multimodal provider input is rejected instead of silently losing
+attachments. Maximum execution time is 150 seconds; uncertain completion does
+not trigger another model call. Native clients and durable Codex tool/checkpoint
+integration are not yet delivered.
+
+`make test-integration` completed against a newly created isolated local test
+PostgreSQL database: **108 passed, 7 skipped in 406.57s**. Three schedulers and the
+mock Agent were used; this validates existing recovery/ownership regressions,
+not real Codex tool execution under faults. Final `make check-style` passed with
+137 Python source files formatted, plus architecture checks. Secrets scan passed.

@@ -525,10 +525,20 @@ class MockProvider:
 
 def provider(mode=None) -> ModelProvider:
     mode = mode or os.getenv("ADEX_MODEL_PROVIDER", "minimax")
+    engine = os.getenv("ADEX_EXECUTION_ENGINE", "direct")
+    if engine not in {"direct", "codex"}:
+        raise RuntimeError("Unsupported execution engine")
+    if engine == "codex" and mode != "qwen":
+        raise RuntimeError("Codex Responses compatibility is only verified for Qwen")
     if mode == "mock":
         return MockProvider()
     if mode == "qwen":
-        return QwenProvider()
+        upstream = QwenProvider()
+        if engine == "codex":
+            from adex_agent.codex.provider import CodexProvider
+
+            return CodexProvider(upstream)
+        return upstream
     if mode != "minimax":
         raise RuntimeError("Unsupported model provider")
     return MiniMaxProvider()

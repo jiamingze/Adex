@@ -16,7 +16,10 @@ class InvocationService:
             self.provider_mode = provider_mode
 
     async def invoke(self, key, owner, messages):
-        request_hash = digest({"messages": messages, "model": self.provider.model})
+        identity = {"messages": messages, "model": self.provider.model}
+        if engine := getattr(self.provider, "engine", None):
+            identity["engine"] = engine
+        request_hash = digest(identity)
         name = getattr(self, "provider_mode", os.getenv("ADEX_MODEL_PROVIDER", "minimax"))
         await self.core.query(
             "INSERT INTO invocations(invocation_key,owner_id,request_hash,state,provider,model) VALUES(%s,%s,%s,'PREPARED',%s,%s) ON CONFLICT DO NOTHING",
