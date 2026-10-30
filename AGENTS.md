@@ -57,3 +57,10 @@ Use IntelliJ IDEA for the Java Maven reactor and PyCharm for the two Python serv
 ## Backend engineering boundaries
 
 Follow `docs/architecture/engineering.md` and ADR 002. Organize implementations by capability; root service entry points only compose/bootstrap. Keep controllers thin, resolve HTTP authentication before application use cases, and never inject a controller into another controller or worker. Prefer meaningful storage/provider ports and constructor injection; do not create interfaces that only rename a dependency. Explain lock order, fencing, checkpoint commit and crash windows with focused comments. Java uses Google Java Format through Spotless; Python uses Ruff. Run `make check-style` and architecture checks in addition to behavioral tests; preserve service ownership and HTTP contracts during refactors.
+
+## Owner-approved migration (2026-10-30)
+
+The explicit owner request supersedes the Capacitor-only/native-client exclusion.
+Follow `docs/adr/006-codex-kernel-native-clients.md` for Codex harness/app-server
+integration and native SwiftUI iPhone/macOS clients. Preserve all other service
+ownership, storage, memory, approval and recovery invariants.

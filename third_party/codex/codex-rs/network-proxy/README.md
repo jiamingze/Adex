@@ -1,0 +1,335 @@
+# codex-network-proxy
+
+`codex-network-proxy` is Codex's local network policy enforcement proxy. It runs:
+
+- an HTTP proxy (default `127.0.0.1:3128`)
+- a SOCKS5 proxy (default `127.0.0.1:8081`, enabled by default)
+
+On Windows, managed HTTP listeners prefer ports `3128-3159`, and SOCKS5 listeners prefer ports
+`8081-8112`. An explicitly configured port is attempted first. If every preferred port is occupied,
+the proxy preserves its existing ephemeral loopback fallback.
+
+It enforces an allow/deny policy and a "limited" mode intended for read-only network access.
+
+## Quickstart
+
+### 1) Configure
+
+`codex-network-proxy` reads from Codex's merged `config.toml` (via `codex-core` config loading).
+
+Network settings live under the selected permissions profile. Example config:
+
+```toml
+default_permissions = "workspace"
+
+[permissions.workspace.network]
+enabled = true
+proxy_url = "http://127.0.0.1:3128"
+# SOCKS5 listener (enabled by default).
+enable_socks5 = true
+socks_url = "http://127.0.0.1:8081"
+enable_socks5_udp = true
+# When `enabled` is false, the proxy no-ops and does not bind listeners.
+# When true, respect HTTP(S)_PROXY/ALL_PROXY for upstream requests (HTTP(S) proxies only),
+# including CONNECT tunnels in full mode.
+allow_upstream_proxy = true
+# By default, non-loopback binds are clamped to loopback for safety.
+# If you want to expose these listeners beyond localhost, you must opt in explicitly.
+dangerously_allow_non_loopback_proxy = false
+mode = "full" # default when unset; use "limited" for read-only mode
+# HTTPS MITM is enabled automatically when `mode = "limited"` or when MITM hooks are configured.
+# The CA private key remains in proxy memory. When MITM is active, spawned commands receive CA
+# bundle env vars pointing at immutable public files under $CODEX_HOME/proxy/ so common HTTPS
+# clients trust the managed CA.
+
+# If false, local/private networking is rejected. Explicit allowlisting of local IP literals
+# (or `localhost`) is required to permit them.
+# Hostnames that resolve to local/private IPs are still blocked even if allowlisted.
+# Clients that always bypass proxies for loopback, such as Go's `net/http`, remain blocked by
+# the operating-system sandbox when local binding is disabled.
+# Omitted: true for MXC, false elsewhere. MXC rejects an effective false.
+# allow_local_binding = false
+
+# DANGEROUS (macOS-only): bypasses unix socket allowlisting and permits any
+# absolute socket path from `x-unix-socket`.
+dangerously_allow_all_unix_sockets = false
+
+# Hosts must match the allowlist (unless denied).
+# Use exact hosts or scoped wildcards like `*.openai.com` or `**.openai.com`.
+# The global `*` wildcard is rejected.
+# If no domain entries are marked `allow`, the proxy blocks requests until an allowlist is configured.
+[permissions.workspace.network.domains]
+"*.openai.com" = "allow"
+"localhost" = "allow"
+"127.0.0.1" = "allow"
+"::1" = "allow"
+"evil.example" = "deny"
+
+# MITM hooks match HTTPS requests after CONNECT is terminated.
+[permissions.workspace.network.mitm.hooks.github_write]
+host = "api.github.com"
+methods = ["POST", "PUT"]
+path_prefixes = ["/repos/openai/"]
+action = ["strip_auth"]
+
+# Named actions can be shared across hooks and overridden by higher-precedence config layers.
+[permissions.workspace.network.mitm.actions.strip_auth]
+strip_request_headers = ["authorization"]
+
+# macOS-only: allows proxying to a unix socket when request includes `x-unix-socket: /path`.
+[permissions.workspace.network.unix_sockets]
+"/tmp/example.sock" = "allow"
+```
+
+### 2) Run the proxy
+
+In a Codex permission profile, set `version = 2` on `[permissions.<profile>.network.mitm]`
+before using scoped hooks or credential substitution. Older clients reject this table key,
+so rolling back cannot silently enable unconditional header injection.
+
+The proxy can also run without a full Codex permissions profile. Put the network policy in a
+standalone JSON file:
+
+```json
+{
+  "network": {
+    "enabled": true,
+    "proxy_url": "http://127.0.0.1:3128",
+    "enable_socks5": false,
+    "enable_socks5_udp": false,
+    "allow_upstream_proxy": false,
+    "allow_local_binding": false,
+    "mode": "full",
+    "mitm": false,
+    "domains": {
+      "api.example.com": "allow"
+    }
+  }
+}
+```
+
+`mitm` defaults to `false`. `mitm_ca` defaults to `None` and is omitted from serialized JSON when
+unset. HTTPS MITM is enabled automatically for limited mode or configured `mitm_hooks`. Set `mitm` to
+`true` to enable it explicitly. The proxy requires `network.enabled = true`. Unknown policy fields are rejected in both modes.
+Standalone documents may include a top-level `metadata` value and omit `constraints`.
+
+```bash
+cargo run -p codex-network-proxy -- --config /path/to/network-proxy.json
+```
+
+Managed hosts must pass `--strict`, which rejects unknown fields at every typed level and requires
+an explicit `constraints` object. Library callers use `StaticNetworkProxyConfig::from_slice_strict`
+for the same checks.
+
+### 3) Point a client at it
+
+For HTTP(S) traffic:
+
+```bash
+export HTTP_PROXY="http://127.0.0.1:3128"
+export HTTPS_PROXY="http://127.0.0.1:3128"
+export WS_PROXY="http://127.0.0.1:3128"
+export WSS_PROXY="http://127.0.0.1:3128"
+```
+
+For SOCKS5 traffic (when `enable_socks5 = true`):
+
+```bash
+export ALL_PROXY="socks5h://127.0.0.1:8081"
+```
+
+### 4) Understand blocks / debugging
+
+When a request is blocked, the proxy responds with `403` and includes:
+
+- `x-proxy-error`: one of:
+  - `blocked-by-allowlist`
+  - `blocked-by-denylist`
+  - `blocked-by-method-policy`
+  - `blocked-by-policy`
+
+In "limited" mode, only `GET`, `HEAD`, and `OPTIONS` are allowed. HTTPS `CONNECT` requests and
+HTTPS SOCKS5 TCP targets on `:443` require MITM to enforce limited-mode method policy; otherwise
+they are blocked. SOCKS5 UDP and non-HTTPS SOCKS5 TCP remain blocked in limited mode.
+
+Websocket clients typically tunnel `wss://` through HTTPS `CONNECT`; those CONNECT targets still go
+through the same host allowlist/denylist checks.
+
+## Library API
+
+`codex-network-proxy` can be embedded as a library with a thin API:
+
+```rust
+use codex_network_proxy::{NetworkProxy, NetworkDecision, NetworkPolicyRequest};
+
+let proxy = NetworkProxy::builder()
+    .http_addr("127.0.0.1:8080".parse()?)
+    .policy_decider(|request: NetworkPolicyRequest| async move {
+        // Example: auto-allow when exec policy already approved a command prefix.
+        if let Some(command) = request.command.as_deref() {
+            if command.starts_with("curl ") {
+                return NetworkDecision::Allow;
+            }
+        }
+        NetworkDecision::Deny {
+            reason: "policy_denied".to_string(),
+        }
+    })
+    .build()
+    .await?;
+
+let handle = proxy.run().await?;
+handle.shutdown().await?;
+```
+
+When unix socket proxying is enabled (`unix_sockets` or
+`dangerously_allow_all_unix_sockets`), proxy bind overrides are still clamped to loopback to
+avoid turning the proxy into a remote bridge to local daemons.
+
+### Policy hook (exec-policy mapping)
+
+The proxy exposes a policy hook (`NetworkPolicyDecider`) that can override allowlist-only blocks.
+It receives `command` and `exec_policy_hint` fields when supplied by the embedding app. This lets
+core map exec approvals to network access, e.g. if a user already approved `curl *` for a session,
+the decider can auto-allow network requests originating from that command.
+
+**Important:** Explicit deny rules still win. The decider only gets a chance to override
+`not_allowed` (allowlist misses), not `denied` or `not_allowed_local`.
+
+## OTEL Audit Events (embedded/managed)
+
+When `codex-network-proxy` is embedded in managed Codex runtime, policy decisions emit structured
+OTEL-compatible events with `target=codex_otel.network_proxy`.
+
+Event name:
+
+- `codex.network_proxy.policy_decision`
+  - emitted for each policy decision (`domain` and `non_domain`).
+  - `network.policy.scope = "domain"` for host-policy evaluations (`evaluate_host_policy`).
+  - `network.policy.scope = "non_domain"` for mode-guard/proxy-state checks (including unix-socket guard paths and unix-socket allow decisions).
+
+Common fields:
+
+- `event.name`
+- `event.timestamp` (RFC3339 UTC, millisecond precision)
+- optional metadata:
+  - `conversation.id`
+  - `app.version`
+  - `user.account_id`
+- policy/network:
+  - `network.policy.scope` (`domain` or `non_domain`)
+  - `network.policy.decision` (`allow`, `deny`, or `ask`)
+  - `network.policy.source` (`baseline_policy`, `mode_guard`, `proxy_state`, `decider`)
+  - `network.policy.reason`
+  - `network.transport.protocol`
+  - `server.address`
+  - `server.port`
+  - `http.request.method` (defaults to `"none"` when absent)
+  - `client.address` (defaults to `"unknown"` when absent)
+  - `network.policy.override` (`true` only when decider-allow overrides baseline `not_allowed`)
+
+Unix-socket block-path audits use sentinel endpoint values:
+
+- `server.address = "unix-socket"`
+- `server.port = 0`
+
+Audit events intentionally avoid logging full URL/path/query data.
+
+## Platform notes
+
+- Unix socket proxying via the `x-unix-socket` header is **macOS-only**; other platforms will
+  reject unix socket requests.
+- HTTPS tunneling uses rustls via Rama's `rama-tls-rustls`; this avoids BoringSSL/OpenSSL symbol
+  collisions in mixed TLS dependency graphs.
+
+## Security notes (important)
+
+This section documents the protections implemented by `codex-network-proxy`, and the boundaries of
+what it can reasonably guarantee.
+
+- Allowlist-first policy: if `domains` has no `allow` entries, requests are blocked until an allowlist is configured.
+- Domain patterns: exact hosts are supported, `*.example.com` matches subdomains only, and `**.example.com` matches the apex plus subdomains; the global `*` wildcard is only accepted when explicitly enabled for allowlist compilation and is otherwise rejected.
+- Within a domain pattern, `?` matches exactly one byte, including a dot. For example,
+  `api?.example.com` matches `api1.example.com`, but not `api.example.com` or `api12.example.com`.
+  It can be combined with `*`, `*.`, and `**.` in both allow and deny entries.
+  Matching uses UTF-8 bytes with ASCII case insensitivity; it does not convert between Unicode
+  domain names and IDNA/Punycode. Internationalized domains arriving as Punycode must be matched
+  using their Punycode spelling.
+- Deny wins: `domains` entries marked `deny` always override the allowlist.
+- Local/private network protection: when `allow_local_binding = false`, the proxy blocks loopback
+  and common private/link-local ranges. Explicit allowlisting of local IP literals (or `localhost`)
+  is required to permit them; hostnames that resolve to local/private IPs are still blocked even if
+  allowlisted (best-effort DNS lookup).
+- Limited mode enforcement:
+  - only `GET`, `HEAD`, and `OPTIONS` are allowed
+  - HTTPS `CONNECT` requests and HTTPS SOCKS5 TCP targets on `:443` require MITM so the proxy can
+    enforce limited-mode method policy; SOCKS5 UDP and non-HTTPS SOCKS5 TCP remain blocked
+- Listener safety defaults:
+  - the HTTP proxy listener clamps non-loopback binds unless explicitly enabled via
+    `dangerously_allow_non_loopback_proxy`
+- when unix socket proxying is enabled, all proxy listeners are forced to loopback to avoid turning the
+  proxy into a remote bridge into local daemons.
+- `dangerously_allow_all_unix_sockets = true` bypasses the unix socket allowlist entirely (still
+  macOS-only and absolute-path-only). Use only in tightly controlled environments.
+- `enabled` is enforced at runtime; when false the proxy no-ops and does not bind listeners.
+  Limitations:
+
+- DNS rebinding is hard to fully prevent without pinning the resolved IP(s) all the way down to the
+  transport layer. If your threat model includes hostile DNS, enforce network egress at a lower
+  layer too (e.g., firewall / VPC / corporate proxy policies).
+
+### Native AWS signing and exact secret substitution
+
+A trusted `aws_sigv4` action pairs a `placeholder_access_key_id` with a real
+`access_key_id`, `secret_access_key`, and optional `session_token`. The latter
+three reference files or environment variables in the proxy process. Resolve them
+at startup and replace the proxy installation to rotate them.
+
+For local Codex, enable `credential_masking = true` under `[features]` in
+`config.toml` and set `placeholder_access_key_id = "CODEXMASKEDWORKSPACE"` on the
+proxy action. Local managed commands receive the dummy access key, secret and,
+for temporary credentials, session token in their standard AWS environment.
+An empty AWS environment selects a single configured pair. With multiple pairs,
+set `AWS_ACCESS_KEY_ID` to the intended placeholder. An unrelated access key or
+an explicit `AWS_PROFILE` keeps its own selection. Inherited copies of configured
+credentials are masked in child environment values and protected shell snapshots.
+File-backed credentials require filesystem permissions that prevent child access.
+The AWS CLI or SDK signs with the dummy secret. After the exact
+host, method and path hook authorizes the request, the proxy recognizes the
+placeholder in the SigV4 credential scope and re-signs for the configured HTTPS
+port (443 by default), region and service. The dummy ID selects the pair and is
+visible to the workload. Unsigned requests and requests using other credentials
+follow the ordinary network and hook policy with their original AWS identity.
+A matched placeholder with an invalid scope or unsupported signature is denied.
+
+Re-signing preserves the client timestamp and signed headers and substitutes the
+real session token when configured. The AWS SDK signs the forwarded bytes after
+header mutations. Literal payloads use a 30-second deadline and an 8 MiB default
+buffer limit (16 MiB maximum). An explicit `UNSIGNED-PAYLOAD` streams without
+using the signing buffer. OpenSearch Serverless requires a literal payload hash.
+Masked presigned URLs, SigV4a, AWS signed streams and declared trailers are denied.
+
+An injected header can additionally set `placeholder` to require one exact
+whole-header value before substituting the secret. Missing, mismatched, or
+duplicate values fail closed. This form requires HTTPS port 443 and cannot
+modify routing or framing headers. Resolved secret headers and signing headers
+are marked sensitive in diagnostics. Body substitution is available as `body_secret_substitution` with `replacements`
+(each containing an exact `placeholder` and a trusted `secret` source), `port`,
+and `max_body_bytes`. Markers must be opaque ASCII values of 16–256 bytes.
+Input and expanded output are bounded (8 MiB default, 16 MiB maximum), each
+resolved credential is capped at 64 KiB, and at most 65,536 occurrences may be
+replaced. Search work is capped at 256 MiB of worst-case byte comparisons;
+requests may exceed this limit before reaching the body-size limit.
+Compressed payloads, trailers, supplied payload-integrity headers, and AWS
+streaming signatures fail closed. Markers split across HTTP body chunks are
+supported; overlapping
+bindings or occurrences are rejected. Replacement is byte-exact and does not
+perform JSON/form escaping or regex interpretation. The caller must choose
+markers appropriate for the payload encoding. Content length is recomputed,
+and SigV4 runs after substitution so it hashes the actual transmitted body.
+At most one signing action and one body substitution action may match a request;
+combine body bindings in one action to avoid ambiguous transformation order.
+
+All native buffering stages share eight request slots, with a five-second bounded
+wait. Each lease follows the prepared body until consumed or dropped; the 16 MiB
+body cap bounds retained memory even when upstream connections are slow.

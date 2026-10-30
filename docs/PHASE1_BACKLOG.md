@@ -32,3 +32,10 @@
 
 | M17 | Owner-bound macOS application operation via native Accessibility runner under Tools; existing Automation checkpoints, fencing, approvals and effects | Real Calculator observation → per-action approval → 1+2=3 readback; fail closed for other owners, deleted conversations, stale observations and UNKNOWN effects. Explicit owner app policy, Chrome search and bounded document return; custom controls remain limited. See ADR 005 and the macOS runbook; broader custom UI remains unsupported. |
 | M18 (incremental) | Local MT5 research Skill, owner-bound read bridge, broker preflight and explicitly synthetic order simulator | Installed Mac MT5 read and order_check observed; no real order submission. Durable trading proposals, chart/analysis handoff and client cards remain pending. See `architecture/mt5-trading.md`. |
+
+## Owner-requested Codex/native migration (2026-10-30)
+
+M19: pinned Codex source import and app-server integration contracts; see
+[ADR 006](adr/006-codex-kernel-native-clients.md) and
+[migration work log](CODEX_MIGRATION.md). Runtime cutover and native Apple client
+parity follow this foundation; old clients stay available until acceptance.

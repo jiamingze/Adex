@@ -1,0 +1,19 @@
+{
+  "third_party/codex/codex-rs/agent-identity/src/lib.rs": "05e6ed2f6e2df187d41163fef6c7952054f5064915b59f29447716427d13dd64",
+  "third_party/codex/codex-rs/app-server-protocol/src/protocol/item_builders_tests.rs": "9ab665d98f05d4d4fbf4a83e132e6105685996996039b746470a3b51bb5a1390",
+  "third_party/codex/codex-rs/core/src/realtime_conversation_tests.rs": "c058fabcecf45c61409b4f18576d0b835637bdf20831433436abf1fc5b90f6ed",
+  "third_party/codex/codex-rs/core/src/tools/runtimes/mod_tests.rs": "b1b80c9edcb8e9637b26abefcfc9860a7121d93ecfce9dc6037a76715c6e9a41",
+  "third_party/codex/codex-rs/core/tests/suite/client.rs": "7d9cb287c3b4c711e15a1483bb3a4479e659ab46192297a87a34656828715c00",
+  "third_party/codex/codex-rs/core/tests/suite/scenarios_credential_masking.rs": "aad238c535091cc53e5c143e0bccbc94d15f3d3092a824d36d790641323165dd",
+  "third_party/codex/codex-rs/exec-server/src/process_sandbox_tests.rs": "4c9c561c93151dab05f38d58ca0edf6ae9c26024992434d0ec4ece5ac90e825c",
+  "third_party/codex/codex-rs/exec-server/tests/exec_process.rs": "ab0d8df60f9404576f46a56b51530a8587b42cca955116818482f2a43d7c9202",
+  "third_party/codex/codex-rs/login/src/auth/agent_identity.rs": "4f446f23ccb25f9c160398a51717b0e86bf8643daa09b4c59da6f266823bcc82",
+  "third_party/codex/codex-rs/login/src/auth/auth_tests.rs": "9aa2c39923a94a5151ca5ff6c0f08e80805ce32f5e312ed0789435022a3021c1",
+  "third_party/codex/codex-rs/memories/write/src/phase1.rs": "4f7b9ad31b5e8dda0da75b473a1c399955ce555062f0b8ff150ced19e2032b2e",
+  "third_party/codex/codex-rs/model-provider/src/auth.rs": "d1fd51191af4d89c07f2ca9e32f9d56b455a6f1ea24cbc43c43941f94b662456",
+  "third_party/codex/codex-rs/model-provider/src/models_endpoint.rs": "4c5edecc894c8e79fa768f5c8c149f9d23b4614ae72e9881c4b0e69a1540f8f8",
+  "third_party/codex/codex-rs/model-provider/src/models_identity_tests.rs": "0bb61f1d7f94aa579947ce3ad72fd9e04680c094c7dcf54bd9f36eda0c0e372e",
+  "third_party/codex/codex-rs/model-provider/src/provider.rs": "3ce7977eb5901c7c703855c42f0dcacdd98f585e8346057f1745a239f12c7c9c",
+  "third_party/codex/codex-rs/network-proxy/src/credential_broker/configured_tests.rs": "c16a1ae79eb26a385489818e10208335b37a533686664d8c177a08c1d1321ee4",
+  "third_party/codex/codex-rs/network-proxy/src/credential_broker_tests.rs": "c51de28ab580feca59fd396b4aeaed5f9ce96f21bd8a475089324b2dac41914a"
+}
