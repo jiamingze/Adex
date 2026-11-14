@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 
 [[package]]
@@ -914,11 +914,11 @@ wheels = [
 
 [[package]]
 name = "soupsieve"
-version = "3.0"
+version = "4.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6a/a9/4af6e80fab273e06a9682fe8c9984c4b031dc07c7d425568835286bcdfad/soupsieve-3.0.tar.gz", hash = "sha256:1136e639f72f95f1a9351b4587f640553d08d41a5653b187da30d6c9200c296c", size = 115160, upload-time = "2026-10-10T13:04:39.305Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/5e/19b7c5d20bc2f226c44f33a9d9aab9740efed7555b96e656231fd564e514/soupsieve-4.0.tar.gz", hash = "sha256:ccd6470b256394ac44b08b86fd94b30a17d335a5335c8a3d15565f7b03d3c8cf", size = 151929, upload-time = "2026-11-03T14:28:55.388Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/7e/5db89afeaa5cea03b6db658faa9e04482f2ee5a30a8eb2f2277662364171/soupsieve-3.0-py3-none-any.whl", hash = "sha256:6abca899ac412ad87154fd65928da2fc0cff3df490767b7c9dd7726bf661e954", size = 41605, upload-time = "2026-10-10T13:04:37.759Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/18/d24df2f733ee0655c58717d51add4118a70e64692d0e47d403b9aac4cf98/soupsieve-4.0-py3-none-any.whl", hash = "sha256:5e7494bfce90e06676cfb4c5c2cf22243e98e5cf24646bb1ecdda46d318550a0", size = 50158, upload-time = "2026-11-03T14:28:53.988Z" },
 ]
 
 [[package]]
