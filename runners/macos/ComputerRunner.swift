@@ -29,8 +29,15 @@ func tree(_ root: AXUIElement) -> ([[String: Any]], [String: AXUIElement]) {
   func walk(_ element: AXUIElement, _ path: String, _ depth: Int) {
     guard nodes.count < 600, depth < 28 else { return }
     let role = text(element, kAXRoleAttribute)
-    let secure =
+    let nativeSecure =
       text(element, kAXSubroleAttribute) == "AXSecureTextField" || role == "AXSecureTextField"
+    let inputLabels = [kAXTitleAttribute, kAXDescriptionAttribute, "AXPlaceholderValue"]
+    let secure = nativeSecure || (["AXTextField", "AXTextArea"].contains(role)
+      && inputLabels.contains { name in
+        text(element, name).range(
+          of: #"\b(password|passcode|otp|verification code|one[- ]time (code|password))\b|密码|验证码"#,
+          options: [.regularExpression, .caseInsensitive]) != nil
+      })
     var names: CFArray?
     AXUIElementCopyActionNames(element, &names)
     var settable = DarwinBoolean(false)

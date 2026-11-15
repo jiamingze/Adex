@@ -188,3 +188,7 @@ still applies. This signal only covers secure fields exposed by macOS Accessibil
 The Agent stops before forwarding that observation to the model and asks the
 user to complete the login directly in the app. Start a follow-up request after
 login. This stop does not expose a resume control for the original Run.
+
+Native text inputs identified by explicit password or verification-code labels
+are treated as secure even when the app does not expose AXSecureTextField.
+Unlabelled custom controls may require app-specific integration.
