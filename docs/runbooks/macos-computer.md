@@ -179,3 +179,12 @@ retrieval, delay guarantees and prediction accuracy remain outside this acceptan
 At the planning limit, finish reading back an already checkpointed navigation,
 search or approved action. The final readback can support a completion report,
 but cannot authorize or prepare a new write.
+
+### Secure input observations
+
+When the observed accessibility tree exposes a secure field, the native helper
+skips window OCR and returns `visual_status=SECURE_INPUT_VISIBLE`. AX redaction
+still applies. This signal only covers secure fields exposed by macOS Accessibility.
+The Agent stops before forwarding that observation to the model and asks the
+user to complete the login directly in the app. Start a follow-up request after
+login. This stop does not expose a resume control for the original Run.

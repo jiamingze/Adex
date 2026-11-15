@@ -111,6 +111,18 @@ class ComputerWorkflow:
                     },
                 )
             )
+            if observation.get("visual_status") == "SECURE_INPUT_VISIBLE" or any(
+                node.get("secure") for node in observation.get("nodes", [])
+            ):
+                return {
+                    "schema_version": 1,
+                    "phase": "result",
+                    "content": "Mac 上出现了密码输入框。请直接在该应用完成登录，再从对话发起后续操作。",
+                    "artifact": {"computer_status": "BLOCKED", "reason": "SECURE_INPUT_VISIBLE"},
+                    "completed_steps": state["completed_steps"],
+                    "pending_effects": [],
+                    "usage": {},
+                }
             if pending_navigation:
                 state["observed_once"] = True
                 state["pending_navigation"] = None

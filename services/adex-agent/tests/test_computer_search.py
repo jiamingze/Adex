@@ -280,3 +280,25 @@ async def test_final_planning_turn_reads_checkpointed_navigation():
     result = await ComputerWorkflow(worker).run(run, {"memory_revision": 1}, saved)
     assert calls == ["/internal/computer/observe"]
     assert result["artifact"]["computer_status"] == "DONE"
+
+
+async def test_secure_observation_stops_before_sending_window_content_to_model():
+    async def call(*args, **kwargs):
+        return {"nodes": [{"secure": True}], "visual_text": "TEST_FIXTURE sensitive content"}
+
+    async def invoke(key, owner, messages):
+        assert json.loads(messages[1]["content"])["observation"]["status"] == "not_observed"
+        yield {"type": "completed", "content": json.dumps({"action": "observe"})}
+
+    worker = SimpleNamespace(core=SimpleNamespace(call=call), runtime=SimpleNamespace(invoke=invoke))
+    run = {
+        "id": "run",
+        "owner_id": "owner",
+        "epoch": 1,
+        "attempt_id": "attempt",
+        "instruction": "继续使用应用",
+        "request": {"params": {"app_name": "TEST_FIXTURE"}},
+    }
+    result = await ComputerWorkflow(worker).run(run, {"memory_revision": 1}, None)
+    assert result["artifact"]["reason"] == "SECURE_INPUT_VISIBLE"
+    assert "TEST_FIXTURE" not in result["content"]

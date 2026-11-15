@@ -554,7 +554,10 @@ func execute(_ input: [String: Any]) -> [String: Any] {
     "bundle_id": bundle, "pid": Int(target.processIdentifier), "nodes": nodes, "tree_hash": hash,
     "receipt": "OBSERVED",
   ]
-  if bundle != "com.google.Chrome" {
+  if nodes.contains(where: { $0["secure"] as? Bool == true }) {
+    // A secure AX value is redacted, but OCR would still read the entire window.
+    snapshot["visual_status"] = "SECURE_INPUT_VISIBLE"
+  } else if bundle != "com.google.Chrome" {
     snapshot.merge(
       visualEvidence(
         target.processIdentifier, windowFrame(currentRoot()),
