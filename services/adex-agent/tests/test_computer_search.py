@@ -247,3 +247,36 @@ async def test_indicator_value_cannot_replace_native_spatial_quote_readback():
     async def invoke(*args): yield {"type": "completed", "content": json.dumps(next(plans))}
     result = await plan_operation(SimpleNamespace(invoke=invoke), "owner", "key", [{"role": "system", "content": ""}], {"primary_numeric_readback": {"context": "09961", "value": "314.800", "line_ids": [1]}})
     assert result.quote_price == "314.8"
+
+
+async def test_final_planning_turn_reads_checkpointed_navigation():
+    url = "https://example.com/"
+    calls = []
+
+    async def call(*args, **kwargs):
+        calls.append(args[3])
+        assert args[4]["navigate_url"] == url
+        return {"nodes": [{"title": "TEST_FIXTURE destination", "url": url}]}
+
+    async def invoke(key, owner, messages):
+        observation = json.loads(messages[1]["content"])["observation"]
+        assert observation["nodes"][0]["url"] == url
+        yield {"type": "completed", "content": json.dumps({"action": "done", "text": url})}
+
+    worker = SimpleNamespace(core=SimpleNamespace(call=call), runtime=SimpleNamespace(invoke=invoke))
+    run = {
+        "id": "run",
+        "owner_id": "owner",
+        "epoch": 1,
+        "attempt_id": "attempt",
+        "instruction": "打开网站",
+        "request": {"params": {"app_name": "Chrome"}},
+    }
+    saved = {
+        "phase": "computer_waiting",
+        "completed_steps": [{"receipt": "OBSERVED"} for _ in range(20)],
+        "pending_navigation": url,
+    }
+    result = await ComputerWorkflow(worker).run(run, {"memory_revision": 1}, saved)
+    assert calls == ["/internal/computer/observe"]
+    assert result["artifact"]["computer_status"] == "DONE"

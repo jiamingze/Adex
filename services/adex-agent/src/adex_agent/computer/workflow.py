@@ -49,7 +49,9 @@ class ComputerWorkflow:
                 resource=run["id"],
             )
 
-        for _ in range(max(0, 20 - len(state["completed_steps"]))):
+        planning_budget = max(0, 20 - len(state["completed_steps"]))
+        # Reserve one readback after the last checkpointed operation.
+        for planning_turn in range(planning_budget + 1):
             if state.get("pending_file"):
                 imported = await call("export-file", {**execution, **state["pending_file"]})
                 return {
@@ -244,6 +246,8 @@ class ComputerWorkflow:
                     "pending_effects": [],
                     "usage": {},
                 }
+            if planning_turn == planning_budget:
+                break
             if plan.action == "observe":
                 state["observed_once"] = True
                 continue

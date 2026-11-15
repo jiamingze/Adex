@@ -173,3 +173,9 @@ visual evidence, not an exchange feed. Typed quote fields must match this readba
 BOLL midpoint cannot replace the price-axis value. Conflicting/insufficient evidence cannot
 be marked done. The response renders the source numeric readback directly. Full OHLCV
 retrieval, delay guarantees and prediction accuracy remain outside this acceptance.
+
+### Planning budget and readback
+
+At the planning limit, finish reading back an already checkpointed navigation,
+search or approved action. The final readback can support a completion report,
+but cannot authorize or prepare a new write.
